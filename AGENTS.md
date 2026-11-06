@@ -19,6 +19,10 @@ lighnode. Общение с пользователем и документаци
 - Перед изменениями на VPS и после них сравнивать снимки PID, времени запуска,
   состояния VPN, хешей конфигурации и firewall через `vpn_snapshot.py`.
   Приватные снимки сохранять только в `.local/` или отдельной папке VPS.
+- По отдельному запросу пользователя разрешён приватный независимый учёт трафика
+  vnStat на eth1: `deploy/traffic/`. Это отдельный сервис без новых портов,
+  без изменения VPN, firewall, маршрутов и sysctl. БД и начальные отметки панели
+  остаются вне Git. Не публиковать статистику и не создавать напоминания без запроса.
 - Codex запускается только через официальный App Server по stdio. Браузер не
   получает прямого доступа к нему, токенам или произвольным RPC-методам.
 - Сохранять read-only sandbox и запрет сети для команд. Не использовать `--yolo`,
@@ -41,6 +45,8 @@ lighnode. Общение с пользователем и документаци
 - Проверки: `bash scripts/npm.sh test`, `bash scripts/npm.sh run build`.
 - Для HTTPS-теста: `python3 -m unittest discover -s deploy/https-test -p 'test_*.py' -v`;
   реальную конфигурацию обязательно проверять Caddy adapt и штатным guard.
+- Для счётчика: `python3 -m unittest discover -s deploy/traffic -p 'test_*.py' -v`;
+  проверять реальные приращения TX и сохранение истории при рестарте только счётчика.
 - Live-проверка: запущенный backend, `bash scripts/npm.sh run test:live`,
   перезапуск backend, `bash scripts/npm.sh run test:live -- resume`.
 - Изменения протокола сверять с https://learn.chatgpt.com/docs/app-server и
