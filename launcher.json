@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "id": "codex-z-ai",
+  "name": "Codex Z AI",
+  "enabled": true,
+  "services": [
+    {
+      "id": "chat",
+      "name": "Локальный чат",
+      "command": ["/bin/bash", "scripts/start.sh"],
+      "url": "http://127.0.0.1:3001",
+      "autoStart": false
+    }
+  ]
+}
