@@ -1,0 +1,41 @@
+[Unit]
+Description=Codex Z AI static HTTPS test (unprivileged Caddy on 8443)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=codex-zai-https
+Group=codex-zai-https
+Environment=HOME=/var/lib/codex-zai-https
+Environment=XDG_CONFIG_HOME=/var/lib/codex-zai-https/config
+Environment=XDG_DATA_HOME=/var/lib/codex-zai-https/data
+Environment=GOMEMLIMIT=192MiB
+Environment=GOMAXPROCS=1
+StateDirectory=codex-zai-https
+StateDirectoryMode=0700
+ExecStartPre=/usr/bin/python3 /opt/codex-zai-https/validate_config.py /etc/codex-zai-https/Caddyfile
+ExecStart=/opt/codex-zai-https/bin/caddy run --config /etc/codex-zai-https/Caddyfile --adapter caddyfile
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=15s
+KillSignal=SIGTERM
+LimitNOFILE=4096
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+AmbientCapabilities=
+MemoryMax=256M
+CPUWeight=10
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

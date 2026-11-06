@@ -1,0 +1,24 @@
+[Unit]
+Description=Codex Z AI HTTP-01 forwarder to loopback 8080
+Requires=codex-zai-http.socket
+Wants=codex-zai-https.service
+After=codex-zai-http.socket codex-zai-https.service
+
+[Service]
+User=codex-zai-https
+Group=codex-zai-https
+ExecStart=/usr/lib/systemd/systemd-socket-proxyd --connections-max=64 127.0.0.1:8080
+NoNewPrivileges=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryMax=32M
+CPUWeight=10
+TasksMax=16

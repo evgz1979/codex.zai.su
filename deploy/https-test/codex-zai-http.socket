@@ -1,0 +1,11 @@
+[Unit]
+Description=Codex Z AI HTTP-01 socket (port 80 only)
+
+[Socket]
+ListenStream=0.0.0.0:80
+Accept=no
+NoDelay=true
+Backlog=128
+
+[Install]
+WantedBy=sockets.target

@@ -1,0 +1,43 @@
+{
+	admin off
+	persist_config off
+	http_port 8080
+	https_port 8443
+	auto_https disable_redirects
+	storage file_system {
+		root /var/lib/codex-zai-https/caddy
+	}
+	servers {
+		protocols h1 h2
+		timeouts {
+			read_header 5s
+			read_body 10s
+			idle 30s
+		}
+	}
+}
+
+http://codex.zai.su:8080 {
+	bind 127.0.0.1
+	respond "Not found" 404
+}
+
+https://codex.zai.su:8443 {
+	tls {
+		issuer acme {
+			dir https://acme-v02.api.letsencrypt.org/directory
+			disable_tlsalpn_challenge
+			alt_http_port 8080
+		}
+	}
+	header {
+		-Server
+		Cache-Control "no-store"
+		X-Content-Type-Options "nosniff"
+		Content-Security-Policy "default-src 'none'; base-uri 'none'; frame-ancestors 'none'"
+	}
+	@other not path / /index.html
+	respond @other "Not found" 404
+	root * /srv/codex-zai-https
+	file_server
+}
