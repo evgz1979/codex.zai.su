@@ -22,6 +22,7 @@
 | --- | --- |
 | MessengerService | Общее ядро операций, лимиты, маршрутизация и дедупликация |
 | SourceAdapter | Провайдерный контракт; только общие DTO |
+| ConversationCatalog / ConversationFolder | Метаданные и папки источника, без прав на чтение истории |
 | TelegramAdapter | Native Telegram peer и преобразование сообщений |
 | ConnectorRegistry | Реестр подключённых источников |
 | AdminService | Настройки, каталог метаданных, отключение и пароли |

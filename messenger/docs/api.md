@@ -43,7 +43,7 @@ request ID `[a-zA-Z0-9-]{16,80}`. Диалог проверяется по со�
 | Метод | /api/admin/… | Тело/результат |
 | --- | --- | --- |
 | GET | status | Безопасный статус Telegram и число разрешённых ID |
-| GET | dialogs | Метаданные до 1000 диалогов, пустые preview и selectedIds |
+| GET | dialogs | AdminDialogCatalog: conversations с пустыми preview, folders, truncated и selectedIds |
 | POST | selection | `{ids:string[]}`; максимум 100 известных уникальных ID |
 | POST | telegram/begin | `{apiId:number,apiHash:string,phone:string}` → stage |
 | POST | telegram/code | `{value:string}` → следующий stage |
@@ -62,6 +62,13 @@ idle/connecting/code/password/connected/error, без введённых сек�
 после пяти проверок вход завершается stage=error. Ответ begin/code/password
 по-прежнему содержит stage; подробность клиент получает отдельным status.
 Чатная cookie, её переименование и знание адреса admin API не дают прав admin.
+
+`folders` — массив `{id,sourceId,title,conversationIds}`. ID папки включает
+источник и тип folder. Список ID состоит только из диалогов текущего каталога,
+сначала закреплённые. Пересечения папок допустимы. `truncated=true` означает
+неполную выборку метаданных: максимум 1000 диалогов. Папки доступны только admin,
+не содержат access_hash, native peer, телефон или содержимое сообщений. Изменение
+текущей закладки не отправляет запрос выбора и не расширяет разрешения чата.
 
 ## Ошибки
 
