@@ -7,19 +7,21 @@ bash messenger/scripts/npm.sh test
 bash messenger/scripts/npm.sh run build
 bash messenger/scripts/npm.sh exec -- playwright install chromium webkit
 bash messenger/scripts/npm.sh run test:browser
+bash messenger/scripts/npm.sh run docs:build
 bash messenger/scripts/npm.sh run docs:check
 bash messenger/scripts/npm.sh run docs:test
 ```
 
 Core/HTTP-тесты проверяют межисточниковые коллизии, общую ленту, маршрут отправки,
-дедупликацию, границы кеша, права файлов, шифрование, scrypt, отзыв сессий, rate limit,
+дедупликацию, границы кеша, права файлов, шифрование, Argon2id, отзыв сессий, rate limit,
 Host, Origin, CSRF и отсутствие исходных исключений в API. Браузерные сценарии:
 Chromium desktop, WebKit iPhone 13 и iPhone SE, вход/выход, общая лента из двух
 синтетических источников, смена адресата и черновика, отправка, непрочитанные,
 обновление, отсутствие горизонтального скролла и доступность composer при малой высоте.
-Тестовые серверы используют только `127.0.0.1:14318` и `127.0.0.1:14319`, временные
+Тестовые серверы используют только `127.0.0.1:14318`, `:14319` и `:14320`, временные
 БД и фиктивные пароли. Скриншоты — в игнорируемом `messenger/test-results/`.
-Реальный iPhone/Safari и реальная Telegram-сессия требуют отдельной ручной проверки.
+Физический iPhone/Safari и операции реальной Telegram-сессии проверяются отдельно
+от синтетических тестов; фактически проверенные операции перечислены в протоколе.
 
 ## Карта тестов
 
@@ -27,6 +29,7 @@ Chromium desktop, WebKit iPhone 13 и iPhone SE, вход/выход, общая
 | --- | --- |
 | [core.test.ts](../test/core.test.ts) | Общая лента нескольких источников, коллизии ID, маршруты, дедупликация, кеш, права, шифрование и веб-сессии |
 | [http.test.ts](../test/http.test.ts) | Host, Origin, CSRF, вход/выход, размеры JSON, безопасные ошибки и приватные API |
+| [admin.test.ts](../test/admin.test.ts) | Метаданные без истории, SQLite-выбор, code/2FA/cancel, разделение ролей и безопасный status |
 | [telegram.test.ts](../test/telegram.test.ts) | Telegram DTO, broadcast-фильтр, message ID в разных диалогах и буквальная отправка |
 | [telegram-auth.test.ts](../test/telegram-auth.test.ts) | Безопасные причины отказов, ошибка фабрики, настоящая оркестрация teleproto без сети, повторы кода/2FA и предел пяти проверок |
 | [telegram-folders.test.ts](../test/telegram-folders.test.ts) | Правила и порядок папок, коллизии peer, Self, глобальный mute, границы каталога, отсутствие чтения и сохранение авторизации |
@@ -59,7 +62,13 @@ Chromium desktop, WebKit iPhone 13 и iPhone SE, вход/выход, общая
 В документационных тестах используются временные копии разрешённых исходников
 и docs, без `.local/`, пользовательских Telegram-сессий и БД.
 
-## Версия 0.2.0
+## Дополнения сценариев по версиям
+
+Числа ниже относятся к соответствующему срезу. Полный текущий набор имён
+строится из исходников в reference/tests.md; результаты запусков, даты и
+границы проверок находятся в validation.md.
+
+### Версия 0.2.0
 
 14 server-тестов включают пустой выбор, отказ невыбранным ID, ревизию при снятии
 галочки во время чтения, сохранение выбора и архива, code/2FA/cancel с fake MTProto,
@@ -75,7 +84,7 @@ Secure/HttpOnly/SameSite/Path cookie, CSRF и независимость пра�
 Наличие auto-restart/systemd enable проверяется на VPS; reboot сервера ради теста
 не выполняется, чтобы не нарушать работающий VPN.
 
-## Версия 0.2.1
+### Версия 0.2.1
 
 Дополнительные auth-сценарии вызывают `signInUser` установленной teleproto с
 подменой только сетевого invoke и проверки 2FA. Так проверяется сохранение
@@ -84,7 +93,7 @@ Secure/HttpOnly/SameSite/Path cookie, CSRF и независимость пра�
 Реальный Telegram и реальные ключи в этих тестах не используются.
 UI-причина начального отказа проверяется в Chromium и двух конфигурациях WebKit.
 
-## Версия 0.3.0
+### Версия 0.3.0
 
 Папки проверяются на синтетических TL-объектах teleproto: explicit include/exclude,
 приоритет исключения, закрепления, shared folder, контакты/боты/группы/каналы,

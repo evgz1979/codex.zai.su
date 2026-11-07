@@ -1,6 +1,6 @@
 # Z AI Messenger
 
-Локальный однопользовательский мессенджер. React + TypeScript, Node.js 22,
+Личный однопользовательский мессенджер. React + TypeScript, Node.js 22,
 teleproto, SQLite. Рабочий источник MVP — личный Telegram. Лента и поле ввода
 общие; источники подключаются через `SourceAdapter`.
 
@@ -29,12 +29,13 @@ bash deploy/messenger/deploy.sh
 | Раздел | Содержание |
 | --- | --- |
 | [Эксплуатация](docs/operations.md) | Node.js, сборка, запуск, остановка, диагностика |
+| [Telegram и папки](docs/telegram.md) | Подключение, код/2FA, закладки и общий выбор диалогов |
 | [Архитектура](docs/architecture.md) | SourceAdapter, единая лента, маршруты и лимиты MVP |
 | [Сценарии](docs/flows.md) | Авторизация, обновление, выбор адресата, отправка, выход |
 | [HTTP API](docs/api.md) | Методы, поля запросов, ответы и ошибки |
 | [Данные](docs/storage.md) | SQLite, DTO, файлы и восстановление после рестарта |
 | [Развёртывание](docs/deployment.md) | SSH, systemd, Caddy, проверки и откат |
-| [Безопасность](docs/security.md) | Секреты, вход, CSRF, ограничения локального доступа |
+| [Безопасность](docs/security.md) | Секреты, роли admin/chat, сессии, CSRF и серверные ограничения |
 | [Разработка](docs/development.md) | TypeScript, React, Node.js, SQLite и поддержка справочника |
 | [Справочник](docs/reference/README.md) | Модули, объявления и устойчивые ссылки на определения |
 | [Проверки](docs/testing.md) | Автоматические и ручные проверки, границы тестовых адаптеров |
