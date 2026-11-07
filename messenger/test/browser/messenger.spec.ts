@@ -59,3 +59,12 @@ test('единая лента, выбор адресата, отправка, н
   await expect(page.getByText(draftText,{exact:true})).not.toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test('открытый чат скрывает исключённые диалоги без синхронизации истории',async({page},testInfo)=>{
+  test.skip(testInfo.project.name !== 'desktop-chromium');
+  await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();
+  await expect(page.locator('.bubble').getByText('Это синтетическое сообщение из другого источника.')).toBeVisible();
+  await page.route('**/api/chat/access',route=>route.fulfill({json:{ids:[]}}));
+  await expect(page.locator('.bubble')).toHaveCount(0,{timeout:7000});
+  await expect(page.getByRole('heading',{name:'Нет загруженных сообщений'})).toBeVisible();
+});

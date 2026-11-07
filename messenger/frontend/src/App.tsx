@@ -49,6 +49,26 @@ export function App() {
   useEffect(() => {
     if (session?.authenticated) api<Snapshot>('snapshot').then(setSnapshot).catch(fail);
   }, [session?.authenticated]);
+  useEffect(() => {
+    if (!session?.authenticated) return;
+    let disposed = false;
+    //: Применяет изменения разрешённых диалогов к уже открытой вкладке.
+    //: Проверяет только ID раз в пять секунд, не загружая историю сообщений.
+    async function checkAccess() {
+      try {
+        const result = await api<{ ids: string[] }>('access');
+        if (disposed) return;
+        const ids = new Set(result.ids);
+        setSnapshot(old => old ? { ...old, conversations: old.conversations.filter(c => ids.has(c.id)), messages: old.messages.filter(m => ids.has(m.conversationId)) } : old);
+        setTargetId(old => old && ids.has(old) ? old : undefined);
+        setDrafts(old => Object.fromEntries(Object.entries(old).filter(([id]) => ids.has(id))));
+      } catch (e) { if (!disposed) fail(e); }
+    }
+    void checkAccess();
+    const timer = window.setInterval(checkAccess, 5000);
+    document.addEventListener('visibilitychange', checkAccess);
+    return () => { disposed = true; window.clearInterval(timer); document.removeEventListener('visibilitychange', checkAccess); };
+  }, [session?.authenticated]);
   useEffect(() => { if (feed.current) feed.current.scrollTop = feed.current.scrollHeight; }, [snapshot?.messages.length]);
   useEffect(() => {
     if (!drawer) return;

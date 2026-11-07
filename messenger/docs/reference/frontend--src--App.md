@@ -28,6 +28,18 @@ App()
 acceptSession(info: SessionInfo)
 ```
 
+<a id="symbol-App.checkAccess"></a>
+
+## App.checkAccess
+
+Применяет изменения разрешённых диалогов к уже открытой вкладке.
+
+Проверяет только ID раз в пять секунд, не загружая историю сообщений.
+
+```typescript
+async checkAccess()
+```
+
 <a id="symbol-App.choose"></a>
 
 ## App.choose

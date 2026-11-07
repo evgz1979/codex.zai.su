@@ -120,6 +120,7 @@
   {"path":"backend/storage/store.ts","name":"Store.set","anchor":"symbol-Store.set"},
   {"path":"frontend/src/App.tsx","name":"App","anchor":"symbol-App"},
   {"path":"frontend/src/App.tsx","name":"App.acceptSession","anchor":"symbol-App.acceptSession"},
+  {"path":"frontend/src/App.tsx","name":"App.checkAccess","anchor":"symbol-App.checkAccess"},
   {"path":"frontend/src/App.tsx","name":"App.choose","anchor":"symbol-App.choose"},
   {"path":"frontend/src/App.tsx","name":"App.fail","anchor":"symbol-App.fail"},
   {"path":"frontend/src/App.tsx","name":"App.listener","anchor":"symbol-App.listener"},

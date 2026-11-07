@@ -16,6 +16,7 @@
 | POST | `/api/admin/telegram/code` |
 | POST | `/api/admin/telegram/disconnect` |
 | POST | `/api/admin/telegram/password` |
+| GET | `/api/chat/access` |
 | POST | `/api/chat/login` |
 | POST | `/api/chat/logout` |
 | POST | `/api/chat/open` |
