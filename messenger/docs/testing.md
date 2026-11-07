@@ -28,6 +28,8 @@ Chromium desktop, WebKit iPhone 13 и iPhone SE, вход/выход, общая
 | [core.test.ts](../test/core.test.ts) | Общая лента нескольких источников, коллизии ID, маршруты, дедупликация, кеш, права, шифрование и веб-сессии |
 | [http.test.ts](../test/http.test.ts) | Host, Origin, CSRF, вход/выход, размеры JSON, безопасные ошибки и приватные API |
 | [telegram.test.ts](../test/telegram.test.ts) | Telegram DTO, broadcast-фильтр, message ID в разных диалогах и буквальная отправка |
+| [telegram-auth.test.ts](../test/telegram-auth.test.ts) | Безопасные причины отказов, ошибка фабрики, настоящая оркестрация teleproto без сети, повторы кода/2FA и предел пяти проверок |
+| [admin.spec.ts](../test/browser/admin.spec.ts) | Отдельная админка, выбор диалогов, очистка секретных полей и видимая причина отказа |
 | [messenger.spec.ts](../test/browser/messenger.spec.ts) | Пользовательский сценарий в трёх конфигурациях, мобильные границы и короткий viewport |
 | [documentation.test.mjs](../test/documentation.test.mjs) | Устойчивость AST-справочника, комментарии, сигнатуры, якоря, битые ссылки и режим check |
 
@@ -71,3 +73,12 @@ Secure/HttpOnly/SameSite/Path cookie, CSRF и независимость пра�
 страницы / и /admin, 401 закрытых API, неизменность Codex-site и VPN-снимков.
 Наличие auto-restart/systemd enable проверяется на VPS; reboot сервера ради теста
 не выполняется, чтобы не нарушать работающий VPN.
+
+## Версия 0.2.1
+
+Дополнительные auth-сценарии вызывают `signInUser` установленной teleproto с
+подменой только сетевого invoke и проверки 2FA. Так проверяется сохранение
+первоначального отказа до преобразования библиотеки в AUTH_USER_CANCEL,
+повтор неверного кода без нового SendCode и завершение после пяти проверок.
+Реальный Telegram и реальные ключи в этих тестах не используются.
+UI-причина начального отказа проверяется в Chromium и двух конфигурациях WebKit.

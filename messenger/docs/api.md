@@ -54,6 +54,13 @@ request ID `[a-zA-Z0-9-]{16,80}`. Диалог проверяется по со�
 
 Сохранённые ключи и сессия не выдаются ни одним методом. TelegramAuthStage —
 idle/connecting/code/password/connected/error, без введённых секретов.
+После отказа `status.telegram.issue` содержит `{code:TelegramAuthIssueCode}` и
+необязательное целое `retryAfterSeconds` (1–31536000). Категории определены в
+[общем контракте](reference/shared--types.md); исходные исключения отсутствуют.
+Поле доступно только admin и существует в памяти до следующего входа, отмены
+или перезапуска. Для повторяемой ошибки код/2FA stage остаётся code/password;
+после пяти проверок вход завершается stage=error. Ответ begin/code/password
+по-прежнему содержит stage; подробность клиент получает отдельным status.
 Чатная cookie, её переименование и знание адреса admin API не дают прав admin.
 
 ## Ошибки
