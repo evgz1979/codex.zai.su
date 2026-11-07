@@ -1,7 +1,7 @@
 import {telegramAuthIssue} from '../auth/telegram-issue.js';
 import type { SourceAdapter, SourceEvent } from './source-adapter.js';
 import type { Store } from '../storage/store.js';
-import { destinationFor, LIMITS, type Conversation, type ConversationPageResult, type Message, type SendRequest, type Snapshot } from '../../shared/types.js';
+import { destinationFor, LIMITS, type AttachmentRequest,type Conversation, type ConversationPageResult, type Message, type SendRequest, type Snapshot } from '../../shared/types.js';
 import { AppError } from './errors.js';
 import { ConnectorRegistry } from './registry.js';
 import { ConversationSelectionService } from './selection.js';
@@ -98,6 +98,26 @@ export class MessengerService {
       const m=event.message;if(!this.selection.allows(m.conversationId))return;this.adapter(m.sourceId);const c=this.store.conversation(m.conversationId);if(!c||c.sourceId!==m.sourceId)return;
       this.store.upsertMessages([m],!event.edited);this.state.stale=false;
     }else{this.adapter(event.sourceId);const keys=event.keys.filter(key=>key.startsWith(encodeURIComponent(event.sourceId)+':'));this.store.deleteSourceKeys(keys,this.selection.ids());}
+  }
+  //: Проверяет точный маршрут сохранённого вложения перед каждым чтением.
+  //: Чужой message ID, исключённый диалог и удалённая запись не открывают источник.
+  attachmentMessage(input:AttachmentRequest){
+    if(!input||[input.conversationId,input.messageId,input.attachmentId].some(id=>typeof id!=='string'||!id||id.length>2048))throw new AppError(400,'Некорректный маршрут вложения.');
+    const c=this.conversation(input.conversationId);const message=this.store.message(input.messageId);
+    if(!message||message.conversationId!==c.id||message.sourceId!==c.sourceId||!message.attachments.some(a=>a.id===input.attachmentId))throw new AppError(404,'Вложение не найдено.');
+    return message;
+  }
+  //: Открывает поток через адаптер источника только после проверки сохранённого выбора.
+  //: Старые placeholder-вложения получают актуальные метаданные без обхода истории.
+  async attachmentContent(input:AttachmentRequest,signal:AbortSignal){
+    const message=this.attachmentMessage(input);const adapter=this.adapter(message.sourceId);if(!adapter.openAttachment)throw new AppError(415,'Источник не поддерживает вложения.');
+    const result=await adapter.openAttachment(input,signal);this.attachmentMessage(input);if(result.attachment.id!==input.attachmentId)throw new AppError(503,'Не удалось получить вложение.');return result;
+  }
+  //: Обновляет безопасные метаданные только неизменённого сообщения после загрузки.
+  //: Поздний результат не отменяет правку, удаление или снятие разрешения.
+  attachmentMetadata(input:AttachmentRequest,original:Message,attachment:Message['attachments'][number]){
+    const current=this.attachmentMessage(input);if(current.editedAt!==original.editedAt)throw new AppError(409,'Сообщение изменилось. Откройте вложение заново.');
+    this.store.upsertMessages([{...current,attachments:current.attachments.map(a=>a.id===attachment.id?attachment:a)}]);
   }
   //: Явно отмечает диалог прочитанным через адаптер.
   //: Ориентируется на последнее загруженное сообщение и сохраняет нулевой счётчик.

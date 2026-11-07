@@ -9,8 +9,14 @@ export interface Source { id: EntityId; kind: string; name: string; connected: b
 //: ID и видимое имя не заменяют маршрут Destination.
 export interface Recipient { id: EntityId; name: string; isSelf?: boolean }
 //: Описывает метаданные вложения общей модели.
-//: MVP не скачивает вложения и использует обозначение unsupported.
-export interface Attachment { id: EntityId; kind: 'image' | 'file' | 'audio' | 'unsupported'; name: string; mimeType?: string; size?: number }
+//: Содержимое загружается отдельно по явному действию, без реквизитов провайдера.
+export interface Attachment { id: EntityId; kind: 'image' | 'video' | 'file' | 'audio' | 'unsupported'; name: string; mimeType?: string; size?: number; downloadable?:boolean }
+//: Задаёт точный маршрут чтения вложения сохранённого сообщения.
+//: Сервер повторно проверяет диалог, сообщение, источник и ID вложения.
+export interface AttachmentRequest {conversationId:EntityId;messageId:EntityId;attachmentId:EntityId}
+//: Ограничивает память запроса и объём приватного кеша медиа.
+//: Медиа не скачиваются фоновым синхронизатором истории.
+export const MEDIA_LIMITS={fileBytes:32*1024*1024,cacheBytes:256*1024*1024,parallel:2,cacheFiles:256,timeoutMs:60000} as const;
 //: Перечисляет общие состояния сообщения.
 //: Наличие delivered/read в типе не означает их определение TelegramAdapter.
 export type DeliveryStatus = 'pending' | 'received' | 'sent' | 'delivered' | 'read' | 'failed' | 'unknown';

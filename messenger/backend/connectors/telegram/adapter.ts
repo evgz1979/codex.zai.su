@@ -7,6 +7,9 @@ import { entityId, LIMITS, type Conversation, type ConversationCatalog, type Des
 import {telegramFolders,type TelegramMuteDefaults} from './folders.js';
 import {AppError} from '../../core/errors.js';
 import {NewMessage,EditedMessage,DeletedMessage,type NewMessageEvent,type DeletedMessageEvent} from 'teleproto/events';
+import {telegramAttachments} from './media.js';
+import {type AttachmentRequest,MEDIA_LIMITS} from '../../../shared/types.js';
+import type {AttachmentContent} from '../../core/source-adapter.js';
 import type {SourceEvent} from '../../core/source-adapter.js';
 import type {HistoryPage} from '../../../shared/types.js';
 
@@ -15,7 +18,7 @@ import type {HistoryPage} from '../../../shared/types.js';
 export const TELEGRAM_SOURCE = 'telegram-personal';
 //: Ограничивает поверхность teleproto, нужную адаптеру.
 //: Тесты подставляют этот порт без реального Telegram-подключения.
-type TelegramPort = Pick<TelegramClient, 'connected' | 'connect' | 'checkAuthorization' | 'destroy' | 'getDialogs' | 'getMessages' | 'sendMessage' | 'markAsRead' | 'logOut' | 'invoke' | 'getNotifySettings' | 'addEventHandler'>;
+type TelegramPort = Pick<TelegramClient, 'connected' | 'connect' | 'checkAuthorization' | 'destroy' | 'getDialogs' | 'getMessages' | 'sendMessage' | 'markAsRead' | 'logOut' | 'invoke' | 'getNotifySettings' | 'addEventHandler' | 'iterDownload'>;
 //: Реализует SourceAdapter для одного личного Telegram-аккаунта.
 //: Сессия и native peer остаются на сервере, DTO не содержат секретов.
 export class TelegramAdapter implements SourceAdapter {
@@ -135,7 +138,7 @@ export class TelegramAdapter implements SourceAdapter {
       date: new Date(m.date * 1000).toISOString(), text: m.message || '', outgoing: !!m.out,
       status: m.out ? 'sent' : 'received',
       ...(m.editDate?{editedAt:new Date(m.editDate*1000).toISOString()}:{}),
-      attachments: m.media && !(m.media instanceof Api.MessageMediaWebPage) ? [{ id: entityId(this.source.id, 'attachment', `${conversationId}/${m.id}`), kind: 'unsupported', name: 'Вложение · откройте в Telegram' }] : [],
+      attachments: telegramAttachments(this.source.id,conversationId,m),
       sourceKey:entityId(this.source.id,'source-message',`${m.peerId instanceof Api.PeerChannel?utils.getPeerId(m.peerId):'global'}/${m.id}`),
     };
   }
@@ -169,6 +172,16 @@ export class TelegramAdapter implements SourceAdapter {
     const messages = await this.client!.getMessages(d.inputEntity, { limit: count, ...(offsetId?{offsetId}:{}) });
     const oldest=messages.at(-1)?.id;
     return {conversationId,messages:messages.filter((m): m is Api.Message => m instanceof Api.Message).map(m => this.mapMessage(m, conversationId)).reverse(),cursors:messages.map(m=>entityId(this.source.id,'message',`${conversationId}/${m.id}`)),nextCursor:messages.length===count&&oldest&&(!offsetId||oldest<offsetId)?entityId(this.source.id,'message',`${conversationId}/${oldest}`):null};
+  }
+  //: Получает точное сообщение и создаёт ограниченный поток его медиа.
+  //: Peer, message и attachment сверяются; свежие file references остаются на сервере.
+  async openAttachment(input:AttachmentRequest,signal:AbortSignal):Promise<AttachmentContent>{
+    const native=this.cursorOffset(input.conversationId,input.messageId);const dialog=await this.dialog(input.conversationId);signal.throwIfAborted();
+    const messages=await this.client!.getMessages(dialog.inputEntity,{ids:[native]});signal.throwIfAborted();
+    const message=messages[0];if(!(message instanceof Api.Message)||message.id!==native||entityId(this.source.id,'conversation',message.chatId?.toString()||utils.getPeerId(message.peerId))!==input.conversationId)throw new AppError(404,'Вложение больше недоступно.');
+    const attachment=telegramAttachments(this.source.id,input.conversationId,message).find(a=>a.id===input.attachmentId);
+    if(!attachment||attachment.downloadable===false)throw new AppError(415,'Это вложение доступно только в Telegram.');
+    return {attachment,chunks:this.client!.iterDownload(message,{signal,limit:MEDIA_LIMITS.fileBytes+1,requestSize:256*1024})};
   }
   //: Подписывает ядро на изменения только разрешённых диалогов.
   //: Подписка сохраняется при пересоздании MTProto-клиента; unselected-текст не копируется.

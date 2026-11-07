@@ -1,5 +1,10 @@
+import {constants} from 'node:fs';
+import {pipeline} from 'node:stream/promises';
+import {Transform} from 'node:stream';
+import type {AttachmentService} from './core/attachments.js';
+import {MEDIA_LIMITS,type AttachmentRequest} from '../shared/types.js';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { readFile,open as openFile } from 'node:fs/promises';
 import { resolve, extname, sep } from 'node:path';
 import { Auth, AuthError, type Role } from './auth/auth.js';
 import { AppError, type MessengerService } from './core/service.js';
@@ -8,7 +13,7 @@ import type { AdminService } from './admin/service.js';
 import type { SendRequest } from '../shared/types.js';
 //: Создаёт раздельные API чата и админки с серверной проверкой ролей.
 //: Публичная версия требует HTTPS cookie и заранее настроенные Argon2id-пароли.
-export function createApp(options: { service:MessengerService; store:Store; admin?:AdminService; clientDirectory:string; origin:string; secureCookies?:boolean }) {
+export function createApp(options: { service:MessengerService; store:Store; admin?:AdminService; attachments?:AttachmentService; clientDirectory:string; origin:string; secureCookies?:boolean }) {
   const auth=new Auth(options.store);
   const secure=options.secureCookies??options.origin.startsWith('https://');
   const root=resolve(options.clientDirectory);
@@ -31,7 +36,7 @@ export function createApp(options: { service:MessengerService; store:Store; admi
     res.setHeader('Cache-Control','no-store'); res.setHeader('X-Content-Type-Options','nosniff');
     res.setHeader('Referrer-Policy','no-referrer'); res.setHeader('X-Frame-Options','DENY');
     res.setHeader('Permissions-Policy','camera=(), microphone=(), geolocation=()');
-    res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'");
+    res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'");
     if(secure) res.setHeader('Strict-Transport-Security','max-age=31536000');
     try {
       if(req.headers.host!==new URL(options.origin).host) throw new AppError(403,'Недопустимый адрес сервера.');
@@ -65,6 +70,27 @@ export function createApp(options: { service:MessengerService; store:Store; admi
             if(action==='older'&&(typeof input.before!=='string'||!input.before||input.before.length>2048))throw new AppError(400,'Некорректный курсор сообщений.');
             return send(res,200,await (action==='read'?options.service.markRead(input.conversationId):options.service.open(input.conversationId,action==='older'?input.before as string:undefined)));
           }
+          if(action==='attachment'&&req.method==='POST'){
+            const input=await body(req);const attachments=options.attachments;if(!attachments)throw new AppError(503,'Просмотр вложений недоступен.');
+            const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),MEDIA_LIMITS.timeoutMs);
+            //: Прерывает сетевую загрузку при закрытии HTTP-ответа.
+            //: Не оставляет фонового копирования после ухода пользователя.
+            const abort=()=>{controller.abort();};res.once('close',abort);
+            let entry:Awaited<ReturnType<AttachmentService['open']>>|undefined;
+            try{
+              //: Повторно проверяет текущую chat-сессию для потока вложения.
+              //: Отзыв роли не даёт закончить начатое чтение кеша.
+              const authorize=()=>{if(!auth.session(req.headers.cookie,'chat',secure))throw new AppError(401,'Войдите в приложение.');};
+              entry=await attachments.open(input as unknown as AttachmentRequest,controller.signal,authorize);entry.assertAllowed();
+              const a=entry.attachment;const name=encodeURIComponent(a.name).replace(/[!'()*]/g,char=>'%'+char.charCodeAt(0).toString(16));
+              res.writeHead(200,{'Content-Type':a.mimeType||'application/octet-stream','Content-Length':a.size!,'Content-Disposition':`attachment; filename*=UTF-8''${name}`,'X-Attachment-Kind':a.kind,'X-Attachment-Name':name});
+              const guard=new Transform({
+                //: Проверяет права перед каждой порцией HTTP-ответа.
+                //: После начала ответа отказ закрывает соединение без раскрытия ошибки.
+                transform(chunk,_encoding,callback){try{entry!.assertAllowed();callback(null,chunk);}catch{callback(new Error('Attachment access ended'));}}});
+              const file=await openFile(entry.path,constants.O_RDONLY|constants.O_NOFOLLOW);await pipeline(file.createReadStream(),guard,res,{signal:controller.signal});return;
+            }finally{clearTimeout(timer);res.removeListener('close',abort);entry?.release();}
+          }
           if(action==='send'&&req.method==='POST') return send(res,200,await options.service.send(await body(req) as unknown as SendRequest));
         } else {
           const admin=options.admin; if(!admin) throw new AppError(503,'Админка недоступна.');
@@ -97,7 +123,7 @@ export function createApp(options: { service:MessengerService; store:Store; admi
       const mime:Record<string,string>={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml'};
       res.writeHead(200,{'Content-Type':mime[extname(file)]}); res.end(bytes);
     } catch(error) {
-      if(res.headersSent) return res.end();
+      if(res.headersSent) return res.destroy();
       if(error instanceof AppError||error instanceof AuthError) return send(res,error.status,{error:error.message});
       send(res,503,{error:'Операция недоступна. Проверьте подключение и повторите вручную.'});
     }

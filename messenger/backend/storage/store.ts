@@ -39,6 +39,9 @@ export class Store {
   //: Читает одни сохранённые метаданные диалога.
   //: Историю и реквизиты источника не загружает.
   conversation(id:string):Conversation|undefined{const row=this.db.prepare('SELECT payload FROM conversation_cache WHERE id=?').get(id) as {payload:string}|undefined;return row?JSON.parse(row.payload):undefined;}
+  //: Читает ровно одно сообщение по общему ID для защищённого доступа к медиа.
+  //: Проверку выбора выполняет ядро перед обращением к этому методу.
+  message(id:string):Message|undefined{const row=this.db.prepare('SELECT payload FROM message_cache WHERE id=?').get(id) as {payload:string}|undefined;return row?JSON.parse(row.payload):undefined;}
   //: Читает разрешённые ID диалогов из SQLite.
   //: Результат сохраняется после перезапуска процесса.
   selected(): string[] { return (this.db.prepare('SELECT id FROM selected_conversations ORDER BY id').all() as {id:string}[]).map(r=>r.id); }

@@ -1,6 +1,6 @@
 // Только синтетические данные тестов. Не подключается к production entrypoint.
-import type { SourceAdapter,SourceEvent } from '../backend/core/source-adapter.js';
-import { destinationFor, entityId, type Conversation, type Destination, type Message, type Source } from '../shared/types.js';
+import type { SourceAdapter,SourceEvent,AttachmentContent } from '../backend/core/source-adapter.js';
+import { destinationFor, entityId, type AttachmentRequest,type Conversation, type Destination, type Message, type Source } from '../shared/types.js';
 export class TestAdapter implements SourceAdapter {
   source: Source;
   conversations: Conversation[];
@@ -9,6 +9,8 @@ export class TestAdapter implements SourceAdapter {
   reads: string[] = [];
   calls: number[] = [];
   fail = false;
+  attachmentCalls=0;
+  media=new Map<string,{attachment:Message['attachments'][number];bytes:Buffer}>();
   listener?:(event:SourceEvent)=>void;
   historyCalls:{id:string;before?:string;limit:number}[]=[];
   constructor(sourceId = 'test-a', name = 'Тестовый источник') {
@@ -50,9 +52,16 @@ export class TestAdapter implements SourceAdapter {
     this.sent.push({ destination, text });
     const c = this.conversations.find(c => c.id === destination.conversationId)!;
     if (JSON.stringify(destination) !== JSON.stringify(destinationFor(c))) throw new Error('Wrong route');
-    const message: Message = { ...this.messages[0], id: entityId(this.source.id,'message', `sent-${this.sent.length}`), sourceId: this.source.id, conversationId: c.id, text, outgoing: true, status: 'sent', date: new Date().toISOString() };
+    const message: Message = { ...this.messages[0], id: entityId(this.source.id,'message', `sent-${this.sent.length}`), sourceId: this.source.id, conversationId: c.id, text, attachments:[],outgoing: true, status: 'sent', date: new Date().toISOString() };
     this.messages.push(message);
     return message;
+  }
+  //: Возвращает только заранее заданные синтетические байты для теста вложений.
+  //: Реальная сеть, файлы владельца и production entrypoint не используются.
+  async openAttachment(input:AttachmentRequest,signal:AbortSignal):Promise<AttachmentContent>{
+    this.attachmentCalls++;if(this.fail)throw new Error('PRIVATE_PROVIDER_ERROR');signal.throwIfAborted();
+    const value=this.media.get(input.attachmentId);if(!value)throw new Error('No synthetic attachment');
+    return {attachment:value.attachment,chunks:(async function*(){yield value.bytes;})()};
   }
   async markRead(id: string) { this.reads.push(id); }
 }

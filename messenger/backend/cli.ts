@@ -2,6 +2,7 @@ import { secretPrompt } from './auth/prompt.js';
 import { passwordHash,Auth } from './auth/auth.js';
 import { Store } from './storage/store.js';
 import { dataDirectory } from './config.js';
+import {clearAttachmentCache} from './core/attachments.js';
 import {PASSWORD_LIMITS} from '../shared/types.js';
 process.umask(0o077);
 //: Задаёт начальные пароли локально или принимает только готовые хеши из SSH stdin.
@@ -24,7 +25,7 @@ async function main() {
         store.set(`auth.${role}`,await passwordHash(password));
       }
       console.log('Пароли сохранены. Перезапустите сервер.');
-    } else if(command==='clear') { store.clearCache();console.log('Кеш очищен.'); }
+    } else if(command==='clear') { store.clearCache();clearAttachmentCache(dataDirectory);console.log('Кеш очищен.'); }
     else throw new Error();
   } finally { store.close(); }
 }

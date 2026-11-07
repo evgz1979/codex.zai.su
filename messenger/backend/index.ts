@@ -5,6 +5,7 @@ import { AdminService } from './admin/service.js';
 import { Auth } from './auth/auth.js';
 import { MessengerService } from './core/service.js';
 import { createApp } from './http.js';
+import {AttachmentService} from './core/attachments.js';
 import {AutoSyncService} from './core/sync.js';
 import { dataDirectory, clientDirectory, origin, port } from './config.js';
 import { writePrivate } from './storage/private-files.js';
@@ -17,8 +18,9 @@ const telegram = new TelegramAdapter(vault);
 const service = new MessengerService([telegram], store);
 const admin = new AdminService(service,telegram,vault,store);
 const sync=new AutoSyncService(service,store);
+const attachments=new AttachmentService(service,dataDirectory);
 if (process.env.NODE_ENV==='production' && !new Auth(store).ready()) throw new Error('Passwords must be provisioned before publication');
-const server = createApp({ store, service, admin, clientDirectory, origin });
+const server = createApp({ store, service, admin, attachments, clientDirectory, origin });
 server.listen(port, '127.0.0.1', () => {
   sync.start();
   writePrivate(join(dataDirectory,'server.pid'),String(process.pid));
