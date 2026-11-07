@@ -26,9 +26,10 @@ session и login не требуют сессии, login требует Origin. 
 | Метод | /api/chat/… | Тело/результат |
 | --- | --- | --- |
 | GET | access | Только разрешённые ID для очистки открытой вкладки |
-| GET | snapshot | Snapshot только разрешённых ID |
-| POST | refresh | Обновлённая лента выбранных диалогов |
-| POST | open | `{conversationId}` → снимок с последними сообщениями |
+| GET | snapshot | Snapshot разрешённых ID с последними 10 уже загруженными сообщениями |
+| POST | refresh | Метаданные и непрочитанные выбранных диалогов; без чтения истории |
+| POST | open | `{conversationId}` → ConversationPageResult с последними 10 сообщениями этого адресата |
+| POST | older | `{conversationId,before}` → ConversationPageResult с предыдущими 10 |
 | POST | read | `{conversationId}` → явная отметка прочитанного |
 | POST | send | `{destination,text,requestId}` → отправленный Message |
 
@@ -37,6 +38,14 @@ code units с непробельным символом. UUID штатного �
 request ID `[a-zA-Z0-9-]{16,80}`. Диалог проверяется по сохранённому выбору,
 серверной модели, canSend и native peer адаптера. Один request ID нельзя использовать
 с другим payload. Неизвестный результат отправки требует ручной сверки.
+
+ConversationPageResult содержит `{snapshot,page}`. MessagePage содержит
+`{conversationId,messages,nextCursor}`; курсор передаётся клиентом без разбора,
+null означает конец. Telegram проверяет источник и диалог курсора. Сервер задаёт
+размер страницы 10, клиент не может увеличить его. Сервисные записи Telegram
+пропускаются в UI, но продвигают курсор; видимых сообщений поэтому может быть меньше.
+После полной страницы последняя дополнительная проверка может вернуть пустую
+страницу с null. Каждый open/older проверяет выбор и его ревизию после RPC.
 
 ## Админка
 
@@ -50,7 +59,7 @@ request ID `[a-zA-Z0-9-]{16,80}`. Диалог проверяется по со�
 | POST | telegram/password | `{value:string}` → следующий stage |
 | POST | telegram/cancel | Отмена текущего входа |
 | POST | telegram/disconnect | Отзыв/удаление локальной сессии, снятие выбора |
-| POST | password | `{role:'admin'|'chat',password:string}`; 16–512 символов |
+| POST | password | `{role:'admin'|'chat',password:string}`; 8–512 символов |
 
 Сохранённые ключи и сессия не выдаются ни одним методом. TelegramAuthStage —
 idle/connecting/code/password/connected/error, без введённых секретов.
