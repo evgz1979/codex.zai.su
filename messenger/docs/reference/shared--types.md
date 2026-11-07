@@ -1,0 +1,226 @@
+# shared/types.ts
+
+Общие DTO, статусы, лимиты, ID и Destination без зависимости от Telegram.
+
+[Исходный модуль](../../shared/types.ts) · [Индекс](README.md)
+
+<a id="symbol-Attachment"></a>
+
+## Attachment
+
+Описывает метаданные вложения общей модели.
+
+MVP не скачивает вложения и использует обозначение unsupported.
+
+```typescript
+export interface Attachment {
+    id: EntityId;
+    kind: 'image' | 'file' | 'audio' | 'unsupported';
+    name: string;
+    mimeType?: string;
+    size?: number;
+}
+```
+
+<a id="symbol-Conversation"></a>
+
+## Conversation
+
+Описывает личный диалог или группу независимо от провайдера.
+
+Содержит recipient, unreadCount и признак доступности записи canSend.
+
+```typescript
+export interface Conversation {
+    id: EntityId;
+    sourceId: EntityId;
+    title: string;
+    kind: 'direct' | 'group';
+    recipient: Recipient;
+    unreadCount: number;
+    updatedAt: string;
+    preview: string;
+    canSend: boolean;
+}
+```
+
+<a id="symbol-DeliveryStatus"></a>
+
+## DeliveryStatus
+
+Перечисляет общие состояния сообщения.
+
+Наличие delivered/read в типе не означает их определение TelegramAdapter.
+
+```typescript
+export type DeliveryStatus = 'pending' | 'received' | 'sent' | 'delivered' | 'read' | 'failed' | 'unknown';
+```
+
+<a id="symbol-Destination"></a>
+
+## Destination
+
+Фиксирует источник, диалог и получателя исходящего сообщения.
+
+Сервер сверяет всю тройку с известным Conversation.
+
+```typescript
+export interface Destination {
+    sourceId: EntityId;
+    conversationId: EntityId;
+    recipientId: EntityId;
+}
+```
+
+<a id="symbol-destinationFor"></a>
+
+## destinationFor
+
+Получает маршрут отправки из Conversation.
+
+Копирует sourceId, id диалога и recipient.id без выбора провайдера по догадке.
+
+```typescript
+destinationFor(c: Conversation): Destination
+```
+
+<a id="symbol-entityId"></a>
+
+## entityId
+
+Кодирует внешний ID из источника, типа и native ID.
+
+Экранирует компоненты, чтобы двоеточия native ID не создавали коллизии.
+
+```typescript
+entityId(sourceId: string, kind: string, nativeId: string): EntityId
+```
+
+<a id="symbol-EntityId"></a>
+
+## EntityId
+
+Обозначает внешний строковый идентификатор общей модели.
+
+Значения строятся entityId с пространством имён источника и типа.
+
+```typescript
+export type EntityId = string;
+```
+
+<a id="symbol-LIMITS"></a>
+
+## LIMITS
+
+Задаёт ограничения выборок, кеша и длины текста MVP.
+
+Одна константа используется сервером и клиентской валидацией текста.
+
+```typescript
+const LIMITS = { conversations: 100, recentConversations: 12, messagesPerConversation: 20, selectedMessages: 40, cachedMessages: 400, text: 4096 } as const
+```
+
+<a id="symbol-Message"></a>
+
+## Message
+
+Описывает текстовое сообщение и его происхождение.
+
+Включает источник, диалог, отправителя, дату и наблюдаемый статус.
+
+```typescript
+export interface Message {
+    id: EntityId;
+    sourceId: EntityId;
+    conversationId: EntityId;
+    sender: Recipient;
+    date: string;
+    text: string;
+    outgoing: boolean;
+    status: DeliveryStatus;
+    attachments: Attachment[];
+}
+```
+
+<a id="symbol-Recipient"></a>
+
+## Recipient
+
+Описывает адресата либо отправителя сообщения.
+
+ID и видимое имя не заменяют маршрут Destination.
+
+```typescript
+export interface Recipient {
+    id: EntityId;
+    name: string;
+    isSelf?: boolean;
+}
+```
+
+<a id="symbol-SendRequest"></a>
+
+## SendRequest
+
+Описывает запрос отправки текста в точный Destination.
+
+requestId используется для временной дедупликации одного процесса.
+
+```typescript
+export interface SendRequest {
+    destination: Destination;
+    text: string;
+    requestId: string;
+}
+```
+
+<a id="symbol-SessionInfo"></a>
+
+## SessionInfo
+
+Передаёт состояние веб-входа и первичной настройки.
+
+CSRF возвращается после входа, Telegram-сессия сюда не входит.
+
+```typescript
+export interface SessionInfo {
+    authenticated: boolean;
+    setupRequired: boolean;
+    csrfToken?: string;
+}
+```
+
+<a id="symbol-Snapshot"></a>
+
+## Snapshot
+
+Передаёт ограниченный снимок общей ленты.
+
+stale указывает на необходимость ручного обновления данных.
+
+```typescript
+export interface Snapshot {
+    sources: Source[];
+    conversations: Conversation[];
+    messages: Message[];
+    refreshedAt: string | null;
+    stale: boolean;
+}
+```
+
+<a id="symbol-Source"></a>
+
+## Source
+
+Описывает экземпляр источника для общего интерфейса.
+
+Не содержит реквизитов авторизации или native client.
+
+```typescript
+export interface Source {
+    id: EntityId;
+    kind: string;
+    name: string;
+    connected: boolean;
+}
+```

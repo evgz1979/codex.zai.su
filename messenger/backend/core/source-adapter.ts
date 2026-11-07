@@ -1,4 +1,6 @@
 import type { Conversation, Destination, Message, Source } from '../../shared/types.js';
+//: Задаёт контракт чтения, отправки и отметки прочитанного для источника.
+//: Сессии и native API не входят в общие DTO.
 export interface SourceAdapter {
   readonly source: Source;
   connect(): Promise<void>;

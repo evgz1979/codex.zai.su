@@ -17,6 +17,8 @@ server.listen(port, '127.0.0.1', () => {
 });
 server.on('error', () => { console.error('Не удалось запустить Messenger. Проверьте, свободен ли порт 4318.'); process.exitCode = 1; });
 let stopping = false;
+//: Завершает локальный сервер, адаптеры и SQLite.
+//: Повторный сигнал игнорируется; PID-файл удаляется после закрытия хранилища.
 async function stop() {
   if (stopping) return;
   stopping = true;

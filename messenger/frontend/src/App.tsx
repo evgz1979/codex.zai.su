@@ -2,13 +2,23 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { destinationFor, LIMITS, type Conversation, type Message, type SessionInfo, type Snapshot } from '../../shared/types';
 import { api, ApiError, setCsrf } from './api';
 
+//: Форматирует время сообщения для интерфейса.
+//: Использует локаль ru-RU и часовой пояс браузера.
 const time = (date: string) => new Date(date).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+//: Форматирует подпись календарной даты в ленте.
+//: Использует локаль ru-RU и часовой пояс браузера.
 const day = (date: string) => new Date(date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+//: Выбирает локальный SVG для рабочей кнопки.
+//: Не загружает внешние изображения или скрипты.
 function Icon({ name }: { name: 'send' | 'refresh' | 'menu' | 'close' | 'search' | 'logout' }) {
   const paths = { send: 'm4 4 17 8-17 8 3-8-3-8m3 8h14', refresh: 'M20 8a8 8 0 1 0 0 8M20 3v5h-5', menu: 'M4 6h16M4 12h16M4 18h16', close: 'm6 6 12 12M18 6 6 18', search: 'm15 15 5 5M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0', logout: 'M9 4H4v16h5m6-13 5 5-5 5M8 12h12' };
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]} /></svg>;
 }
+//: Отображает название приложения.
+//: Не добавляет рекламные подписи и вводные тексты.
 function Brand() { return <div className="brand"><span className="monogram">Z</span><strong>Z AI <span>Messenger</span></strong></div>; }
+//: Отображает вход, единую ленту и поле ввода с явным адресатом.
+//: Держит снимок и черновики в памяти React, без хранилища браузера.
 export function App() {
   const [session, setSession] = useState<SessionInfo>();
   const [snapshot, setSnapshot] = useState<Snapshot>();
@@ -26,7 +36,11 @@ export function App() {
   const unread = snapshot?.conversations.reduce((n,c) => n + c.unreadCount, 0) || 0;
   const connected = snapshot?.sources.some(s => s.connected);
 
+  //: Применяет состояние веб-входа и CSRF в памяти.
+  //: Не читает и не получает Telegram credentials.
   const acceptSession = (info: SessionInfo) => { setCsrf(info.csrfToken || ''); setSession(info); };
+  //: Показывает ошибку операции и обрабатывает потерю входа.
+  //: При 401 очищает снимок, адресата и черновики.
   function fail(e: unknown) {
     if (e instanceof ApiError && e.status === 401) { acceptSession({ authenticated: false, setupRequired: false }); setSnapshot(undefined); setDrafts({}); setTargetId(undefined); }
     setError(e instanceof Error ? e.message : 'Нет связи с локальным сервером.');
@@ -38,26 +52,36 @@ export function App() {
   useEffect(() => { if (feed.current) feed.current.scrollTop = feed.current.scrollHeight; }, [snapshot?.messages.length]);
   useEffect(() => {
     if (!drawer) return;
+    //: Закрывает мобильный список по Escape.
+    //: Listener снимается cleanup-функцией эффекта.
     const listener = (e: KeyboardEvent) => { if (e.key === 'Escape') setDrawer(false); };
     window.addEventListener('keydown', listener);
     return () => window.removeEventListener('keydown', listener);
   }, [drawer]);
+  //: Отправляет пароль локальному API и принимает новую сессию.
+  //: После успеха очищает поле пароля, во время запроса блокирует повтор.
   async function login(e: FormEvent) {
     e.preventDefault(); setError(''); setBusy(true);
     try { acceptSession(await api<SessionInfo>('login', { password })); setPassword(''); }
     catch (e) { fail(e); } finally { setBusy(false); }
   }
+  //: Обновляет общую ленту по явному действию.
+  //: Успешный ответ снимает блокировку после неизвестной отправки.
   async function refresh() {
     setBusy(true); setError('');
     try { setSnapshot(await api<Snapshot>('refresh', {})); setUncertain(false); }
     catch (e) { fail(e); } finally { setBusy(false); }
   }
+  //: Выбирает адресата и подгружает его последние сообщения.
+  //: Сохраняет раздельные черновики, закрывает мобильную панель.
   async function choose(c: Conversation) {
     if (busy) return;
     setTargetId(c.id); setDrawer(false); setBusy(true); setError('');
     try { setSnapshot(await api<Snapshot>('open', { conversationId: c.id })); }
     catch (e) { fail(e); } finally { setBusy(false); }
   }
+  //: Фиксирует текст и Destination, затем создаёт уникальный request ID.
+  //: Очищает только отправленный черновик; ошибка требует ручной сверки ленты.
   async function send(e: FormEvent) {
     e.preventDefault();
     if (!target || !draft.trim() || busy || uncertain) return;
@@ -70,12 +94,16 @@ export function App() {
       setDrafts(old => ({ ...old, [destination.conversationId]: '' }));
     } catch (e) { setUncertain(true); fail(e); } finally { setBusy(false); }
   }
+  //: Отправляет явную отметку прочитанного для выбранного диалога.
+  //: Снимок заменяется только после ответа API.
   async function read() {
     if (!target) return;
     setBusy(true); setError('');
     try { setSnapshot(await api<Snapshot>('read', { conversationId: target.id })); }
     catch (e) { fail(e); } finally { setBusy(false); }
   }
+  //: Отзывает текущую веб-сессию и очищает состояние переписки UI.
+  //: Не завершает Telegram-авторизацию на сервере.
   async function logout() {
     setBusy(true);
     try {

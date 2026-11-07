@@ -6,13 +6,19 @@ import { AppError, type MessengerService } from './core/service.js';
 import type { Store } from './storage/store.js';
 import type { SendRequest } from '../shared/types.js';
 
+//: Создаёт HTTP-сервер Messenger и ограниченный API.
+//: Проверяет Host/Origin, веб-сессию и CSRF; не открывает shell или RPC-прокси.
 export function createApp(options: { service: MessengerService; store: Store; clientDirectory: string; origin: string }) {
   const auth = new Auth(options.store);
   const root = resolve(options.clientDirectory);
+  //: Записывает JSON-ответ с выбранным HTTP-статусом.
+  //: Сериализует только явно переданную прикладную модель.
   const send = (res: ServerResponse, status: number, body: unknown) => {
     res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(body));
   };
+  //: Читает ограниченный JSON-объект из HTTP-запроса.
+  //: Отклоняет другой Content-Type, тело свыше 20000 байт и некорректный JSON.
   async function body(req: IncomingMessage): Promise<Record<string, unknown>> {
     if (req.headers['content-type']?.split(';')[0] !== 'application/json') throw new AppError(415, 'Ожидается JSON.');
     let size = 0;

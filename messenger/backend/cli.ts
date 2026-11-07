@@ -5,6 +5,8 @@ import { SecretVault } from './storage/private-files.js';
 import { telegramClient } from './connectors/telegram/client.js';
 import { dataDirectory } from './config.js';
 process.umask(0o077);
+//: Выполняет выбранную локальную команду настройки.
+//: setup задаёт пароль, telegram сохраняет сессию, clear удаляет только кеш.
 async function main() {
   const command = process.argv[2];
   if (command === 'setup') {
