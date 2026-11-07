@@ -29,6 +29,8 @@ const service = new MessengerService([a,b],store); await service.refresh();
 store.upsertMessages([...a.messages,...b.messages]);
 for(const conversation of [...a.conversations,...b.conversations])store.saveProgress(conversation.id,{...store.progress(conversation.id),initialized:true,historyComplete:true});
 const attachments=new AttachmentService(service,dir);
+//: Изолирует локальный тестовый сервер от соседней рабочей копии.
+//: В production эта переменная не используется.
 const testPort=Number(process.env.MESSENGER_TEST_PORT||14318);
 const server = createApp({ store,service,attachments,clientDirectory,origin:`http://127.0.0.1:${testPort}` });
 server.listen(testPort,'127.0.0.1');

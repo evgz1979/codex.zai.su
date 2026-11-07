@@ -18,6 +18,7 @@ createApp(options: {
     store: Store;
     admin?: AdminService;
     attachments?: AttachmentService;
+    push?: PushService;
     clientDirectory: string;
     origin: string;
     secureCookies?: boolean;

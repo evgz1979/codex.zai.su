@@ -1,5 +1,7 @@
 # HTTP API
 
+Web Push: [методы подписки, проверки и отзыва](notifications.md).
+
 Публичный Origin: `https://msg.zai.su:8443`. Backend принимает точный Host,
 POST — точный Origin. Защищённые методы требуют cookie нужной роли; изменяющие
 методы также X-CSRF-Token этой роли. Content-Type application/json и лимит

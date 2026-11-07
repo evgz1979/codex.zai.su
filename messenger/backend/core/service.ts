@@ -17,7 +17,14 @@ export class MessengerService {
   private pendingRefresh?: Promise<Snapshot>;
   private sends = new Map<string, { signature: string; result: Promise<Message>; created: number }>();
   private latestSeen=new Map<string,string>();
+  private incoming=new Set<(message:Message)=>void>();
   requestSync?:(id:string)=>void;
+  //: Регистрирует получателя новых входящих после записи в кеш.
+  //: Обработчик не получает историю, правки или повтор уже сохранённого ID.
+  onIncoming(listener:(message:Message)=>void){this.incoming.add(listener);return ()=>{this.incoming.delete(listener);};}
+  //: Изолирует уведомления от ошибок необязательных подписчиков.
+  //: Сообщение уже сохранено; ошибка доставки не отменяет синхронизацию.
+  private publishIncoming(message:Message){for(const listener of this.incoming){try{listener(message);}catch{/* Независимая доставка. */}}}
   //: Возвращает страницу единой хронологии из выбранных диалогов SQLite.
   //: Общий курсор не даёт доступа к исключённому архиву или произвольному источнику.
   inboxPage(before?:string){if(before&&before.length>2048)throw new AppError(400,'Некорректный курсор кеша.');return {snapshot:this.snapshot(),page:this.store.messagePage('inbox',before)};}
@@ -86,17 +93,21 @@ export class MessengerService {
     return {page,snapshot:this.snapshot()};
   }
   //: Записывает разрешённые сообщения фоновой страницы с проверкой источника.
-  //: Не заменяет полный архив ограниченным окном браузера.
-  cacheMessages(id:string,messages:Message[]){
+  //: Флаг notify относится только к сверке свежей головы, история молчит.
+  cacheMessages(id:string,messages:Message[],notify=false){
     const c=this.conversation(id);if(messages.some(m=>m.sourceId!==c.sourceId||m.conversationId!==id))throw new AppError(503,'Некорректная страница источника.');
+    const incoming=notify?messages.filter(message=>!message.outgoing&&!message.editedAt&&!this.store.message(message.id)):[];
     this.store.upsertMessages(messages);this.state.stale=false;
+    for(const message of incoming)if(this.store.message(message.id))this.publishIncoming(message);
   }
   //: Применяет событие источника только к текущему списку разрешений.
   //: Правки и удаления не открывают доступ к исключённому архиву.
   ingest(event:SourceEvent){
     if(event.type==='message'){
       const m=event.message;if(!this.selection.allows(m.conversationId))return;this.adapter(m.sourceId);const c=this.store.conversation(m.conversationId);if(!c||c.sourceId!==m.sourceId)return;
+      const fresh=!event.edited&&!m.editedAt&&!m.outgoing&&!this.store.message(m.id);
       this.store.upsertMessages([m],!event.edited);this.state.stale=false;
+      if(fresh&&this.store.message(m.id))this.publishIncoming(m);
     }else{this.adapter(event.sourceId);const keys=event.keys.filter(key=>key.startsWith(encodeURIComponent(event.sourceId)+':'));this.store.deleteSourceKeys(keys,this.selection.ids());}
   }
   //: Проверяет точный маршрут сохранённого вложения перед каждым чтением.

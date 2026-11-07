@@ -26,6 +26,7 @@ Messenger работает на [msg.zai.su:8443](https://msg.zai.su:8443/), о�
 1. [README модуля](../README.md) — команды первого запуска и адрес.
 2. [Эксплуатация](operations.md), [подключение Telegram](telegram.md) — настройка,
    остановка, повторный вход, диагностика. [Развёртывание](deployment.md) — SSH, Caddy, systemd и откат.
+   [Уведомления](notifications.md) — установка на iPhone, включение и проверка Web Push.
 3. [Архитектура](architecture.md), [сквозные сценарии](flows.md) — объекты,
    границы провайдера, путь данных, получатель и жизненный цикл.
 4. [HTTP API](api.md), [данные и SQLite](storage.md), [безопасность](security.md) —

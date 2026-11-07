@@ -2,6 +2,7 @@ import {constants} from 'node:fs';
 import {pipeline} from 'node:stream/promises';
 import {Transform} from 'node:stream';
 import type {AttachmentService} from './core/attachments.js';
+import type {PushService} from './core/push.js';
 import {MEDIA_LIMITS,type AttachmentRequest} from '../shared/types.js';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { readFile,open as openFile } from 'node:fs/promises';
@@ -13,7 +14,7 @@ import type { AdminService } from './admin/service.js';
 import type { SendRequest } from '../shared/types.js';
 //: Создаёт раздельные API чата и админки с серверной проверкой ролей.
 //: Публичная версия требует HTTPS cookie и заранее настроенные Argon2id-пароли.
-export function createApp(options: { service:MessengerService; store:Store; admin?:AdminService; attachments?:AttachmentService; clientDirectory:string; origin:string; secureCookies?:boolean }) {
+export function createApp(options: { service:MessengerService; store:Store; admin?:AdminService; attachments?:AttachmentService; push?:PushService; clientDirectory:string; origin:string; secureCookies?:boolean }) {
   const auth=new Auth(options.store);
   const secure=options.secureCookies??options.origin.startsWith('https://');
   const root=resolve(options.clientDirectory);
@@ -59,8 +60,16 @@ export function createApp(options: { service:MessengerService; store:Store; admi
         }
         if(!session) throw new AppError(401,'Войдите в приложение.');
         if(req.method==='POST'&&req.headers['x-csrf-token']!==session.csrf) throw new AppError(403,'Обновите страницу и повторите вход.');
-        if(action==='logout'&&req.method==='POST') { auth.logout(req.headers.cookie,role,secure); cookie(res,role,'',0); return send(res,200,{ok:true}); }
+        if(action==='logout'&&req.method==='POST') {if(role==='chat'&&options.push){const input=await body(req);if(input.pushEndpoint!==undefined)options.push.remove(input.pushEndpoint);}auth.logout(req.headers.cookie,role,secure); cookie(res,role,'',0); return send(res,200,{ok:true}); }
         if(role==='chat') {
+          if(action==='push/config'&&req.method==='GET') {if(!options.push)throw new AppError(503,'Уведомления недоступны.');return send(res,200,options.push.configuration());}
+          if((action==='push/status'||action==='push/subscribe'||action==='push/remove'||action==='push/test')&&req.method==='POST') {
+            const push=options.push;if(!push)throw new AppError(503,'Уведомления недоступны.');const input=await body(req);
+            if(action==='push/status')return send(res,200,{enabled:push.registered(input.endpoint)});
+            if(action==='push/test'){await push.test(input.endpoint);return send(res,200,{ok:true});}
+            if(action==='push/subscribe')push.subscribe(input.subscription);else push.remove(input.endpoint);
+            return send(res,200,{ok:true});
+          }
           if(action==='access'&&req.method==='GET') {const since=Number(new URL(req.url||'/',options.origin).searchParams.get('since')||0);if(!Number.isSafeInteger(since)||since<0)throw new AppError(400,'Некорректная ревизия.');return send(res,200,options.store.access(since));}
           if(action==='snapshot'&&req.method==='GET') return send(res,200,options.service.snapshot());
           if(action==='inbox'&&req.method==='POST'){const input=await body(req);if(input.before!==undefined&&(typeof input.before!=='string'||!input.before||input.before.length>2048))throw new AppError(400,'Некорректный курсор кеша.');return send(res,200,options.service.inboxPage(input.before as string|undefined));}
@@ -110,17 +119,17 @@ export function createApp(options: { service:MessengerService; store:Store; admi
           if(action==='telegram/disconnect'&&req.method==='POST') { await admin.disconnect(); return send(res,200,{ok:true}); }
           if(action==='password'&&req.method==='POST') {
             const input=await body(req); if((input.role!=='admin'&&input.role!=='chat')||typeof input.password!=='string') throw new AppError(400,'Проверьте пароль.');
-            await admin.changePassword(input.role,input.password); auth.revoke(input.role); return send(res,200,{ok:true});
+            await admin.changePassword(input.role,input.password); auth.revoke(input.role); if(input.role==='chat')options.push?.clear();return send(res,200,{ok:true});
           }
         }
         throw new AppError(404,'Адрес не найден.');
       }
       if(req.method!=='GET') throw new AppError(405,'Метод недоступен.');
       const asset=path==='/'||path==='/admin'||path==='/admin/'?'/index.html':decodeURIComponent(path);
-      if(asset!=='/index.html'&&asset!=='/favicon.svg'&&!/^\/assets\/[a-zA-Z0-9_.-]+\.(js|css)$/.test(asset)) throw new AppError(404,'Файл не найден.');
+      if(!['/index.html','/favicon.svg','/manifest.webmanifest','/sw.js','/icon-192.png','/icon-512.png','/apple-touch-icon.png'].includes(asset)&&!/^\/assets\/[a-zA-Z0-9_.-]+\.(js|css)$/.test(asset)) throw new AppError(404,'Файл не найден.');
       const file=resolve(root,`.${asset}`); if(!file.startsWith(root+sep)) throw new AppError(404,'Файл не найден.');
       let bytes:Buffer; try{bytes=await readFile(file);}catch{throw new AppError(404,'Файл не найден.');}
-      const mime:Record<string,string>={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml'};
+      const mime:Record<string,string>={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
       res.writeHead(200,{'Content-Type':mime[extname(file)]}); res.end(bytes);
     } catch(error) {
       if(res.headersSent) return res.destroy();

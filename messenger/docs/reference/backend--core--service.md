@@ -70,10 +70,10 @@ attachmentMetadata(input: AttachmentRequest, original: Message, attachment: Mess
 
 Записывает разрешённые сообщения фоновой страницы с проверкой источника.
 
-Не заменяет полный архив ограниченным окном браузера.
+Флаг notify относится только к сверке свежей головы, история молчит.
 
 ```typescript
-cacheMessages(id: string, messages: Message[])
+cacheMessages(id: string, messages: Message[], notify = false)
 ```
 
 <a id="symbol-MessengerService.constructor"></a>
@@ -160,6 +160,18 @@ ingest(event: SourceEvent)
 async markRead(id: string)
 ```
 
+<a id="symbol-MessengerService.onIncoming"></a>
+
+## MessengerService.onIncoming
+
+Регистрирует получателя новых входящих после записи в кеш.
+
+Обработчик не получает историю, правки или повтор уже сохранённого ID.
+
+```typescript
+onIncoming(listener: (message: Message) => void)
+```
+
 <a id="symbol-MessengerService.open"></a>
 
 ## MessengerService.open
@@ -170,6 +182,18 @@ async markRead(id: string)
 
 ```typescript
 async open(id: string, before?: string): Promise<ConversationPageResult>
+```
+
+<a id="symbol-MessengerService.publishIncoming"></a>
+
+## MessengerService.publishIncoming
+
+Изолирует уведомления от ошибок необязательных подписчиков.
+
+Сообщение уже сохранено; ошибка доставки не отменяет синхронизацию.
+
+```typescript
+private publishIncoming(message: Message)
 ```
 
 <a id="symbol-MessengerService.refresh"></a>

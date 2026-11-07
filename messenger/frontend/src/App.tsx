@@ -5,6 +5,7 @@ import {clearPreviews} from './previews';
 import AttachmentViewer from './AttachmentViewer';
 import type {AttachmentRequest} from '../../shared/types';
 import { api, ApiError, setCsrf } from './api';
+import Notifications,{notificationEndpoint,unsubscribeNotifications} from './Notifications';
 
 //: Форматирует время сообщения для интерфейса.
 //: Использует локаль ru-RU и часовой пояс браузера.
@@ -54,6 +55,7 @@ export function App() {
   const draft = target ? drafts[target.id] || '' : '';
   const unread = snapshot?.conversations.reduce((n,c) => n + c.unreadCount, 0) || 0;
   const connected = snapshot?.sources.some(s => s.connected);
+  useEffect(()=>{if(session?.authenticated&&'setAppBadge' in navigator)void navigator.setAppBadge(unread).catch(()=>{});},[unread,session?.authenticated]);
 
   //: Применяет состояние веб-входа и CSRF в памяти.
   //: Не читает и не получает Telegram credentials.
@@ -208,7 +210,7 @@ export function App() {
   async function logout() {
     clearPreviews();setAttachmentTarget(undefined);cancelView();setBusy(true);
     try {
-      await api('logout', {}); acceptSession({ authenticated: false, setupRequired: false });
+      await api('logout', {pushEndpoint:await notificationEndpoint()});void unsubscribeNotifications().catch(()=>{});acceptSession({ authenticated: false, setupRequired: false });
       setSnapshot(undefined);setPage(undefined);setDrafts({});setTargetId(undefined);setError('');setUncertain(false);seenRevision.current=0;appliedRevision.current=0;access.current={revision:0};
     } catch (e) { fail(e); } finally { setBusy(false); }
   }
@@ -241,6 +243,7 @@ export function App() {
         </button>)}
         {!snapshot?.conversations.length && <p className="list-empty">Здесь появятся ваши диалоги после подключения аккаунта и выбора в админке.</p>}
       </nav>
+      <Notifications />
       <div className="sidebar-footer"><span><i className={`status-dot ${connected ? '' : 'muted'}`} />{unread} непрочитанных</span><button className="icon-button" aria-label="Выйти" onClick={logout} disabled={busy}><Icon name="logout" /></button></div>
     </aside>
     <section className="chat" aria-label="Единая лента сообщений">

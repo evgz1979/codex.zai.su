@@ -72,7 +72,8 @@ MediaPreloadService готовит миниатюры и оригиналы вы
 отметки в SQLite продолжают работу после рестарта. Один файл загружается раз в
 3 секунды, варианты чередуются; интерактивное открытие прерывает фоновую загрузку.
 AttachmentService использует общий ограниченный приватный дисковый кеш. SourceAdapter.openAttachment возвращает общий
-Attachment и AsyncIterable байтов; native references не выходят из коннектора. Секретные чаты, уведомления и звонки не поддерживаются.
+Attachment и AsyncIterable байтов; native references не выходят из коннектора. Секретные чаты и звонки не поддерживаются.
+Web Push новых входящих выбранных диалогов описан в [уведомлениях](notifications.md).
 
 Развёртывание — [deployment.md](deployment.md), маршруты — [api.md](api.md),
 данные — [storage.md](storage.md), решения — [ADR-0001](adr/0001-unified-sources.md)

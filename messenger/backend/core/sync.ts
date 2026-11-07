@@ -61,7 +61,7 @@ export class AutoSyncService {
     else{const messages=await adapter.recentMessages(id,LIMITS.pageMessages);page={conversationId:id,messages,nextCursor:null,cursors:messages.map(m=>m.id)};}
     if(this.stopped||revision!==this.core.selection.revision||!this.core.selection.allows(id))return;
     if(page.conversationId!==id||page.messages.length>LIMITS.syncMessages||page.nextCursor===before||page.messages.some(m=>m.conversationId!==id||m.sourceId!==c.sourceId))throw new Error('Invalid source page');
-    this.core.cacheMessages(id,page.messages);
+    this.core.cacheMessages(id,page.messages,state.initialized&&!history);
     const next:SyncProgress={...state};
     if(!state.initialized){next.initialized=true;next.historyCursor=page.nextCursor;next.historyComplete=!page.nextCursor;next.headKeys=page.cursors;next.nextHeadAt=now+15000;next.lastHeadAt=now;next.checkpointIds=page.messages.map(m=>m.id);}
     else if(history){next.historyCursor=page.nextCursor;next.historyComplete=!page.nextCursor;if(page.messages.length)next.checkpointIds=page.messages.map(m=>m.id);}

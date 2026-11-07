@@ -23,6 +23,11 @@
 | POST | `/api/chat/logout` |
 | POST | `/api/chat/older` |
 | POST | `/api/chat/open` |
+| GET | `/api/chat/push/config` |
+| POST | `/api/chat/push/remove` |
+| POST | `/api/chat/push/status` |
+| POST | `/api/chat/push/subscribe` |
+| POST | `/api/chat/push/test` |
 | POST | `/api/chat/read` |
 | POST | `/api/chat/refresh` |
 | POST | `/api/chat/send` |

@@ -19,9 +19,10 @@
 | [backend/core/errors.ts](backend--core--errors.md) | Безопасная прикладная ошибка HTTP API. | 2 |
 | [backend/core/inbox.ts](backend--core--inbox.md) | Формирование ленты только выбранных диалогов. | 3 |
 | [backend/core/media-preload.ts](backend--core--media-preload.md) | Автоматическая подготовка вложений и миниатюр выбранных чатов за последние пять дней с продолжением после рестарта. | 7 |
+| [backend/core/push.ts](backend--core--push.md) | Приватные подписки Web Push, VAPID и доставка нейтральных уведомлений новых входящих. | 19 |
 | [backend/core/registry.ts](backend--core--registry.md) | Реестр подключённых SourceAdapter. | 5 |
 | [backend/core/selection.ts](backend--core--selection.md) | Постоянный выбор разрешённых диалогов и ревизия доступа. | 7 |
-| [backend/core/service.ts](backend--core--service.md) | Единая лента, маршруты, лимиты, кеш и дедупликация отправок. | 18 |
+| [backend/core/service.ts](backend--core--service.md) | Единая лента, маршруты, лимиты, кеш и дедупликация отправок. | 20 |
 | [backend/core/source-adapter.ts](backend--core--source-adapter.md) | Общий контракт операций с сообщениями и необязательного каталога папок источника. | 3 |
 | [backend/core/sync.ts](backend--core--sync.md) | Автоматическое заполнение полного SQLite-кеша выбранных диалогов, события и возобновляемая история. | 7 |
 | [backend/http.ts](backend--http.md) | Фиксированный HTTP API, веб-вход, защита запросов и статические файлы. | 7 |
@@ -30,9 +31,12 @@
 | [backend/storage/store.ts](backend--storage--store.md) | SQLite: настройки ролей, выбранные диалоги и полный кеш выбранной истории с сохранением исключённого архива. | 25 |
 | [frontend/index.html](frontend--index.md) | HTML-точка входа, viewport и подключение React-сборки. | 0 |
 | [frontend/public/favicon.svg](frontend--public--favicon.md) | Локальная иконка приложения без внешних ресурсов. | 0 |
+| [frontend/public/manifest.webmanifest](frontend--public--manifest.webmanifest.md) | Идентичность и режим standalone для установки Messenger на экран «Домой». | 0 |
+| [frontend/public/sw.js](frontend--public--sw.js.md) | Service Worker для видимых push-уведомлений и открытия чата без кеширования переписки. | 0 |
 | [frontend/src/App.tsx](frontend--src--App.md) | Единый React-интерфейс, веб-вход, адресат, черновики и состояние операций. | 17 |
 | [frontend/src/AttachmentPreview.tsx](frontend--src--AttachmentPreview.md) | Ленивая миниатюра в ленте, фиксированные размеры и открытие оригинала. | 1 |
 | [frontend/src/AttachmentViewer.tsx](frontend--src--AttachmentViewer.md) | Модальный просмотр медиа по явному запросу, скачивание и отзыв Blob URL. | 2 |
+| [frontend/src/Notifications.tsx](frontend--src--Notifications.md) | Явное включение, отключение и проверка уведомлений; инструкция установки на iPhone. | 7 |
 | [frontend/src/admin/AdminApp.tsx](frontend--src--admin--AdminApp.md) | Отдельная административная страница с собственным входом и формами. | 11 |
 | [frontend/src/admin/ConversationPicker.tsx](frontend--src--admin--ConversationPicker.md) | Закладки папок, поиск и независимый от текущей папки выбор диалогов. | 3 |
 | [frontend/src/api.ts](frontend--src--api.md) | Same-origin fetch, CSRF в памяти и безопасная ошибка API. | 5 |

@@ -69,7 +69,7 @@ bash messenger/scripts/npm.sh run docs:test
 ```
 
 Генератор использует уже установленный `typescript` как devDependency. Он читает
-AST собственных TS/TSX/MJS и статические исходники только внутри backend,
+AST собственных TS/TSX/MJS и статические исходники (включая Service Worker JS и manifest) только внутри backend,
 frontend, shared, scripts, test и `playwright.config.ts`. Серверы и приложение
 не импортируются, сеть не нужна, `.local/` и рабочие БД не читаются.
 

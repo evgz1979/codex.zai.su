@@ -36,6 +36,8 @@
 - [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: системное меню вызывается только явным нажатием, без скачивания
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): единая лента, выбор адресата, отправка, непрочитанные, выход и мобильные границы
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): открытый чат скрывает исключённые диалоги без синхронизации истории
+- [test/browser/notifications.spec.ts](../../test/browser/notifications.spec.ts): уведомления: iPhone получает инструкцию установки на экран Домой
+- [test/browser/notifications.spec.ts](../../test/browser/notifications.spec.ts): уведомления: явное включение, проверка и выключение без повторного запроса разрешения
 - [test/browser/paging.spec.ts](../../test/browser/paging.spec.ts): автокеш: прокрутка без кнопок, обновления и удаления, быстрый переход
 - [test/core.test.ts](../../test/core.test.ts): SQLite сохраняет всю историю, ограничивает снимок и сохраняет исключённый архив
 - [test/core.test.ts](../../test/core.test.ts): единая лента объединяет источники и сохраняет хронологию
@@ -67,6 +69,15 @@
 - [test/paging.test.ts](../../test/paging.test.ts): страницы кеша: чужой курсор и исключённый диалог отклоняются без Telegram
 - [test/paging.test.ts](../../test/paging.test.ts): страницы: обновление не читает историю всех чатов; активный диалог получает 10 + 10 + 5
 - [test/paging.test.ts](../../test/paging.test.ts): страницы: отметка прочитанного работает после вытеснения из общего кеша
+- [test/push.test.ts](../../test/push.test.ts): push HTTP: приватность, CSRF, allowlist статики и отзыв при выходе
+- [test/push.test.ts](../../test/push.test.ts): push worker: видимое нейтральное уведомление, badge и переход только в свой чат
+- [test/push.test.ts](../../test/push.test.ts): push: HTTP 410 удаляет устройство; временный отказ сохраняет подписку и не раскрывает ошибку
+- [test/push.test.ts](../../test/push.test.ts): push: VAPID и устройства переживают рестарт; смена пароля отзывает доставку
+- [test/push.test.ts](../../test/push.test.ts): push: библиотека формирует зашифрованный aes128gcm запрос с VAPID
+- [test/push.test.ts](../../test/push.test.ts): push: новые входящие доставляются один раз без текста, история и исходящие исключены
+- [test/push.test.ts](../../test/push.test.ts): push: подписки проверяют провайдера, схему, порт и P-256 ключи
+- [test/push.test.ts](../../test/push.test.ts): push: пропущенная свежая голова уведомляет, история и сообщения до подписки молчат
+- [test/push.test.ts](../../test/push.test.ts): push: снятие выбора, удаление и отзыв подписки проверяются перед доставкой
 - [test/telegram-auth.test.ts](../../test/telegram-auth.test.ts): Telegram: настоящая оркестрация teleproto сохраняет причину sendCode
 - [test/telegram-auth.test.ts](../../test/telegram-auth.test.ts): Telegram: неверный код повторяется на том же запросе, затем доступен 2FA
 - [test/telegram-auth.test.ts](../../test/telegram-auth.test.ts): Telegram: ошибка фабрики не оставляет вечный connecting и не блокирует новый вход

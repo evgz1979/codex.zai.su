@@ -8,6 +8,7 @@ import { createApp } from './http.js';
 import {MediaPreloadService} from './core/media-preload.js';
 import {AttachmentService} from './core/attachments.js';
 import {AutoSyncService} from './core/sync.js';
+import {PushService} from './core/push.js';
 import { dataDirectory, clientDirectory, origin, port } from './config.js';
 import { writePrivate } from './storage/private-files.js';
 import { unlinkSync } from 'node:fs';
@@ -19,10 +20,11 @@ const telegram = new TelegramAdapter(vault);
 const service = new MessengerService([telegram], store);
 const admin = new AdminService(service,telegram,vault,store);
 const sync=new AutoSyncService(service,store);
+const push=new PushService(service,store,origin);
 const attachments=new AttachmentService(service,dataDirectory);
 const mediaPreload=new MediaPreloadService(store,attachments);
 if (process.env.NODE_ENV==='production' && !new Auth(store).ready()) throw new Error('Passwords must be provisioned before publication');
-const server = createApp({ store, service, admin, attachments, clientDirectory, origin });
+const server = createApp({ store, service, admin, attachments, push, clientDirectory, origin });
 server.listen(port, '127.0.0.1', () => {
   sync.start();mediaPreload.start();
   writePrivate(join(dataDirectory,'server.pid'),String(process.pid));
@@ -37,6 +39,7 @@ async function stop() {
   stopping = true;
   server.close();
   await mediaPreload.stop();await sync.stop();
+  await push.stop();
   await admin.close();
   await service.disconnect();
   store.close();

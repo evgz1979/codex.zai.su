@@ -8,6 +8,10 @@ const purposes = {
   'backend/core/media-preload.ts': 'Автоматическая подготовка вложений и миниатюр выбранных чатов за последние пять дней с продолжением после рестарта.',
   'frontend/src/AttachmentPreview.tsx': 'Ленивая миниатюра в ленте, фиксированные размеры и открытие оригинала.',
   'frontend/src/previews.ts': 'Последовательная очередь и ограниченный оперативный кеш миниатюр без хранилища браузера.',
+  'backend/core/push.ts': 'Приватные подписки Web Push, VAPID и доставка нейтральных уведомлений новых входящих.',
+  'frontend/src/Notifications.tsx': 'Явное включение, отключение и проверка уведомлений; инструкция установки на iPhone.',
+  'frontend/public/sw.js': 'Service Worker для видимых push-уведомлений и открытия чата без кеширования переписки.',
+  'frontend/public/manifest.webmanifest': 'Идентичность и режим standalone для установки Messenger на экран «Домой».',
   'backend/core/attachments.ts': 'Защищённая потоковая загрузка вложений и ограниченный приватный кеш байтов.',
   'backend/connectors/telegram/media.ts': 'Безопасные общие метаданные фото и документов Telegram без native references.',
   'frontend/src/AttachmentViewer.tsx': 'Модальный просмотр медиа по явному запросу, скачивание и отзыв Blob URL.',
@@ -61,7 +65,7 @@ export function sourcePaths(root) {
       if (entry.isSymbolicLink() || ['.local', '.git', '.tools', 'node_modules', 'dist', 'test-results', 'coverage'].includes(entry.name)) continue;
       const path = `${directory}/${entry.name}`;
       if (entry.isDirectory()) walk(path);
-      else if (/\.(?:ts|tsx|mjs|sh|css|html|svg)$/.test(path)) paths.push(path);
+      else if (/\.(?:ts|tsx|mjs|js|sh|css|html|svg|webmanifest)$/.test(path)) paths.push(path);
     }
   }
   for (const dir of ['backend', 'frontend', 'shared', 'scripts']) walk(dir);
