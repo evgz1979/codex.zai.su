@@ -19,6 +19,7 @@
 | GET | `/api/chat/access` |
 | POST | `/api/chat/login` |
 | POST | `/api/chat/logout` |
+| POST | `/api/chat/older` |
 | POST | `/api/chat/open` |
 | POST | `/api/chat/read` |
 | POST | `/api/chat/refresh` |

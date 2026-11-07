@@ -9,10 +9,10 @@ export class ApiError extends Error {
   //: Текст берётся из безопасного поля error серверного ответа.
   constructor(public status: number, message: string) { super(message); } }
 //: Выполняет same-origin JSON-запрос к фиксированному /api пути.
-//: Передаёт cookie, CSRF для POST и запрещает кеширование ответа.
-export async function api<T>(path: string, input?: unknown): Promise<T> {
+//: Передаёт cookie/CSRF, запрещает кеш и принимает AbortSignal для смены адресата.
+export async function api<T>(path: string, input?: unknown, signal?:AbortSignal): Promise<T> {
   const res = await fetch(`/api/${location.pathname.startsWith('/admin') ? 'admin' : 'chat'}/${path}`, {
-    method: input === undefined ? 'GET' : 'POST', credentials: 'same-origin', cache: 'no-store',
+    method: input === undefined ? 'GET' : 'POST', credentials: 'same-origin', cache: 'no-store', signal,
     headers: input === undefined ? {} : { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
     ...(input === undefined ? {} : { body: JSON.stringify(input) }),
   });

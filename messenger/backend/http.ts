@@ -59,9 +59,10 @@ export function createApp(options: { service:MessengerService; store:Store; admi
           if(action==='access'&&req.method==='GET') return send(res,200,{ids:options.service.selection.ids()});
           if(action==='snapshot'&&req.method==='GET') return send(res,200,options.service.snapshot());
           if(action==='refresh'&&req.method==='POST') return send(res,200,await options.service.refresh());
-          if((action==='open'||action==='read')&&req.method==='POST') {
+          if((action==='open'||action==='older'||action==='read')&&req.method==='POST') {
             const input=await body(req); if(typeof input.conversationId!=='string') throw new AppError(400,'Выберите диалог.');
-            return send(res,200,await (action==='open'?options.service.open(input.conversationId):options.service.markRead(input.conversationId)));
+            if(action==='older'&&(typeof input.before!=='string'||!input.before||input.before.length>1024))throw new AppError(400,'Некорректный курсор сообщений.');
+            return send(res,200,await (action==='read'?options.service.markRead(input.conversationId):options.service.open(input.conversationId,action==='older'?input.before as string:undefined)));
           }
           if(action==='send'&&req.method==='POST') return send(res,200,await options.service.send(await body(req) as unknown as SendRequest));
         } else {

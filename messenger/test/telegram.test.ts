@@ -37,7 +37,7 @@ test('Telegram: DTO, фильтр broadcast, уникальность message ID
     assert.equal(conversations.length,3); assert.equal(conversations[1].kind,'group'); assert.equal(conversations[2].kind,'channel');assert.ok(conversations.every(c=>c.preview===''));
     const a = await adapter.recentMessages(conversations[0].id,1000);
     const b = await adapter.recentMessages(conversations[1].id,1000);
-    assert.equal(requestedLimit,40); assert.notEqual(a[0].id,b[0].id);
+    assert.equal(requestedLimit,10); assert.notEqual(a[0].id,b[0].id);
     assert.equal(a[0].sender.name,'Тест'); assert.equal(a[0].status,'received');
     await assert.rejects(adapter.sendText({...destinationFor(conversations[0]),recipientId:'wrong'},'x'),/Invalid destination/);
     const sent = await adapter.sendText(destinationFor(conversations[0]),'**буквальный текст**');

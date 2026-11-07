@@ -22,7 +22,7 @@ class AdminService
 
 Заменяет Argon2id-хеш пароля выбранной роли.
 
-Длина от 16 до 512 символов; HTTP-слой отзывает сессии роли.
+Длина от 8 до 512 символов; HTTP-слой отзывает сессии роли.
 
 ```typescript
 async changePassword(role: Role, password: string)

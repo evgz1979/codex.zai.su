@@ -1,6 +1,6 @@
 import type { SourceAdapter } from './source-adapter.js';
 import type { Store } from '../storage/store.js';
-import { destinationFor, LIMITS, type Conversation, type Message, type SendRequest, type Snapshot } from '../../shared/types.js';
+import { destinationFor, LIMITS, type Conversation, type ConversationPageResult, type Message, type SendRequest, type Snapshot } from '../../shared/types.js';
 import { AppError } from './errors.js';
 import { ConnectorRegistry } from './registry.js';
 import { ConversationSelectionService } from './selection.js';
@@ -15,6 +15,7 @@ export class MessengerService {
   readonly inbox: UnifiedInboxService;
   private pendingRefresh?: Promise<Snapshot>;
   private sends = new Map<string, { signature: string; result: Promise<Message>; created: number }>();
+  private latestSeen=new Map<string,string>();
   //: Загружает ограниченный кеш либо пустой снимок.
   //: Загруженные данные сразу помечаются устаревшими.
   constructor(private adapters: SourceAdapter[], private store: Store) {
@@ -25,9 +26,10 @@ export class MessengerService {
     this.state.stale = true;
   }
   //: Возвращает текущий снимок и состояния зарегистрированных источников.
-  //: Не обращается к сети и не передаёт credentials адаптеров.
+  //: Не обращается к сети; общая лента содержит только десять последних загруженных сообщений.
   snapshot(): Snapshot {
-    return this.inbox.filter({ ...this.state, sources: this.registry.sources() });
+    const state=this.inbox.filter({ ...this.state, sources: this.registry.sources() });
+    return {...state,messages:state.messages.slice(-LIMITS.pageMessages)};
   }
   //: Ищет зарегистрированный источник по sourceId.
   //: Неизвестный источник отклоняется с 409.
@@ -42,31 +44,28 @@ export class MessengerService {
     if (!c) throw new AppError(404, 'Диалог не найден. Обновите ленту.');
     return c;
   }
-  //: Запускает ручное обновление общей ленты.
+  //: Запускает ручное обновление метаданных разрешённых диалогов.
   //: Повторный параллельный вызов использует тот же pendingRefresh.
   refresh(): Promise<Snapshot> {
     if (this.pendingRefresh) return this.pendingRefresh;
     this.pendingRefresh = this.doRefresh().finally(() => { this.pendingRefresh = undefined; });
     return this.pendingRefresh;
   }
-  //: Загружает диалоги и ограниченную свежую выборку сообщений.
-  //: Успех заменяет снимок, ошибка помечает прежний снимок stale и возвращает 503.
+  //: Обновляет каталог и непрочитанные без обхода истории чатов.
+  //: Загруженные ранее сообщения остаются в ограниченном кеше разрешённых ID.
   private async doRefresh(): Promise<Snapshot> {
     const revision = this.selection.revision;
     if (!this.selection.ids().length) return this.snapshot();
     try {
       const conversations: Conversation[] = [];
-      const messages: Message[] = [];
       for (const adapter of this.adapters) {
         await adapter.connect();
         conversations.push(...(await adapter.listConversations()).filter(c => this.selection.allows(c.id)));
       }
       conversations.sort((a,b) => b.updatedAt.localeCompare(a.updatedAt));
-      for (const c of conversations) {
-        if (revision !== this.selection.revision) return this.snapshot();
-        messages.push(...await this.adapter(c.sourceId).recentMessages(c.id, LIMITS.messagesPerConversation));
-      }
       if (revision !== this.selection.revision) return this.snapshot();
+      const ids=new Set(conversations.map(c=>c.id));
+      const messages=this.state.messages.filter(m=>ids.has(m.conversationId));
       for (const c of conversations) c.preview = messages.filter(m => m.conversationId === c.id).at(-1)?.text || '';
       this.state = { conversations, messages: this.sorted(messages), sources: this.adapters.map(a => a.source), refreshedAt: new Date().toISOString(), stale: false };
       this.persist();
@@ -84,25 +83,34 @@ export class MessengerService {
   //: Нормализует текущие сообщения и сохраняет снимок.
   //: SQLite получает ограниченный JSON-кеш без секретов источников.
   private persist() { this.state.messages = this.sorted(this.state.messages); this.store.saveCache(this.state); }
-  //: Подгружает сообщения выбранного диалога в общую ленту.
-  //: Заменяет сообщения этого диалога, не помечая его прочитанным.
-  async open(id: string) {
+  //: Загружает одну страницу выбранного диалога независимо от общего кеша.
+  //: before загружает предыдущие 10; ревизия запрещает выдачу отозванного доступа.
+  async open(id: string,before?:string):Promise<ConversationPageResult> {
     const c = this.conversation(id);
+    if(before!==undefined&&(!before||before.length>1024))throw new AppError(400,'Некорректный курсор сообщений.');
+    const revision=this.selection.revision;
     const adapter = this.adapter(c.sourceId);
-    const messages = await adapter.recentMessages(id, LIMITS.selectedMessages);
+    let page;
+    try{
+      if(before&&!adapter.messagePage)throw new AppError(400,'Источник не поддерживает загрузку предыдущих сообщений.');
+      page=adapter.messagePage?await adapter.messagePage(id,LIMITS.pageMessages,before):{conversationId:id,messages:await adapter.recentMessages(id,LIMITS.pageMessages),nextCursor:null};
+    }catch(error){if(error instanceof AppError)throw error;throw new AppError(503,'Не удалось загрузить сообщения этого диалога. Повторите вручную.');}
     this.selection.require(id);
-    this.state.messages = this.sorted([...this.state.messages.filter(m => m.conversationId !== id), ...messages]);
-    this.selection.require(id);
+    if(revision!==this.selection.revision)throw new AppError(409,'Выбор диалогов изменился. Обновите чат.');
+    if(page.conversationId!==id||page.messages.length>LIMITS.pageMessages||page.messages.some(m=>m.conversationId!==id||m.sourceId!==c.sourceId)||page.nextCursor===before)throw new AppError(503,'Источник вернул некорректную страницу сообщений.');
+    this.state.messages = this.sorted([...(before?this.state.messages:this.state.messages.filter(m => m.conversationId !== id)), ...page.messages]);
+    if(!before){c.preview=page.messages.at(-1)?.text||'';const latest=page.messages.at(-1);if(latest){c.updatedAt=latest.date;this.latestSeen.set(id,latest.id);}else this.latestSeen.delete(id);}
+    this.state.refreshedAt=new Date().toISOString();this.state.stale=false;
     this.persist();
-    return this.snapshot();
+    return {page,snapshot:this.snapshot()};
   }
   //: Явно отмечает диалог прочитанным через адаптер.
   //: Ориентируется на последнее загруженное сообщение и сохраняет нулевой счётчик.
   async markRead(id: string) {
     const c = this.conversation(id);
-    const latest = this.state.messages.filter(m => m.conversationId === id).at(-1);
+    const latest = this.latestSeen.get(id)||this.state.messages.filter(m => m.conversationId === id).at(-1)?.id;
     if (latest) {
-      await this.adapter(c.sourceId).markRead(id, latest.id);
+      await this.adapter(c.sourceId).markRead(id, latest);
       c.unreadCount = 0;
       this.persist();
     }
@@ -129,6 +137,7 @@ export class MessengerService {
       const message = await this.adapter(c.sourceId).sendText(expected, input.text);
       this.selection.require(c.id);
       this.state.messages = this.sorted([...this.state.messages, message]);
+      this.latestSeen.set(c.id,message.id);
       c.preview = message.text; c.updatedAt = message.date;
       this.persist();
       return message;
@@ -141,5 +150,5 @@ export class MessengerService {
   async disconnect() { await this.registry.disconnect(); }
   //: Перечитывает кеш только разрешённых диалогов.
   //: Не загружает данные Telegram и не удаляет архив исключённых диалогов.
-  reset() { this.state = this.store.loadCache(); this.state.stale = true; }
+  reset() { this.latestSeen.clear();this.state = this.store.loadCache(); this.state.stale = true; }
 }

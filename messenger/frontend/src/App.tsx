@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { destinationFor, LIMITS, type Conversation, type Message, type SessionInfo, type Snapshot } from '../../shared/types';
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
+import { destinationFor, LIMITS, type Conversation, type ConversationPageResult, type Message, type MessagePage, type SessionInfo, type Snapshot } from '../../shared/types';
 import { api, ApiError, setCsrf } from './api';
 
 //: Форматирует время сообщения для интерфейса.
@@ -24,6 +24,8 @@ export function App() {
   const [snapshot, setSnapshot] = useState<Snapshot>();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [loading,setLoading]=useState(false);
+  const [page,setPage]=useState<MessagePage>();
   const [password, setPassword] = useState('');
   const [targetId, setTargetId] = useState<string>();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -31,7 +33,12 @@ export function App() {
   const [drawer, setDrawer] = useState(false);
   const [uncertain, setUncertain] = useState(false);
   const feed = useRef<HTMLDivElement>(null);
+  const request=useRef<{id:number;controller?:AbortController}>({id:0});
+  const access=useRef<{ids?:Set<string>;revision:number}>({revision:0});
+  const scrollPlan=useRef<{mode:'bottom'|'preserve';height?:number;top?:number}|undefined>(undefined);
   const target = snapshot?.conversations.find(c => c.id === targetId);
+  const messages=target?(page?.conversationId===target.id?page.messages:[]):snapshot?.messages||[];
+  const pending=busy||loading;
   const draft = target ? drafts[target.id] || '' : '';
   const unread = snapshot?.conversations.reduce((n,c) => n + c.unreadCount, 0) || 0;
   const connected = snapshot?.sources.some(s => s.connected);
@@ -42,12 +49,12 @@ export function App() {
   //: Показывает ошибку операции и обрабатывает потерю входа.
   //: При 401 очищает снимок, адресата и черновики.
   function fail(e: unknown) {
-    if (e instanceof ApiError && e.status === 401) { acceptSession({ authenticated: false, setupRequired: false }); setSnapshot(undefined); setDrafts({}); setTargetId(undefined); }
+    if (e instanceof ApiError && e.status === 401) { cancelView();acceptSession({ authenticated: false, setupRequired: false }); setSnapshot(undefined); setPage(undefined);setDrafts({}); setTargetId(undefined); }
     setError(e instanceof Error ? e.message : 'Нет связи с локальным сервером.');
   }
   useEffect(() => { api<SessionInfo>('session').then(acceptSession).catch(fail); }, []);
   useEffect(() => {
-    if (session?.authenticated) api<Snapshot>('snapshot').then(setSnapshot).catch(fail);
+    if (session?.authenticated) api<Snapshot>('snapshot').then(state=>{scrollPlan.current={mode:'bottom'};setSnapshot(state);}).catch(fail);
   }, [session?.authenticated]);
   useEffect(() => {
     if (!session?.authenticated) return;
@@ -59,7 +66,11 @@ export function App() {
         const result = await api<{ ids: string[] }>('access');
         if (disposed) return;
         const ids = new Set(result.ids);
+        const previous=access.current.ids;
+        if(previous&&(previous.size!==ids.size||[...previous].some(id=>!ids.has(id)))){access.current.revision++;cancelView();}
+        access.current.ids=ids;
         setSnapshot(old => old ? { ...old, conversations: old.conversations.filter(c => ids.has(c.id)), messages: old.messages.filter(m => ids.has(m.conversationId)) } : old);
+        setPage(old=>old&&ids.has(old.conversationId)?old:undefined);
         setTargetId(old => old && ids.has(old) ? old : undefined);
         setDrafts(old => Object.fromEntries(Object.entries(old).filter(([id]) => ids.has(id))));
       } catch (e) { if (!disposed) fail(e); }
@@ -69,7 +80,8 @@ export function App() {
     document.addEventListener('visibilitychange', checkAccess);
     return () => { disposed = true; window.clearInterval(timer); document.removeEventListener('visibilitychange', checkAccess); };
   }, [session?.authenticated]);
-  useEffect(() => { if (feed.current) feed.current.scrollTop = feed.current.scrollHeight; }, [snapshot?.messages.length]);
+  useLayoutEffect(()=>{const element=feed.current;const plan=scrollPlan.current;if(!element||!plan)return;element.scrollTop=plan.mode==='preserve'?(plan.top||0)+element.scrollHeight-(plan.height||0):element.scrollHeight;scrollPlan.current=undefined;},[snapshot?.messages,page?.messages,targetId]);
+  useEffect(()=>()=>{request.current.controller?.abort();request.current.id++;},[]);
   useEffect(() => {
     if (!drawer) return;
     //: Закрывает мобильный список по Escape.
@@ -85,32 +97,56 @@ export function App() {
     try { acceptSession(await api<SessionInfo>('login', { password })); setPassword(''); }
     catch (e) { fail(e); } finally { setBusy(false); }
   }
-  //: Обновляет общую ленту по явному действию.
-  //: Успешный ответ снимает блокировку после неизвестной отправки.
-  async function refresh() {
-    setBusy(true); setError('');
-    try { setSnapshot(await api<Snapshot>('refresh', {})); setUncertain(false); }
-    catch (e) { fail(e); } finally { setBusy(false); }
+  //: Отменяет устаревший HTTP-запрос и запрещает применение позднего ответа.
+  //: Не отзывает уже отправленный Telegram RPC или пользовательскую сессию.
+  function cancelView(){request.current.controller?.abort();request.current.id++;setLoading(false);}
+  //: Загружает десять сообщений одного адресата или предыдущую страницу.
+  //: Быстрое переключение отменяет прежний ответ; догрузка сохраняет положение прокрутки.
+  async function loadView(conversation?:Conversation,older=false,refreshCatalog=false){
+    if(busy)return;
+    const before=older&&page&&page.conversationId===conversation?.id?page.nextCursor:undefined;
+    if(older&&!before)return;
+    request.current.controller?.abort();const controller=new AbortController();const id=++request.current.id;request.current.controller=controller;
+    const revision=access.current.revision;setLoading(true);setError('');
+    try{
+      if(refreshCatalog){
+        const state=await api<Snapshot>('refresh',{},controller.signal);
+        if(id!==request.current.id||revision!==access.current.revision)return;
+        setSnapshot(state);conversation=state.conversations.find(c=>c.id===conversation?.id)||state.conversations[0];
+        setTargetId(conversation?.id);setPage(undefined);
+      }
+      if(!conversation)return;
+      const result=await api<ConversationPageResult>(older?'older':'open',{conversationId:conversation.id,...(before?{before}:{})},controller.signal);
+      if(id!==request.current.id||revision!==access.current.revision)return;
+      scrollPlan.current=older?{mode:'preserve',height:feed.current?.scrollHeight,top:feed.current?.scrollTop}:{mode:'bottom'};
+      setSnapshot(result.snapshot);
+      setPage(old=>older&&old?.conversationId===result.page.conversationId?{...result.page,messages:[...new Map([...old.messages,...result.page.messages].map(m=>[m.id,m])).values()].sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id))}:result.page);
+      if(refreshCatalog)setUncertain(false);
+    }catch(e){if(id===request.current.id&&!controller.signal.aborted)fail(e);}
+    finally{if(id===request.current.id)setLoading(false);}
   }
+  //: Обновляет метаданные и только открытый либо первый разрешённый диалог.
+  //: Не обходит историю остальных адресатов и сбрасывает текущую страницу к последним 10.
+  async function refresh() {await loadView(target,false,true);}
   //: Выбирает адресата и подгружает его последние сообщения.
   //: Сохраняет раздельные черновики, закрывает мобильную панель.
   async function choose(c: Conversation) {
     if (busy) return;
-    setTargetId(c.id); setDrawer(false); setBusy(true); setError('');
-    try { setSnapshot(await api<Snapshot>('open', { conversationId: c.id })); }
-    catch (e) { fail(e); } finally { setBusy(false); }
+    setTargetId(c.id); setPage(undefined);setDrawer(false);await loadView(c);
   }
   //: Фиксирует текст и Destination, затем создаёт уникальный request ID.
   //: Очищает только отправленный черновик; ошибка требует ручной сверки ленты.
   async function send(e: FormEvent) {
     e.preventDefault();
-    if (!target || !draft.trim() || busy || uncertain) return;
+    if (!target || !draft.trim() || pending || uncertain) return;
     const destination = destinationFor(target);
     const text = draft;
     setBusy(true); setError('');
     try {
       const message = await api<Message>('send', { destination, text, requestId: crypto.randomUUID() });
-      setSnapshot(old => old ? { ...old, conversations: old.conversations.map(c => c.id === message.conversationId ? { ...c, preview:message.text, updatedAt:message.date } : c), messages: [...old.messages.filter(m => m.id !== message.id), message].sort((a,b) => a.date.localeCompare(b.date)) } : old);
+      scrollPlan.current={mode:'bottom'};
+      setSnapshot(old => old ? { ...old, conversations: old.conversations.map(c => c.id === message.conversationId ? { ...c, preview:message.text, updatedAt:message.date } : c), messages: [...old.messages.filter(m => m.id !== message.id), message].sort((a,b) => a.date.localeCompare(b.date)).slice(-LIMITS.pageMessages) } : old);
+      setPage(old=>old?.conversationId===message.conversationId?{...old,messages:[...old.messages.filter(m=>m.id!==message.id),message].sort((a,b)=>a.date.localeCompare(b.date))}:old);
       setDrafts(old => ({ ...old, [destination.conversationId]: '' }));
     } catch (e) { setUncertain(true); fail(e); } finally { setBusy(false); }
   }
@@ -125,10 +161,10 @@ export function App() {
   //: Отзывает текущую веб-сессию и очищает состояние переписки UI.
   //: Не завершает Telegram-авторизацию на сервере.
   async function logout() {
-    setBusy(true);
+    cancelView();setBusy(true);
     try {
       await api('logout', {}); acceptSession({ authenticated: false, setupRequired: false });
-      setSnapshot(undefined); setDrafts({}); setTargetId(undefined); setError('');
+      setSnapshot(undefined);setPage(undefined);setDrafts({});setTargetId(undefined);setError('');access.current={revision:0};
     } catch (e) { fail(e); } finally { setBusy(false); }
   }
 
@@ -151,12 +187,12 @@ export function App() {
       <div className="sidebar-brand"><Brand /><button className="icon-button mobile-only" aria-label="Закрыть диалоги" onClick={() => setDrawer(false)}><Icon name="close" /></button></div>
       <div className="sidebar-heading"><h2>Диалоги</h2><span className="count">{snapshot?.conversations.length || 0}</span></div>
       <label className="search"><Icon name="search" /><input aria-label="Поиск диалогов" placeholder="Найти разговор" value={query} onChange={e => setQuery(e.target.value)} /></label>
-      <button className={`all-row ${!target ? 'active' : ''}`} disabled={busy} onClick={() => { setTargetId(undefined); setDrawer(false); }}><span className="all-symbol">≋</span><span>Общая лента</span>{unread > 0 && <b className="badge" aria-label={`${unread} непрочитанных`}>{unread}</b>}</button>
+      <button className={`all-row ${!target ? 'active' : ''}`} disabled={busy} onClick={() => { cancelView();setTargetId(undefined);setPage(undefined);scrollPlan.current={mode:'bottom'};setDrawer(false); }}><span className="all-symbol">≋</span><span>Общая лента</span>{unread > 0 && <b className="badge" aria-label={`${unread} непрочитанных`}>{unread}</b>}</button>
       <div className="list-label">ВЫБРАТЬ АДРЕСАТА</div>
       <nav className="conversation-list" aria-label="Получатели">
         {snapshot?.conversations.filter(c => c.title.toLocaleLowerCase().includes(query.toLocaleLowerCase())).map((c,i) => <button key={c.id} className={`conversation ${target?.id === c.id ? 'selected' : ''}`} disabled={busy} onClick={() => choose(c)} aria-pressed={target?.id === c.id}>
           <span className={`avatar tone-${i % 4}`}>{c.title.slice(0,1).toUpperCase()}</span>
-          <span className="conversation-copy"><span className="conversation-title">{c.title}<time>{c.updatedAt && time(c.updatedAt)}</time></span><span className="preview">{c.preview || (c.kind === 'group' ? 'Группа' : 'Личный диалог')}</span><span className="source-caption">{snapshot.sources.find(s => s.id === c.sourceId)?.name}</span></span>
+          <span className="conversation-copy"><span className="conversation-title">{c.title}<time>{c.updatedAt && time(c.updatedAt)}</time></span><span className="preview">{c.preview || (c.kind === 'group' ? 'Группа' : c.kind === 'channel' ? 'Канал' : 'Личный диалог')}</span><span className="source-caption">{snapshot.sources.find(s => s.id === c.sourceId)?.name}</span></span>
           {c.unreadCount > 0 && <span className="badge">{c.unreadCount}</span>}
         </button>)}
         {!snapshot?.conversations.length && <p className="list-empty">Здесь появятся ваши диалоги после подключения аккаунта и обновления.</p>}
@@ -164,15 +200,16 @@ export function App() {
       <div className="sidebar-footer"><span><i className={`status-dot ${connected ? '' : 'muted'}`} />{unread} непрочитанных</span><button className="icon-button" aria-label="Выйти" onClick={logout} disabled={busy}><Icon name="logout" /></button></div>
     </aside>
     <section className="chat" aria-label="Единая лента сообщений">
-      <header className="chat-header"><button className="icon-button mobile-only" aria-label="Открыть диалоги" onClick={() => setDrawer(true)}><Icon name="menu" /></button><div><div className="header-title"><h1>Общая лента</h1></div><p>{unread} непрочитанных</p></div><button className="refresh-button" onClick={refresh} disabled={busy}><Icon name="refresh" /><span>{busy ? 'Подождите…' : 'Обновить'}</span></button></header>
+      <header className="chat-header"><button className="icon-button mobile-only" aria-label="Открыть диалоги" onClick={() => setDrawer(true)}><Icon name="menu" /></button><div><div className="header-title"><h1>{target?.title||'Общая лента'}</h1></div><p>{unread} непрочитанных</p></div><button className="refresh-button" onClick={refresh} disabled={pending}><Icon name="refresh" /><span>{pending ? 'Подождите…' : 'Обновить'}</span></button></header>
       <div className="feed-info"><span className="status-dot" />{snapshot?.stale ? 'Кеш · нажмите «Обновить» для актуальных сообщений' : snapshot?.refreshedAt ? `Обновлено в ${time(snapshot.refreshedAt)} · вручную` : 'Обновление по вашему запросу'}<span className="feed-limit">Только последние сообщения</span></div>
       {error && <div className="error-banner" role="alert">{error}</div>}
-      <div className="feed" ref={feed} tabIndex={0} aria-label="Сообщения" aria-busy={busy}>
-        {!snapshot?.messages.length ? <div className="empty-state"><h2>Нет загруженных сообщений</h2><button className="primary" onClick={refresh} disabled={busy}>Обновить сообщения <Icon name="refresh" /></button></div> : <div className="message-stream">{snapshot.messages.map((m,i,messages) => {
-          const c = snapshot.conversations.find(c => c.id === m.conversationId);
+      <div className="feed" ref={feed} tabIndex={0} aria-label="Сообщения" aria-busy={pending}>
+        {target&&page?.conversationId===target.id&&page.nextCursor&&<button className="load-more" disabled={pending} onClick={()=>void loadView(target,true)}>Загрузить ещё 10 сообщений</button>}
+        {!messages.length ? <div className="empty-state"><h2>{loading?'Загрузка сообщений…':'Нет загруженных сообщений'}</h2><button className="primary" onClick={refresh} disabled={pending}>Обновить сообщения <Icon name="refresh" /></button></div> : <div className="message-stream">{messages.map((m,i,messages) => {
+          const c = snapshot?.conversations.find(c => c.id === m.conversationId);
           return <div key={m.id}>{(i === 0 || day(messages[i-1].date) !== day(m.date)) && <div className="date-divider"><span>{day(m.date)}</span></div>}
             <article className={`message ${m.outgoing ? 'outgoing' : ''}`} aria-label={`Сообщение: ${m.sender.name}`}>
-              <div className="message-context"><strong>{c?.title || 'Диалог'}</strong><span className="source-label">↗ {snapshot.sources.find(s => s.id === m.sourceId)?.name || 'Источник'}</span></div>
+              <div className="message-context"><strong>{c?.title || 'Диалог'}</strong><span className="source-label">↗ {snapshot?.sources.find(s => s.id === m.sourceId)?.name || 'Источник'}</span></div>
               <div className="bubble">{!m.outgoing && c?.kind === 'group' && <strong className="sender-name">{m.sender.name}</strong>}{m.text && <p>{m.text}</p>}{m.attachments.map(a => <div key={a.id} className="attachment">{a.name}</div>)}<div className="message-meta"><time dateTime={m.date}>{time(m.date)}</time>{m.outgoing && <span aria-label="Отправлено">✓</span>}</div></div>
               {c?.canSend && <button className="reply-button" disabled={busy} onClick={() => choose(c)}>Ответить <span aria-hidden="true">↗</span></button>}
             </article></div>;
@@ -180,8 +217,8 @@ export function App() {
       </div>
       <div className="composer-area">
         <div className="destination">{target ? <><span>Кому: <strong>{target.title}</strong><span className="destination-source"> · {snapshot?.sources.find(s => s.id === target.sourceId)?.name}</span></span><button disabled={busy} onClick={() => setDrawer(true)}>Изменить</button></> : <><span>Выберите адресата, чтобы начать разговор</span><button onClick={() => setDrawer(true)}>Выбрать <span aria-hidden="true">↗</span></button></>}</div>
-        <form className="composer" onSubmit={send}><textarea aria-label="Сообщение" placeholder={target ? target.canSend ? 'Написать сообщение…' : 'Этот диалог доступен только для чтения' : 'Сначала выберите адресата'} rows={2} value={draft} maxLength={LIMITS.text} disabled={!target?.canSend || busy} onChange={e => target && setDrafts(old => ({ ...old, [target.id]: e.target.value }))} /><button className="send-button" type="submit" aria-label={target ? `Отправить: ${target.title}` : 'Отправить сообщение'} disabled={!target?.canSend || !draft.trim() || busy || uncertain}><Icon name="send" /></button></form>
-        <div className="composer-note">{uncertain && <span>Перед повторной отправкой обновите ленту</span>}{target && target.unreadCount > 0 && <button disabled={busy} onClick={read}>Отметить прочитанным</button>}{draft.length > 3500 && <span>{draft.length}/{LIMITS.text}</span>}</div>
+        <form className="composer" onSubmit={send}><textarea aria-label="Сообщение" placeholder={target ? target.canSend ? 'Написать сообщение…' : 'Этот диалог доступен только для чтения' : 'Сначала выберите адресата'} rows={2} value={draft} maxLength={LIMITS.text} disabled={!target?.canSend || pending} onChange={e => target && setDrafts(old => ({ ...old, [target.id]: e.target.value }))} /><button className="send-button" type="submit" aria-label={target ? `Отправить: ${target.title}` : 'Отправить сообщение'} disabled={!target?.canSend || !draft.trim() || pending || uncertain}><Icon name="send" /></button></form>
+        <div className="composer-note">{uncertain && <span>Перед повторной отправкой обновите ленту</span>}{target && target.unreadCount > 0 && <button disabled={pending} onClick={read}>Отметить прочитанным</button>}{draft.length > 3500 && <span>{draft.length}/{LIMITS.text}</span>}</div>
       </div>
     </section>
   </main>;

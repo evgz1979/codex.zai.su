@@ -54,7 +54,7 @@ export class Store {
     try {
       for (const c of snapshot.conversations) this.db.prepare('INSERT OR REPLACE INTO conversation_cache (id,payload) VALUES (?,?)').run(c.id,JSON.stringify(c));
       for (const m of snapshot.messages) this.db.prepare('INSERT OR REPLACE INTO message_cache (id,conversation_id,date,payload) VALUES (?,?,?,?)').run(m.id,m.conversationId,m.date,JSON.stringify(m));
-      for (const id of new Set(snapshot.messages.map(m=>m.conversationId))) this.db.prepare('DELETE FROM message_cache WHERE conversation_id = ? AND id NOT IN (SELECT id FROM message_cache WHERE conversation_id = ? ORDER BY date DESC,id DESC LIMIT ?)').run(id,id,LIMITS.selectedMessages);
+      for (const id of new Set(snapshot.messages.map(m=>m.conversationId))) this.db.prepare('DELETE FROM message_cache WHERE conversation_id = ? AND id NOT IN (SELECT id FROM message_cache WHERE conversation_id = ? ORDER BY date DESC,id DESC LIMIT ?)').run(id,id,LIMITS.cachedPerConversation);
       if (snapshot.refreshedAt) this.set('refreshedAt',snapshot.refreshedAt);
       this.db.exec('COMMIT');
     } catch (e) { this.db.exec('ROLLBACK'); throw e; }

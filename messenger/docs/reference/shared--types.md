@@ -111,6 +111,21 @@ export interface ConversationFolder {
 }
 ```
 
+<a id="symbol-ConversationPageResult"></a>
+
+## ConversationPageResult
+
+Возвращает отдельную страницу диалога и ограниченную общую ленту.
+
+Страница не теряется при вытеснении старых сообщений из общего кеша.
+
+```typescript
+export interface ConversationPageResult {
+    page: MessagePage;
+    snapshot: Snapshot;
+}
+```
+
 <a id="symbol-DeliveryStatus"></a>
 
 ## DeliveryStatus
@@ -184,7 +199,7 @@ export type EntityId = string;
 Одна константа используется сервером и клиентской валидацией текста.
 
 ```typescript
-const LIMITS = { conversations: 1000, recentConversations: 12, messagesPerConversation: 20, selectedMessages: 40, cachedMessages: 400, text: 4096 } as const
+const LIMITS = { conversations: 1000, pageMessages: 10, cachedPerConversation: 40, cachedMessages: 400, text: 4096 } as const
 ```
 
 <a id="symbol-Message"></a>
@@ -207,6 +222,34 @@ export interface Message {
     status: DeliveryStatus;
     attachments: Attachment[];
 }
+```
+
+<a id="symbol-MessagePage"></a>
+
+## MessagePage
+
+Передаёт одну страницу сообщений конкретного диалога.
+
+nextCursor относится только к этому диалогу; null завершает ручную загрузку.
+
+```typescript
+export interface MessagePage {
+    conversationId: EntityId;
+    messages: Message[];
+    nextCursor: string | null;
+}
+```
+
+<a id="symbol-PASSWORD_LIMITS"></a>
+
+## PASSWORD_LIMITS
+
+Задаёт одинаковые границы новых паролей Messenger для CLI, API и формы.
+
+Не изменяет существующие пароли и не относится к Telegram 2FA.
+
+```typescript
+const PASSWORD_LIMITS = { min: 8, max: 512 } as const
 ```
 
 <a id="symbol-Recipient"></a>

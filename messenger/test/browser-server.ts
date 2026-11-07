@@ -19,6 +19,7 @@ b.messages = b.messages.slice(0,1); b.messages[0].text = 'Это синтети�
 b.messages[0].date = '2026-11-07T10:01:30.000Z';
 store.select([...a.conversations,...b.conversations].map(c=>c.id));
 const service = new MessengerService([a,b],store); await service.refresh();
+for(const conversation of [...a.conversations,...b.conversations])await service.open(conversation.id);
 const server = createApp({ store,service,clientDirectory,origin:'http://127.0.0.1:14318' });
 server.listen(14318,'127.0.0.1');
 function stop() { server.closeAllConnections(); server.close(() => { store.close(); rmSync(dir,{recursive:true,force:true}); }); }

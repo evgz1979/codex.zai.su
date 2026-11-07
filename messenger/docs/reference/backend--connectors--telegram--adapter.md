@@ -52,6 +52,18 @@ async connect()
 constructor(private vault: SecretVault, private createClient: (credentials: NonNullable<ReturnType<SecretVault['load']>>, vault: SecretVault) => TelegramPort = telegramClient)
 ```
 
+<a id="symbol-TelegramAdapter.cursorOffset"></a>
+
+## TelegramAdapter.cursorOffset
+
+Проверяет принадлежность курсора текущему источнику и диалогу.
+
+Не принимает native ID другого чата или произвольный offset Telegram.
+
+```typescript
+private cursorOffset(conversationId: string, cursor: string): number
+```
+
 <a id="symbol-TelegramAdapter.dialog"></a>
 
 ## TelegramAdapter.dialog
@@ -148,13 +160,25 @@ private mapMessage(m: Api.Message, conversationId: string): Message
 async markRead(conversationId: string, messageId: string)
 ```
 
+<a id="symbol-TelegramAdapter.messagePage"></a>
+
+## TelegramAdapter.messagePage
+
+Читает одну страницу до указанного сообщения без обхода других чатов.
+
+Курсор двигается по raw-странице, включая сервисные записи; запрос ограничен 10.
+
+```typescript
+async messagePage(conversationId: string, limit: number, before?: string): Promise<MessagePage>
+```
+
 <a id="symbol-TelegramAdapter.recentMessages"></a>
 
 ## TelegramAdapter.recentMessages
 
-Читает последние сообщения выбранного диалога.
+Читает только первую страницу выбранного диалога.
 
-Ограничивает запрос selectedMessages и возвращает только обычные Api.Message.
+Совместимый контракт без курсора ограничен десятью сообщениями.
 
 ```typescript
 async recentMessages(conversationId: string, limit: number)

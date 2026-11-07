@@ -34,12 +34,16 @@ test('HTTP: вход, CSRF, Origin/Host, приватные API, безопас�
     const headers = { Cookie:cookie.split(';')[0], 'X-CSRF-Token':info.csrfToken };
     assert.equal((await request('/api/chat/refresh',{}, {Cookie:headers.Cookie})).status,403);
     assert.equal((await request('/api/chat/refresh',{},headers)).status,200);
+    const opened=await request('/api/chat/open',{conversationId:adapter.conversations[0].id},headers);assert.equal(opened.status,200);
+    assert.equal((await opened.json() as {page:{messages:unknown[]}}).page.messages.length,1);
     const snapshot = await request('/api/chat/snapshot',undefined,headers);
     assert.equal(snapshot.headers.get('cache-control'),'no-store');
     assert.ok(snapshot.headers.get('content-security-policy')?.includes("connect-src 'self'"));
-    assert.equal((await snapshot.json() as {messages:unknown[]}).messages.length,3);
+    assert.equal((await snapshot.json() as {messages:unknown[]}).messages.length,1);
     assert.equal((await request('/api/chat/send',[],headers)).status,400);
     assert.equal((await request('/api/chat/send',{text:'x'.repeat(21000)},headers)).status,413);
+    assert.equal((await request('/api/chat/older',{conversationId:adapter.conversations[0].id},headers)).status,400);
+    assert.equal((await request('/api/chat/older',{conversationId:adapter.conversations[0].id,before:'x'},{Cookie:headers.Cookie})).status,403);
     adapter.fail = true;
     const error = await request('/api/chat/refresh',{},headers);
     assert.equal(error.status,503); assert.ok(!(await error.text()).includes('PRIVATE_PROVIDER_ERROR'));

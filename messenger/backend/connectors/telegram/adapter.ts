@@ -3,8 +3,9 @@ import type { Dialog } from 'teleproto/tl/custom/dialog';
 import type { SourceAdapter } from '../../core/source-adapter.js';
 import { SecretVault } from '../../storage/private-files.js';
 import { telegramClient } from './client.js';
-import { entityId, LIMITS, type Conversation, type ConversationCatalog, type Destination, type Message, type Source } from '../../../shared/types.js';
+import { entityId, LIMITS, type Conversation, type ConversationCatalog, type Destination, type Message, type MessagePage, type Source } from '../../../shared/types.js';
 import {telegramFolders,type TelegramMuteDefaults} from './folders.js';
+import {AppError} from '../../core/errors.js';
 
 //: Задаёт стабильный ID личного Telegram-источника.
 //: Это ID экземпляра адаптера, а не общий вид провайдера.
@@ -130,12 +131,29 @@ export class TelegramAdapter implements SourceAdapter {
       attachments: m.media && !(m.media instanceof Api.MessageMediaWebPage) ? [{ id: entityId(this.source.id, 'attachment', `${conversationId}/${m.id}`), kind: 'unsupported', name: 'Вложение · откройте в Telegram' }] : [],
     };
   }
-  //: Читает последние сообщения выбранного диалога.
-  //: Ограничивает запрос selectedMessages и возвращает только обычные Api.Message.
+  //: Читает только первую страницу выбранного диалога.
+  //: Совместимый контракт без курсора ограничен десятью сообщениями.
   async recentMessages(conversationId: string, limit: number) {
+    return (await this.messagePage(conversationId,limit)).messages;
+  }
+  //: Проверяет принадлежность курсора текущему источнику и диалогу.
+  //: Не принимает native ID другого чата или произвольный offset Telegram.
+  private cursorOffset(conversationId:string,cursor:string):number {
+    const parts=cursor.split(':');
+    let value='';try{value=decodeURIComponent(parts[2]||'');}catch{throw new AppError(400,'Некорректный курсор сообщений.');}
+    const prefix=`${conversationId}/`;const native=value.slice(prefix.length);
+    if(parts.length!==3||parts[0]!==encodeURIComponent(this.source.id)||parts[1]!=='message'||!value.startsWith(prefix)||!/^\d{1,10}$/.test(native)||Number(native)<=0||Number(native)>2147483647)throw new AppError(400,'Курсор не относится к этому диалогу.');
+    return Number(native);
+  }
+  //: Читает одну страницу до указанного сообщения без обхода других чатов.
+  //: Курсор двигается по raw-странице, включая сервисные записи; запрос ограничен 10.
+  async messagePage(conversationId:string,limit:number,before?:string):Promise<MessagePage> {
+    const offsetId=before?this.cursorOffset(conversationId,before):undefined;
     const d = await this.dialog(conversationId);
-    const messages = await this.client!.getMessages(d.inputEntity, { limit: Math.min(limit, LIMITS.selectedMessages) });
-    return messages.filter((m): m is Api.Message => m instanceof Api.Message).map(m => this.mapMessage(m, conversationId)).reverse();
+    const count=Math.min(limit,LIMITS.pageMessages);
+    const messages = await this.client!.getMessages(d.inputEntity, { limit: count, ...(offsetId?{offsetId}:{}) });
+    const oldest=messages.at(-1)?.id;
+    return {conversationId,messages:messages.filter((m): m is Api.Message => m instanceof Api.Message).map(m => this.mapMessage(m, conversationId)).reverse(),nextCursor:messages.length===count&&oldest&&(!offsetId||oldest<offsetId)?entityId(this.source.id,'message',`${conversationId}/${oldest}`):null};
   }
   //: Отправляет буквальный текст в проверенный Telegram dialog.
   //: Повторно сверяет source и recipient; отключает разметку и link preview.

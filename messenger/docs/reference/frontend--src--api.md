@@ -10,10 +10,10 @@ Same-origin fetch, CSRF в памяти и безопасная ошибка API
 
 Выполняет same-origin JSON-запрос к фиксированному /api пути.
 
-Передаёт cookie, CSRF для POST и запрещает кеширование ответа.
+Передаёт cookie/CSRF, запрещает кеш и принимает AbortSignal для смены адресата.
 
 ```typescript
-async api<T>(path: string, input?: unknown): Promise<T>
+async api<T>(path: string, input?: unknown, signal?: AbortSignal): Promise<T>
 ```
 
 <a id="symbol-ApiError"></a>

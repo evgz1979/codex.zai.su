@@ -28,6 +28,18 @@ App()
 acceptSession(info: SessionInfo)
 ```
 
+<a id="symbol-App.cancelView"></a>
+
+## App.cancelView
+
+Отменяет устаревший HTTP-запрос и запрещает применение позднего ответа.
+
+Не отзывает уже отправленный Telegram RPC или пользовательскую сессию.
+
+```typescript
+cancelView()
+```
+
 <a id="symbol-App.checkAccess"></a>
 
 ## App.checkAccess
@@ -76,6 +88,18 @@ Listener снимается cleanup-функцией эффекта.
 listener(e: KeyboardEvent)
 ```
 
+<a id="symbol-App.loadView"></a>
+
+## App.loadView
+
+Загружает десять сообщений одного адресата или предыдущую страницу.
+
+Быстрое переключение отменяет прежний ответ; догрузка сохраняет положение прокрутки.
+
+```typescript
+async loadView(conversation?: Conversation, older = false, refreshCatalog = false)
+```
+
 <a id="symbol-App.login"></a>
 
 ## App.login
@@ -116,9 +140,9 @@ async read()
 
 ## App.refresh
 
-Обновляет общую ленту по явному действию.
+Обновляет метаданные и только открытый либо первый разрешённый диалог.
 
-Успешный ответ снимает блокировку после неизвестной отправки.
+Не обходит историю остальных адресатов и сбрасывает текущую страницу к последним 10.
 
 ```typescript
 async refresh()

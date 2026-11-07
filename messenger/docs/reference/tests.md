@@ -5,11 +5,13 @@
 - [test/admin.test.ts](../../test/admin.test.ts): HTTP: отдельные права и Secure cookie, отсутствие Telegram-секретов в ответах
 - [test/admin.test.ts](../../test/admin.test.ts): Telegram-вход: этапы code/2FA, сохранение сессии без кода и пароля, отмена
 - [test/admin.test.ts](../../test/admin.test.ts): админка: метаданные не синхронизируют историю; выбор сохраняется в SQLite
+- [test/browser/admin.spec.ts](../../test/browser/admin.spec.ts): админка: новый пароль от восьми символов, семь не принимаются формой
 - [test/browser/admin.spec.ts](../../test/browser/admin.spec.ts): админка: отдельный вход, Telegram code/2FA и выбор галочками
 - [test/browser/admin.spec.ts](../../test/browser/admin.spec.ts): админка: папки отдельными закладками, общий выбор, поиск и клавиатура
 - [test/browser/admin.spec.ts](../../test/browser/admin.spec.ts): админка: причина отказа получения кода видна после очистки секретных полей
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): единая лента, выбор адресата, отправка, непрочитанные, выход и мобильные границы
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): открытый чат скрывает исключённые диалоги без синхронизации истории
+- [test/browser/paging.spec.ts](../../test/browser/paging.spec.ts): чат: 10 сообщений адресата, ручная догрузка, прокрутка и быстрый переход
 - [test/core.test.ts](../../test/core.test.ts): SQLite ограничивает активный кеш и сохраняет исключённый архив
 - [test/core.test.ts](../../test/core.test.ts): единая лента объединяет источники и сохраняет хронологию
 - [test/core.test.ts](../../test/core.test.ts): идентификаторы не конфликтуют между источниками, типами и строками
@@ -29,6 +31,10 @@
 - [test/documentation.test.mjs](../../test/documentation.test.mjs): документация: приватные и сторонние вложенные каталоги не обходятся
 - [test/documentation.test.mjs](../../test/documentation.test.mjs): документация: у каждого исходника отдельная страница, включая stop.mjs и stop.sh
 - [test/http.test.ts](../../test/http.test.ts): HTTP: вход, CSRF, Origin/Host, приватные API, безопасные ошибки и выход
+- [test/paging.test.ts](../../test/paging.test.ts): Telegram-страницы: offsetId, сервисные записи, конец и курсор чужого диалога
+- [test/paging.test.ts](../../test/paging.test.ts): страницы: обновление не читает историю всех чатов; активный диалог получает 10 + 10 + 5
+- [test/paging.test.ts](../../test/paging.test.ts): страницы: отметка прочитанного работает после вытеснения из общего кеша
+- [test/paging.test.ts](../../test/paging.test.ts): страницы: смена прав во время чтения и неверный источник не попадают в кеш
 - [test/telegram-auth.test.ts](../../test/telegram-auth.test.ts): Telegram: настоящая оркестрация teleproto сохраняет причину sendCode
 - [test/telegram-auth.test.ts](../../test/telegram-auth.test.ts): Telegram: неверный код повторяется на том же запросе, затем доступен 2FA
 - [test/telegram-auth.test.ts](../../test/telegram-auth.test.ts): Telegram: ошибка фабрики не оставляет вечный connecting и не блокирует новый вход

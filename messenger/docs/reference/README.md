@@ -11,7 +11,7 @@
 | [backend/auth/telegram-login.ts](backend--auth--telegram-login.md) | Пошаговый Telegram-вход с временными callbacks кода и 2FA. | 9 |
 | [backend/cli.ts](backend--cli.md) | Команды setup, bootstrap и clear без вывода секретов; Telegram подключается через админку. | 1 |
 | [backend/config.ts](backend--config.md) | Фиксированные loopback-порт, Origin и пути модуля для source/build. | 6 |
-| [backend/connectors/telegram/adapter.ts](backend--connectors--telegram--adapter.md) | Каталог диалогов/папок Telegram, преобразование сообщений в общие DTO и проверка назначения. | 16 |
+| [backend/connectors/telegram/adapter.ts](backend--connectors--telegram--adapter.md) | Каталог диалогов/папок Telegram, преобразование сообщений в общие DTO и проверка назначения. | 18 |
 | [backend/connectors/telegram/client.ts](backend--connectors--telegram--client.md) | Создание teleproto-клиента с приватной сессией, дедлайном RPC и выключенными логами. | 5 |
 | [backend/connectors/telegram/folders.ts](backend--connectors--telegram--folders.md) | Преобразование папок и правил Telegram в общий административный каталог. | 4 |
 | [backend/core/errors.ts](backend--core--errors.md) | Безопасная прикладная ошибка HTTP API. | 2 |
@@ -26,7 +26,7 @@
 | [backend/storage/store.ts](backend--storage--store.md) | SQLite: настройки ролей, выбранные диалоги и ограниченный кеш с сохранением исключённого архива. | 11 |
 | [frontend/index.html](frontend--index.md) | HTML-точка входа, viewport и подключение React-сборки. | 0 |
 | [frontend/public/favicon.svg](frontend--public--favicon.md) | Локальная иконка приложения без внешних ресурсов. | 0 |
-| [frontend/src/App.tsx](frontend--src--App.md) | Единый React-интерфейс, веб-вход, адресат, черновики и состояние операций. | 15 |
+| [frontend/src/App.tsx](frontend--src--App.md) | Единый React-интерфейс, веб-вход, адресат, черновики и состояние операций. | 17 |
 | [frontend/src/admin/AdminApp.tsx](frontend--src--admin--AdminApp.md) | Отдельная административная страница с собственным входом и формами. | 11 |
 | [frontend/src/admin/ConversationPicker.tsx](frontend--src--admin--ConversationPicker.md) | Закладки папок, поиск и независимый от текущей папки выбор диалогов. | 3 |
 | [frontend/src/api.ts](frontend--src--api.md) | Same-origin fetch, CSRF в памяти и безопасная ошибка API. | 4 |
@@ -39,4 +39,4 @@
 | [scripts/start.sh](scripts--start-sh.md) | Запуск собранного сервера по абсолютному пути для безопасной проверки PID. | 0 |
 | [scripts/stop.mjs](scripts--stop.md) | Проверка PID и команды процесса перед SIGTERM только Messenger. | 0 |
 | [scripts/stop.sh](scripts--stop-sh.md) | Выбор Node.js и запуск штатного stop.mjs. | 0 |
-| [shared/types.ts](shared--types.md) | Общие DTO ленты и каталога, статусы веб-авторизации, лимиты, ID и Destination. | 22 |
+| [shared/types.ts](shared--types.md) | Общие DTO ленты и каталога, статусы веб-авторизации, лимиты, ID и Destination. | 25 |

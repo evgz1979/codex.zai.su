@@ -27,6 +27,16 @@ export class TestAdapter implements SourceAdapter {
   async disconnect() { this.source.connected = false; }
   async listConversations() { return structuredClone(this.conversations); }
   async recentMessages(id: string, limit: number) { this.calls.push(limit); return this.messages.filter(m => m.conversationId === id).slice(-limit); }
+  //: Возвращает синтетическую страницу только указанного диалога.
+  //: Курсор другого диалога отклоняется без доступа к рабочему Telegram.
+  async messagePage(id:string,limit:number,before?:string){
+    this.calls.push(limit);
+    const messages=this.messages.filter(m=>m.conversationId===id).sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
+    const end=before?messages.findIndex(m=>m.id===before):messages.length;
+    if(end<0)throw new Error('Invalid synthetic cursor');
+    const start=Math.max(0,end-limit);const page=messages.slice(start,end);
+    return {conversationId:id,messages:page,nextCursor:start>0?page[0].id:null};
+  }
   async sendText(destination: Destination, text: string): Promise<Message> {
     if (this.fail) throw new Error('PRIVATE_PROVIDER_ERROR');
     this.sent.push({ destination, text });
