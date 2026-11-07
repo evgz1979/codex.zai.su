@@ -6,13 +6,16 @@ import { telegramClient } from './client.js';
 import { entityId, LIMITS, type Conversation, type ConversationCatalog, type Destination, type Message, type MessagePage, type Source } from '../../../shared/types.js';
 import {telegramFolders,type TelegramMuteDefaults} from './folders.js';
 import {AppError} from '../../core/errors.js';
+import {NewMessage,EditedMessage,DeletedMessage,type NewMessageEvent,type DeletedMessageEvent} from 'teleproto/events';
+import type {SourceEvent} from '../../core/source-adapter.js';
+import type {HistoryPage} from '../../../shared/types.js';
 
 //: Задаёт стабильный ID личного Telegram-источника.
 //: Это ID экземпляра адаптера, а не общий вид провайдера.
 export const TELEGRAM_SOURCE = 'telegram-personal';
 //: Ограничивает поверхность teleproto, нужную адаптеру.
 //: Тесты подставляют этот порт без реального Telegram-подключения.
-type TelegramPort = Pick<TelegramClient, 'connected' | 'connect' | 'checkAuthorization' | 'destroy' | 'getDialogs' | 'getMessages' | 'sendMessage' | 'markAsRead' | 'logOut' | 'invoke' | 'getNotifySettings'>;
+type TelegramPort = Pick<TelegramClient, 'connected' | 'connect' | 'checkAuthorization' | 'destroy' | 'getDialogs' | 'getMessages' | 'sendMessage' | 'markAsRead' | 'logOut' | 'invoke' | 'getNotifySettings' | 'addEventHandler'>;
 //: Реализует SourceAdapter для одного личного Telegram-аккаунта.
 //: Сессия и native peer остаются на сервере, DTO не содержат секретов.
 export class TelegramAdapter implements SourceAdapter {
@@ -20,6 +23,8 @@ export class TelegramAdapter implements SourceAdapter {
   private client?: TelegramPort;
   private dialogs = new Map<string, Pick<Dialog, 'id' | 'inputEntity'>>();
   private connecting?: Promise<void>;
+  private subscribers=new Set<{listener:(event:SourceEvent)=>void;allows:(id:string)=>boolean}>();
+  private listenedClient?:TelegramPort;
   //: Подключает приватное хранилище и фабрику клиента.
   //: По умолчанию используется teleproto; отдельная фабрика служит изолированным тестам.
   constructor(private vault: SecretVault, private createClient: (credentials: NonNullable<ReturnType<SecretVault['load']>>, vault: SecretVault) => TelegramPort = telegramClient) {
@@ -43,6 +48,7 @@ export class TelegramAdapter implements SourceAdapter {
     if (this.client) await this.client.destroy();
     this.source.id = credentials.accountId ? `telegram-${credentials.accountId}` : TELEGRAM_SOURCE;
     this.client = this.createClient(credentials, this.vault);
+    this.bindEvents();
     await this.client.connect();
     if (!await this.client.checkAuthorization()) throw new Error('Telegram login required');
     this.source.connected = true;
@@ -128,7 +134,9 @@ export class TelegramAdapter implements SourceAdapter {
       sender: { id: entityId(this.source.id, 'sender', nativeSender), name: m.out ? 'Вы' : sender ? utils.getDisplayName(sender) || 'Участник' : 'Участник', isSelf: !!m.out },
       date: new Date(m.date * 1000).toISOString(), text: m.message || '', outgoing: !!m.out,
       status: m.out ? 'sent' : 'received',
+      ...(m.editDate?{editedAt:new Date(m.editDate*1000).toISOString()}:{}),
       attachments: m.media && !(m.media instanceof Api.MessageMediaWebPage) ? [{ id: entityId(this.source.id, 'attachment', `${conversationId}/${m.id}`), kind: 'unsupported', name: 'Вложение · откройте в Telegram' }] : [],
+      sourceKey:entityId(this.source.id,'source-message',`${m.peerId instanceof Api.PeerChannel?utils.getPeerId(m.peerId):'global'}/${m.id}`),
     };
   }
   //: Читает только первую страницу выбранного диалога.
@@ -148,12 +156,34 @@ export class TelegramAdapter implements SourceAdapter {
   //: Читает одну страницу до указанного сообщения без обхода других чатов.
   //: Курсор двигается по raw-странице, включая сервисные записи; запрос ограничен 10.
   async messagePage(conversationId:string,limit:number,before?:string):Promise<MessagePage> {
+    return this.fetchPage(conversationId,Math.min(limit,LIMITS.pageMessages),before);
+  }
+  //: Возвращает внутреннюю страницу до 100 записей для полного фонового кеша.
+  //: Не вызывается при открытии страницы браузером и не скачивает медиа.
+  async historyPage(conversationId:string,before?:string,limit:number=LIMITS.syncMessages):Promise<HistoryPage>{return this.fetchPage(conversationId,Math.max(1,Math.min(limit,LIMITS.syncMessages)),before);}
+  //: Читает один ограниченный фрагмент истории для синхронизатора.
+  //: Все raw-курсоры сохраняют продвижение даже через сервисные сообщения.
+  private async fetchPage(conversationId:string,count:number,before?:string):Promise<HistoryPage>{
     const offsetId=before?this.cursorOffset(conversationId,before):undefined;
     const d = await this.dialog(conversationId);
-    const count=Math.min(limit,LIMITS.pageMessages);
     const messages = await this.client!.getMessages(d.inputEntity, { limit: count, ...(offsetId?{offsetId}:{}) });
     const oldest=messages.at(-1)?.id;
-    return {conversationId,messages:messages.filter((m): m is Api.Message => m instanceof Api.Message).map(m => this.mapMessage(m, conversationId)).reverse(),nextCursor:messages.length===count&&oldest&&(!offsetId||oldest<offsetId)?entityId(this.source.id,'message',`${conversationId}/${oldest}`):null};
+    return {conversationId,messages:messages.filter((m): m is Api.Message => m instanceof Api.Message).map(m => this.mapMessage(m, conversationId)).reverse(),cursors:messages.map(m=>entityId(this.source.id,'message',`${conversationId}/${m.id}`)),nextCursor:messages.length===count&&oldest&&(!offsetId||oldest<offsetId)?entityId(this.source.id,'message',`${conversationId}/${oldest}`):null};
+  }
+  //: Подписывает ядро на изменения только разрешённых диалогов.
+  //: Подписка сохраняется при пересоздании MTProto-клиента; unselected-текст не копируется.
+  subscribe(listener:(event:SourceEvent)=>void,allows:(id:string)=>boolean){const item={listener,allows};this.subscribers.add(item);this.bindEvents();return()=>{this.subscribers.delete(item);};}
+  //: Подключает по одному обработчику событий нового клиента.
+  //: Не журналирует updates; личные удаления имеют глобальную область, каналы — собственную.
+  private bindEvents(){
+    const client=this.client;if(!client?.addEventHandler||this.listenedClient===client)return;this.listenedClient=client;
+    //: Преобразует входящее сообщение только после проверки разрешённого диалога.
+    //: Правка не увеличивает счётчик непрочитанных как новое сообщение.
+    const changed=(event:NewMessageEvent)=>{const m=event.message;if(!(m instanceof Api.Message))return;const native=m.chatId?.toString()||utils.getPeerId(m.peerId);const id=entityId(this.source.id,'conversation',native);for(const sub of this.subscribers)if(sub.allows(id))sub.listener({type:'message',message:this.mapMessage(m,id),edited:!!m.editDate});};
+    //: Передаёт области удалённых ID без содержимого сообщения.
+    //: Неоднозначные личные удаления разрешаются серверным индексом source_key.
+    const deleted=(event:DeletedMessageEvent)=>{const namespace=event.isChannel?event.chatId?.toString():'global';if(!namespace)return;const id=entityId(this.source.id,'conversation',namespace);const keys=event.deletedIds.map(n=>entityId(this.source.id,'source-message',`${namespace}/${n}`));for(const sub of this.subscribers)if(!event.isChannel||sub.allows(id))sub.listener({type:'delete',sourceId:this.source.id,keys});};
+    client.addEventHandler(changed,new NewMessage({}));client.addEventHandler(changed,new EditedMessage({}));client.addEventHandler(deleted,new DeletedMessage({}));
   }
   //: Отправляет буквальный текст в проверенный Telegram dialog.
   //: Повторно сверяет source и recipient; отключает разметку и link preview.

@@ -1,4 +1,5 @@
-import type { SourceAdapter } from './source-adapter.js';
+import {telegramAuthIssue} from '../auth/telegram-issue.js';
+import type { SourceAdapter, SourceEvent } from './source-adapter.js';
 import type { Store } from '../storage/store.js';
 import { destinationFor, LIMITS, type Conversation, type ConversationPageResult, type Message, type SendRequest, type Snapshot } from '../../shared/types.js';
 import { AppError } from './errors.js';
@@ -16,6 +17,10 @@ export class MessengerService {
   private pendingRefresh?: Promise<Snapshot>;
   private sends = new Map<string, { signature: string; result: Promise<Message>; created: number }>();
   private latestSeen=new Map<string,string>();
+  requestSync?:(id:string)=>void;
+  //: Возвращает страницу единой хронологии из выбранных диалогов SQLite.
+  //: Общий курсор не даёт доступа к исключённому архиву или произвольному источнику.
+  inboxPage(before?:string){if(before&&before.length>2048)throw new AppError(400,'Некорректный курсор кеша.');return {snapshot:this.snapshot(),page:this.store.messagePage('inbox',before)};}
   //: Загружает ограниченный кеш либо пустой снимок.
   //: Загруженные данные сразу помечаются устаревшими.
   constructor(private adapters: SourceAdapter[], private store: Store) {
@@ -28,7 +33,7 @@ export class MessengerService {
   //: Возвращает текущий снимок и состояния зарегистрированных источников.
   //: Не обращается к сети; общая лента содержит только десять последних загруженных сообщений.
   snapshot(): Snapshot {
-    const state=this.inbox.filter({ ...this.state, sources: this.registry.sources() });
+    const state=this.inbox.filter({ ...this.store.loadCache(), stale:this.state.stale,sync:this.store.syncStatus(),sources: this.registry.sources() });
     return {...state,messages:state.messages.slice(-LIMITS.pageMessages)};
   }
   //: Ищет зарегистрированный источник по sourceId.
@@ -40,11 +45,11 @@ export class MessengerService {
   //: Отсутствующий conversationId отклоняется с 404.
   private conversation(id: string): Conversation {
     this.selection.require(id);
-    const c = this.state.conversations.find(c => c.id === id);
-    if (!c) throw new AppError(404, 'Диалог не найден. Обновите ленту.');
+    const c = this.store.conversation(id);
+    if (!c) throw new AppError(404, 'Диалог не найден.');
     return c;
   }
-  //: Запускает ручное обновление метаданных разрешённых диалогов.
+  //: Обновляет метаданные разрешённых диалогов для фоновой сверки.
   //: Повторный параллельный вызов использует тот же pendingRefresh.
   refresh(): Promise<Snapshot> {
     if (this.pendingRefresh) return this.pendingRefresh;
@@ -52,7 +57,7 @@ export class MessengerService {
     return this.pendingRefresh;
   }
   //: Обновляет каталог и непрочитанные без обхода истории чатов.
-  //: Загруженные ранее сообщения остаются в ограниченном кеше разрешённых ID.
+  //: Полный сохранённый архив остаётся на диске, без повторного чтения для снимка.
   private async doRefresh(): Promise<Snapshot> {
     const revision = this.selection.revision;
     if (!this.selection.ids().length) return this.snapshot();
@@ -64,55 +69,45 @@ export class MessengerService {
       }
       conversations.sort((a,b) => b.updatedAt.localeCompare(a.updatedAt));
       if (revision !== this.selection.revision) return this.snapshot();
-      const ids=new Set(conversations.map(c=>c.id));
-      const messages=this.state.messages.filter(m=>ids.has(m.conversationId));
-      for (const c of conversations) c.preview = messages.filter(m => m.conversationId === c.id).at(-1)?.text || '';
-      this.state = { conversations, messages: this.sorted(messages), sources: this.adapters.map(a => a.source), refreshedAt: new Date().toISOString(), stale: false };
-      this.persist();
+      for(const c of conversations)c.preview=this.store.conversation(c.id)?.preview||'';
+      this.store.saveCache({conversations,messages:[],sources:this.registry.sources(),refreshedAt:new Date().toISOString(),stale:false});this.state.stale=false;
       return this.snapshot();
-    } catch {
+    } catch (error) {
       this.state.stale = true;
-      throw new AppError(503, 'Не удалось обновить сообщения. Проверьте подключение Telegram и повторите вручную.');
+      throw new AppError(503, 'Не удалось обновить метаданные. Фоновая синхронизация повторит попытку.',telegramAuthIssue(error).retryAfterSeconds);
     }
   }
-  //: Убирает дубликаты ID и упорядочивает сообщения по времени.
-  //: При равной дате сравнивает ID и оставляет только cachedMessages последних.
-  private sorted(messages: Message[]) {
-    return [...new Map(messages.map(m => [m.id, m])).values()].sort((a,b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id)).slice(-LIMITS.cachedMessages);
-  }
-  //: Нормализует текущие сообщения и сохраняет снимок.
-  //: SQLite получает ограниченный JSON-кеш без секретов источников.
-  private persist() { this.state.messages = this.sorted(this.state.messages); this.store.saveCache(this.state); }
-  //: Загружает одну страницу выбранного диалога независимо от общего кеша.
-  //: before загружает предыдущие 10; ревизия запрещает выдачу отозванного доступа.
-  async open(id: string,before?:string):Promise<ConversationPageResult> {
-    const c = this.conversation(id);
-    if(before!==undefined&&(!before||before.length>1024))throw new AppError(400,'Некорректный курсор сообщений.');
-    const revision=this.selection.revision;
-    const adapter = this.adapter(c.sourceId);
-    let page;
-    try{
-      if(before&&!adapter.messagePage)throw new AppError(400,'Источник не поддерживает загрузку предыдущих сообщений.');
-      page=adapter.messagePage?await adapter.messagePage(id,LIMITS.pageMessages,before):{conversationId:id,messages:await adapter.recentMessages(id,LIMITS.pageMessages),nextCursor:null};
-    }catch(error){if(error instanceof AppError)throw error;throw new AppError(503,'Не удалось загрузить сообщения этого диалога. Повторите вручную.');}
-    this.selection.require(id);
-    if(revision!==this.selection.revision)throw new AppError(409,'Выбор диалогов изменился. Обновите чат.');
-    if(page.conversationId!==id||page.messages.length>LIMITS.pageMessages||page.messages.some(m=>m.conversationId!==id||m.sourceId!==c.sourceId)||page.nextCursor===before)throw new AppError(503,'Источник вернул некорректную страницу сообщений.');
-    this.state.messages = this.sorted([...(before?this.state.messages:this.state.messages.filter(m => m.conversationId !== id)), ...page.messages]);
-    if(!before){c.preview=page.messages.at(-1)?.text||'';const latest=page.messages.at(-1);if(latest){c.updatedAt=latest.date;this.latestSeen.set(id,latest.id);}else this.latestSeen.delete(id);}
-    this.state.refreshedAt=new Date().toISOString();this.state.stale=false;
-    this.persist();
+  //: Читает страницу только из SQLite и будит фон при незавершённой истории.
+  //: Открытие и прокрутка не вызывают MTProto; доступ проверяется до чтения.
+  async open(id:string,before?:string):Promise<ConversationPageResult>{
+    this.conversation(id);if(before!==undefined&&(!before||before.length>2048))throw new AppError(400,'Некорректный курсор кеша.');
+    const page=this.store.messagePage(id,before);if(!page.historyComplete&&(!page.messages.length||before))this.requestSync?.(id);
+    if(!before&&page.messages.length)this.latestSeen.set(id,page.messages.at(-1)!.id);
     return {page,snapshot:this.snapshot()};
+  }
+  //: Записывает разрешённые сообщения фоновой страницы с проверкой источника.
+  //: Не заменяет полный архив ограниченным окном браузера.
+  cacheMessages(id:string,messages:Message[]){
+    const c=this.conversation(id);if(messages.some(m=>m.sourceId!==c.sourceId||m.conversationId!==id))throw new AppError(503,'Некорректная страница источника.');
+    this.store.upsertMessages(messages);this.state.stale=false;
+  }
+  //: Применяет событие источника только к текущему списку разрешений.
+  //: Правки и удаления не открывают доступ к исключённому архиву.
+  ingest(event:SourceEvent){
+    if(event.type==='message'){
+      const m=event.message;if(!this.selection.allows(m.conversationId))return;this.adapter(m.sourceId);const c=this.store.conversation(m.conversationId);if(!c||c.sourceId!==m.sourceId)return;
+      this.store.upsertMessages([m],!event.edited);this.state.stale=false;
+    }else{this.adapter(event.sourceId);const keys=event.keys.filter(key=>key.startsWith(encodeURIComponent(event.sourceId)+':'));this.store.deleteSourceKeys(keys,this.selection.ids());}
   }
   //: Явно отмечает диалог прочитанным через адаптер.
   //: Ориентируется на последнее загруженное сообщение и сохраняет нулевой счётчик.
   async markRead(id: string) {
     const c = this.conversation(id);
-    const latest = this.latestSeen.get(id)||this.state.messages.filter(m => m.conversationId === id).at(-1)?.id;
+    const latest = this.latestSeen.get(id)||this.store.messagePage(id).messages.at(-1)?.id;
     if (latest) {
       await this.adapter(c.sourceId).markRead(id, latest);
       c.unreadCount = 0;
-      this.persist();
+      this.store.saveCache({conversations:[c],messages:[],sources:[],refreshedAt:new Date().toISOString(),stale:false});
     }
     return this.snapshot();
   }
@@ -136,12 +131,12 @@ export class MessengerService {
       this.selection.require(c.id);
       const message = await this.adapter(c.sourceId).sendText(expected, input.text);
       this.selection.require(c.id);
-      this.state.messages = this.sorted([...this.state.messages, message]);
+      this.store.upsertMessages([message]);
       this.latestSeen.set(c.id,message.id);
       c.preview = message.text; c.updatedAt = message.date;
-      this.persist();
+      this.state.stale=false;
       return message;
-    }).catch(() => { throw new AppError(502, 'Результат отправки неизвестен. Обновите ленту перед новой попыткой, чтобы избежать дубликата.'); });
+    }).catch(() => { throw new AppError(502, 'Результат отправки неизвестен. Дождитесь автоматической синхронизации и сверьте переписку перед повтором.'); });
     this.sends.set(input.requestId, { signature, result, created: Date.now() });
     return result;
   }

@@ -5,6 +5,7 @@ import { AdminService } from './admin/service.js';
 import { Auth } from './auth/auth.js';
 import { MessengerService } from './core/service.js';
 import { createApp } from './http.js';
+import {AutoSyncService} from './core/sync.js';
 import { dataDirectory, clientDirectory, origin, port } from './config.js';
 import { writePrivate } from './storage/private-files.js';
 import { unlinkSync } from 'node:fs';
@@ -15,9 +16,11 @@ const vault = new SecretVault(dataDirectory);
 const telegram = new TelegramAdapter(vault);
 const service = new MessengerService([telegram], store);
 const admin = new AdminService(service,telegram,vault,store);
+const sync=new AutoSyncService(service,store);
 if (process.env.NODE_ENV==='production' && !new Auth(store).ready()) throw new Error('Passwords must be provisioned before publication');
 const server = createApp({ store, service, admin, clientDirectory, origin });
 server.listen(port, '127.0.0.1', () => {
+  sync.start();
   writePrivate(join(dataDirectory,'server.pid'),String(process.pid));
   console.log(`Z AI Messenger: ${origin}`);
 });
@@ -29,6 +32,7 @@ async function stop() {
   if (stopping) return;
   stopping = true;
   server.close();
+  await sync.stop();
   await admin.close();
   await service.disconnect();
   store.close();

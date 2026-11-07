@@ -1,5 +1,5 @@
 // Только синтетические данные тестов. Не подключается к production entrypoint.
-import type { SourceAdapter } from '../backend/core/source-adapter.js';
+import type { SourceAdapter,SourceEvent } from '../backend/core/source-adapter.js';
 import { destinationFor, entityId, type Conversation, type Destination, type Message, type Source } from '../shared/types.js';
 export class TestAdapter implements SourceAdapter {
   source: Source;
@@ -9,6 +9,8 @@ export class TestAdapter implements SourceAdapter {
   reads: string[] = [];
   calls: number[] = [];
   fail = false;
+  listener?:(event:SourceEvent)=>void;
+  historyCalls:{id:string;before?:string;limit:number}[]=[];
   constructor(sourceId = 'test-a', name = 'Тестовый источник') {
     this.source = { id: sourceId, name, kind: 'test', connected: false };
     this.conversations = ['Анна Смирнова', 'Команда проекта', 'Алексей'].map((title,i) => ({
@@ -37,6 +39,12 @@ export class TestAdapter implements SourceAdapter {
     const start=Math.max(0,end-limit);const page=messages.slice(start,end);
     return {conversationId:id,messages:page,nextCursor:start>0?page[0].id:null};
   }
+  //: Отдаёт тестовую страницу для автоматического синхронизатора.
+  //: Записывает только синтетические параметры вызова, без реального Telegram.
+  async historyPage(id:string,before?:string,limit=100){this.historyCalls.push({id,before,limit});const page=await this.messagePage(id,limit,before);return {...page,cursors:page.messages.map(m=>m.id)};}
+  //: Подключает тестовые события источника без сетевого соединения.
+  //: Производственный entrypoint этот источник не регистрирует.
+  subscribe(listener:(event:SourceEvent)=>void){this.listener=listener;return()=>{this.listener=undefined;};}
   async sendText(destination: Destination, text: string): Promise<Message> {
     if (this.fail) throw new Error('PRIVATE_PROVIDER_ERROR');
     this.sent.push({ destination, text });

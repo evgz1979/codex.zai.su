@@ -30,7 +30,7 @@ export function telegramClient(credentials: TelegramCredentials, vault?: SecretV
     baseLogger: new Logger(LogLevel.NONE),
     // В teleproto это число попыток, а не дополнительных повторов: 0 отключает RPC.
     connectionRetries: 2, requestRetries: 3, timeout: 10,
-    autoReconnect: false, floodSleepThreshold: 0, catchUp: false,
-    deviceModel: 'Z AI Messenger', systemVersion: 'Local', appVersion: '0.4.0',
+    autoReconnect: true, floodSleepThreshold: 0, catchUp: false,
+    deviceModel: 'Z AI Messenger', systemVersion: 'Local', appVersion: '0.5.0',
   });
 }

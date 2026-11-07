@@ -55,19 +55,28 @@ export interface Message {
   outgoing: boolean;
   status: DeliveryStatus;
   attachments: Attachment[];
+  sourceKey?:EntityId;
+  editedAt?:string;
 }
 //: Передаёт ограниченный снимок общей ленты.
-//: stale указывает на необходимость ручного обновления данных.
+//: stale отражает результат последней фоновой сверки метаданных.
 export interface Snapshot {
   sources: Source[];
   conversations: Conversation[];
   messages: Message[];
   refreshedAt: string | null;
   stale: boolean;
+  sync?:SyncStatus;
 }
+//: Передаёт безопасный статус автоматической синхронизации выбранных диалогов.
+//: Не содержит текстов, native peer, реквизитов или исходных исключений.
+export interface SyncStatus {pendingConversations:number;pausedUntil?:string}
 //: Передаёт одну страницу сообщений конкретного диалога.
-//: nextCursor относится только к этому диалогу; null завершает ручную загрузку.
-export interface MessagePage {conversationId:EntityId;messages:Message[];nextCursor:string|null}
+//: nextCursor относится только к этому диалогу; null завершает доступную историю; inbox обозначает общую ленту.
+export interface MessagePage {conversationId:EntityId;messages:Message[];nextCursor:string|null;oldestCursor?:string|null;historyComplete?:boolean;cached?:boolean;sourceUpdatedAt?:number}
+//: Описывает внутреннюю страницу источника для фонового заполнения SQLite.
+//: cursors включает сервисные записи и используется только серверным синхронизатором.
+export interface HistoryPage extends MessagePage {cursors:string[]}
 //: Возвращает отдельную страницу диалога и ограниченную общую ленту.
 //: Страница не теряется при вытеснении старых сообщений из общего кеша.
 export interface ConversationPageResult {page:MessagePage;snapshot:Snapshot}
@@ -79,7 +88,7 @@ export interface SendRequest { destination: Destination; text: string; requestId
 export interface SessionInfo { authenticated: boolean; setupRequired: boolean; csrfToken?: string }
 //: Задаёт ограничения выборок, кеша и длины текста MVP.
 //: Одна константа используется сервером и клиентской валидацией текста.
-export const LIMITS = { conversations: 1000, pageMessages: 10, cachedPerConversation: 40, cachedMessages: 400, text: 4096 } as const;
+export const LIMITS = { conversations: 1000, pageMessages: 10, syncMessages:100, cachedMessages: 400, text: 4096 } as const;
 //: Задаёт одинаковые границы новых паролей Messenger для CLI, API и формы.
 //: Не изменяет существующие пароли и не относится к Telegram 2FA.
 export const PASSWORD_LIMITS = {min:8,max:512} as const;

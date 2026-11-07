@@ -27,7 +27,7 @@ export class AdminService {
   }
   //: Сохраняет разрешённые ID и перестраивает видимый снимок.
   //: Нельзя разрешить ID, отсутствующий в полученном каталоге.
-  select(ids: string[]) { this.core.selection.replace(ids,this.catalog); this.core.reset(); return this.core.selection.ids(); }
+  select(ids: string[]) { this.core.selection.replace(ids,this.catalog);this.store.saveCache({conversations:this.catalog.filter(c=>ids.includes(c.id)),messages:[],sources:[],refreshedAt:null,stale:true}); this.core.reset(); return this.core.selection.ids(); }
   //: Отменяет вход и удаляет локальный доступ Telegram.
   //: Снимает выбор диалогов, сохраняя прежний архив SQLite.
   async disconnect() { await this.login.cancel(); await this.telegram.revoke(); this.core.selection.clear(); this.core.reset(); this.catalog=[]; }

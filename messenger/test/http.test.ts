@@ -13,6 +13,7 @@ test('HTTP: вход, CSRF, Origin/Host, приватные API, безопас�
   const dir = mkdtempSync(join(tmpdir(),'zai-messenger-http-'));
   const store = new Store(dir); store.set('auth.chat',await passwordHash('test-password-only'));store.set('auth.admin',await passwordHash('admin-password-only'));
   const adapter = new TestAdapter(); store.select(adapter.conversations.map(c=>c.id));const service = new MessengerService([adapter],store);
+  store.upsertMessages(adapter.messages);
   // Фиксированный тестовый порт, отдельный от реального приложения.
   const origin = 'http://127.0.0.1:14319';
   const server = createApp({ store,service,clientDirectory:dir,origin });
@@ -20,6 +21,7 @@ test('HTTP: вход, CSRF, Origin/Host, приватные API, безопас�
   const request = (path: string, input?: unknown, headers: Record<string,string> = {}) => fetch(origin+path, { method:input === undefined ? 'GET':'POST', headers:{ ...(input === undefined ? {} : {'Content-Type':'application/json',Origin:origin}), ...headers }, ...(input === undefined ? {} : { body:JSON.stringify(input) }) });
   try {
     assert.equal((await request('/api/chat/snapshot')).status,401);
+    assert.equal((await request('/api/chat/inbox',{})).status,401);
     assert.equal((await request('/api/chat/telegram/secrets')).status,401);
     const badHost = await new Promise<number | undefined>((resolve,reject) => {
       get(origin+'/api/chat/session',{headers:{Host:'evil.example'}},res => { res.resume(); resolve(res.statusCode); }).on('error',reject);
@@ -34,12 +36,16 @@ test('HTTP: вход, CSRF, Origin/Host, приватные API, безопас�
     const headers = { Cookie:cookie.split(';')[0], 'X-CSRF-Token':info.csrfToken };
     assert.equal((await request('/api/chat/refresh',{}, {Cookie:headers.Cookie})).status,403);
     assert.equal((await request('/api/chat/refresh',{},headers)).status,200);
+    assert.equal((await request('/api/chat/inbox',{}, {Cookie:headers.Cookie})).status,403);
+    const inbox=await request('/api/chat/inbox',{},headers);assert.equal(inbox.status,200);assert.equal((await inbox.json() as {page:{messages:unknown[]}}).page.messages.length,3);
+    assert.equal((await request('/api/chat/inbox',{before:123},headers)).status,400);
+    assert.equal((await request('/api/chat/access?since=-1',undefined,headers)).status,400);
     const opened=await request('/api/chat/open',{conversationId:adapter.conversations[0].id},headers);assert.equal(opened.status,200);
     assert.equal((await opened.json() as {page:{messages:unknown[]}}).page.messages.length,1);
     const snapshot = await request('/api/chat/snapshot',undefined,headers);
     assert.equal(snapshot.headers.get('cache-control'),'no-store');
     assert.ok(snapshot.headers.get('content-security-policy')?.includes("connect-src 'self'"));
-    assert.equal((await snapshot.json() as {messages:unknown[]}).messages.length,1);
+    assert.equal((await snapshot.json() as {messages:unknown[]}).messages.length,3);
     assert.equal((await request('/api/chat/send',[],headers)).status,400);
     assert.equal((await request('/api/chat/send',{text:'x'.repeat(21000)},headers)).status,413);
     assert.equal((await request('/api/chat/older',{conversationId:adapter.conversations[0].id},headers)).status,400);
@@ -47,6 +53,7 @@ test('HTTP: вход, CSRF, Origin/Host, приватные API, безопас�
     adapter.fail = true;
     const error = await request('/api/chat/refresh',{},headers);
     assert.equal(error.status,503); assert.ok(!(await error.text()).includes('PRIVATE_PROVIDER_ERROR'));
+    assert.equal((await request('/api/chat/open',{conversationId:adapter.conversations[0].id},headers)).status,200);
     assert.equal((await request('/api/admin/status',undefined,headers)).status,401);
     assert.equal((await request('/api/admin/dialogs',undefined,headers)).status,401);
     assert.equal((await request('/api/chat/logout',{},headers)).status,200);

@@ -6,7 +6,9 @@ import { tmpdir } from 'node:os';
 import { Api, type TelegramClient } from 'teleproto';
 import { TelegramAdapter } from '../backend/connectors/telegram/adapter.js';
 import { SecretVault } from '../backend/storage/private-files.js';
-import { destinationFor } from '../shared/types.js';
+import {NewMessage,EditedMessage,DeletedMessage} from 'teleproto/events';
+import type {SourceEvent} from '../backend/core/source-adapter.js';
+import { destinationFor,entityId } from '../shared/types.js';
 test('Telegram: DTO, фильтр broadcast, уникальность message ID и буквальная отправка', async () => {
   const dir = mkdtempSync(join(tmpdir(),'zai-messenger-telegram-'));
   const vault = new SecretVault(dir);
@@ -45,4 +47,26 @@ test('Telegram: DTO, фильтр broadcast, уникальность message ID
     assert.equal(sentOptions.linkPreview,false); assert.equal(sentOptions.message,'**буквальный текст**');
     await adapter.markRead(conversations[0].id,a[0].id);
   } finally { await adapter.disconnect(); rmSync(dir,{recursive:true,force:true}); }
+});
+
+test('Telegram-события: выбор до преобразования, правки, области ID удалений и снятие подписки',async()=>{
+ const dir=mkdtempSync(join(tmpdir(),'zai-events-'));const vault=new SecretVault(dir);vault.save({apiId:123,apiHash:'test-only',session:'test-only'});
+ const handlers:{callback:(event:never)=>void;builder:unknown}[]=[];const events:SourceEvent[]=[];
+ const fake={connected:false,async connect(){this.connected=true;},async checkAuthorization(){return true;},async destroy(){this.connected=false;},addEventHandler(callback:(event:never)=>void,builder:unknown){handlers.push({callback,builder});}};
+ const adapter=new TelegramAdapter(vault,()=>fake as unknown as TelegramClient);
+ const selected=entityId(adapter.source.id,'conversation','123');const channelId=entityId(adapter.source.id,'conversation','-100456');const allowed=new Set([selected,channelId]);
+ const unsubscribe=adapter.subscribe(event=>events.push(event),id=>allowed.has(id));
+ try{
+  await adapter.connect();assert.equal(handlers.length,3);
+  const m=new Api.Message({id:7,peerId:new Api.PeerUser({userId:123n as never}),date:123,message:'Синтетическое'});
+  const emit=(builder:unknown,event:unknown)=>handlers.find(h=>h.builder instanceof (builder as typeof NewMessage))!.callback(event as never);
+  emit(NewMessage,{message:m});assert.equal(events.length,1);const original=events[0];assert.equal(original.type,'message');if(original.type!=='message')throw new Error('Expected message');assert.equal(original.message.conversationId,selected);
+  const other=new Api.Message({id:8,peerId:new Api.PeerUser({userId:999n as never}),date:123,message:'Не выбран'});emit(NewMessage,{message:other});assert.equal(events.length,1);
+  m.editDate=124;emit(EditedMessage,{message:m});assert.equal(events[1].type,'message');assert.ok(events[1].type==='message'&&events[1].edited);
+  emit(DeletedMessage,{isChannel:false,deletedIds:[7]});const deletion=events[2];assert.ok(deletion.type==='delete'&&deletion.keys[0]===original.message.sourceKey);
+  const ch=new Api.Message({id:7,peerId:new Api.PeerChannel({channelId:456n as never}),date:123,message:'Канал'});emit(NewMessage,{message:ch});const channel=events[3];assert.ok(channel.type==='message'&&channel.message.sourceKey!==original.message.sourceKey);
+  emit(DeletedMessage,{isChannel:true,chatId:{toString:()=>'-100456'},deletedIds:[7]});assert.ok(events[4].type==='delete'&&channel.type==='message'&&events[4].keys[0]===channel.message.sourceKey);
+  allowed.delete(channelId);emit(DeletedMessage,{isChannel:true,chatId:{toString:()=>'-100456'},deletedIds:[7]});assert.equal(events.length,5);
+  unsubscribe();emit(NewMessage,{message:m});assert.equal(events.length,5);
+ }finally{await adapter.disconnect();rmSync(dir,{recursive:true,force:true});}
 });

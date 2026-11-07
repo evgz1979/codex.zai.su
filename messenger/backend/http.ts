@@ -56,12 +56,13 @@ export function createApp(options: { service:MessengerService; store:Store; admi
         if(req.method==='POST'&&req.headers['x-csrf-token']!==session.csrf) throw new AppError(403,'Обновите страницу и повторите вход.');
         if(action==='logout'&&req.method==='POST') { auth.logout(req.headers.cookie,role,secure); cookie(res,role,'',0); return send(res,200,{ok:true}); }
         if(role==='chat') {
-          if(action==='access'&&req.method==='GET') return send(res,200,{ids:options.service.selection.ids()});
+          if(action==='access'&&req.method==='GET') {const since=Number(new URL(req.url||'/',options.origin).searchParams.get('since')||0);if(!Number.isSafeInteger(since)||since<0)throw new AppError(400,'Некорректная ревизия.');return send(res,200,options.store.access(since));}
           if(action==='snapshot'&&req.method==='GET') return send(res,200,options.service.snapshot());
+          if(action==='inbox'&&req.method==='POST'){const input=await body(req);if(input.before!==undefined&&(typeof input.before!=='string'||!input.before||input.before.length>2048))throw new AppError(400,'Некорректный курсор кеша.');return send(res,200,options.service.inboxPage(input.before as string|undefined));}
           if(action==='refresh'&&req.method==='POST') return send(res,200,await options.service.refresh());
           if((action==='open'||action==='older'||action==='read')&&req.method==='POST') {
             const input=await body(req); if(typeof input.conversationId!=='string') throw new AppError(400,'Выберите диалог.');
-            if(action==='older'&&(typeof input.before!=='string'||!input.before||input.before.length>1024))throw new AppError(400,'Некорректный курсор сообщений.');
+            if(action==='older'&&(typeof input.before!=='string'||!input.before||input.before.length>2048))throw new AppError(400,'Некорректный курсор сообщений.');
             return send(res,200,await (action==='read'?options.service.markRead(input.conversationId):options.service.open(input.conversationId,action==='older'?input.before as string:undefined)));
           }
           if(action==='send'&&req.method==='POST') return send(res,200,await options.service.send(await body(req) as unknown as SendRequest));

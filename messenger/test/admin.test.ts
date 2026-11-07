@@ -17,7 +17,7 @@ function context(t:{after(fn:()=>void):void}) {const dir=mkdtempSync(join(tmpdir
 test('админка: метаданные не синхронизируют историю; выбор сохраняется в SQLite',async t=>{
  const {store,vault}=context(t);const source=new TestAdapter();const core=new MessengerService([source],store);const admin=new AdminService(core,source as unknown as TelegramAdapter,vault,store);
  const catalog=await admin.dialogs();assert.equal(source.calls.length,0);assert.ok(catalog.conversations.every(c=>c.preview===''));assert.deepEqual(catalog.selectedIds,[]);
- admin.select([source.conversations[1].id]);assert.deepEqual(store.selected(),[source.conversations[1].id]);await core.refresh();assert.equal(source.calls.length,0);await core.open(source.conversations[1].id);assert.equal(source.calls.length,1);
+ admin.select([source.conversations[1].id]);assert.deepEqual(store.selected(),[source.conversations[1].id]);await core.refresh();assert.equal(source.calls.length,0);core.cacheMessages(source.conversations[1].id,source.messages.filter(m=>m.conversationId===source.conversations[1].id));await core.open(source.conversations[1].id);assert.equal(source.calls.length,0);
  const restarted=new MessengerService([source],store);assert.equal(restarted.snapshot().messages.length,1);
  admin.select([]);assert.equal(core.snapshot().messages.length,0);assert.equal(store.loadCache([source.conversations[1].id]).messages.length,1);
  assert.throws(()=>admin.select(['telegram-unknown:conversation:1']),/Проверьте/);
