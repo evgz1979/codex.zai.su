@@ -245,3 +245,15 @@ svg { width: 21px; height: 21px; flex-shrink: 0; }
 .media-content p { margin: 10px; }
 .media-viewer footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
 .media-viewer footer a { display: inline-flex; align-items: center; min-height: 44px; color: #247cb9; text-decoration: none; font-weight: 600; }
+
+.attachment-button.attachment-preview { display: flex; flex-direction: column; align-items: stretch; gap: 0; width: 210px; max-width: 100%; padding: 0; overflow: hidden; }
+.attachment-preview .attachment-thumb-surface { position: relative; display: grid; place-items: center; width: 100%; height: 126px; background: #e4edf5; color: #7b9bb5; font-size: 32px; }
+.attachment-thumb-surface img { display: block; width: 100%; height: 126px; object-fit: cover; }
+.attachment-preview .attachment-thumb-label { display: block; padding: 5px 7px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; line-height: 15px; }
+.attachment-preview .attachment-thumb-play { position: absolute; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: #17212b88; color: white; font-size: 16px; }
+
+.media-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px 12px; }
+.media-actions button { min-height: 44px; padding: 0; background: transparent; color: #247cb9; font-size: 12px; }
+.media-viewer footer .media-download-secondary { color: var(--muted); font-weight: 400; }
+.media-open-primary { display: inline-flex; align-items: center; min-height: 44px; color: #247cb9; font-weight: 600; }
+.media-text { max-width: 100%; margin: 0; text-align: left; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.4; }

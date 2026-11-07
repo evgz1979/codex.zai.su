@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { destinationFor, LIMITS, type Conversation, type ConversationPageResult, type Message, type MessagePage, type SessionInfo, type Snapshot, type SyncStatus } from '../../shared/types';
+import AttachmentPreview from './AttachmentPreview';
+import {clearPreviews} from './previews';
 import AttachmentViewer from './AttachmentViewer';
 import type {AttachmentRequest} from '../../shared/types';
 import { api, ApiError, setCsrf } from './api';
@@ -59,7 +61,7 @@ export function App() {
   //: Показывает ошибку операции и обрабатывает потерю входа.
   //: При 401 очищает снимок, адресата и черновики.
   function fail(e: unknown) {
-    if (e instanceof ApiError && e.status === 401) { setAttachmentTarget(undefined);cancelView();acceptSession({ authenticated: false, setupRequired: false }); setSnapshot(undefined); setPage(undefined);setDrafts({}); setTargetId(undefined); }
+    if (e instanceof ApiError && e.status === 401) { clearPreviews();setAttachmentTarget(undefined);cancelView();acceptSession({ authenticated: false, setupRequired: false }); setSnapshot(undefined); setPage(undefined);setDrafts({}); setTargetId(undefined); }
     setError(e instanceof Error ? e.message : 'Нет связи с локальным сервером.');
   }
   useEffect(() => { api<SessionInfo>('session').then(acceptSession).catch(fail); }, []);
@@ -78,9 +80,9 @@ export function App() {
         const result=await api<{ids:string[];revision?:number;deletedIds?:string[];reset?:boolean;sync?:SyncStatus}>(`access?since=${seenRevision.current}`);
         if(disposed)return;
         const ids=new Set(result.ids);const previous=access.current.ids;
-        if(previous&&(previous.size!==ids.size||[...previous].some(id=>!ids.has(id)))){access.current.revision++;cancelView();}
+        if(previous&&(previous.size!==ids.size||[...previous].some(id=>!ids.has(id)))){clearPreviews();access.current.revision++;cancelView();}
         access.current.ids=ids;
-        const deleted=new Set(result.deletedIds||[]);
+        const deleted=new Set(result.deletedIds||[]);if(deleted.size||result.reset)clearPreviews();
         setAttachmentTarget(old=>old&&ids.has(old.conversationId)&&!deleted.has(old.messageId)&&!result.reset?old:undefined);
         setSnapshot(old=>old?{...old,conversations:old.conversations.filter(c=>ids.has(c.id)),messages:old.messages.filter(m=>ids.has(m.conversationId)&&!deleted.has(m.id))}:old);
         setPage(old=>old&&(old.conversationId==='inbox'||ids.has(old.conversationId))&&!result.reset?{...old,messages:old.messages.filter(m=>ids.has(m.conversationId)&&!deleted.has(m.id))}:undefined);
@@ -204,7 +206,7 @@ export function App() {
   //: Отзывает текущую веб-сессию и очищает состояние переписки UI.
   //: Не завершает Telegram-авторизацию на сервере.
   async function logout() {
-    setAttachmentTarget(undefined);cancelView();setBusy(true);
+    clearPreviews();setAttachmentTarget(undefined);cancelView();setBusy(true);
     try {
       await api('logout', {}); acceptSession({ authenticated: false, setupRequired: false });
       setSnapshot(undefined);setPage(undefined);setDrafts({});setTargetId(undefined);setError('');setUncertain(false);seenRevision.current=0;appliedRevision.current=0;access.current={revision:0};
@@ -254,7 +256,7 @@ export function App() {
               <div className="bubble">
                 {!target&&<div className="message-context"><strong>{c?.title || 'Диалог'}</strong><span className="source-label">{snapshot?.sources.find(s => s.id === m.sourceId)?.name || 'Источник'}</span></div>}
                 {!m.outgoing && c?.kind === 'group' && <strong className="sender-name">{m.sender.name}</strong>}
-                {m.text && <p>{m.text}</p>}{m.attachments.map(a => a.downloadable===false?<div key={a.id} className="attachment">{a.name}</div>:<button key={a.id} className="attachment attachment-button" onClick={()=>setAttachmentTarget({conversationId:m.conversationId,messageId:m.id,attachmentId:a.id})} aria-label={`Открыть вложение: ${a.name}`}><span aria-hidden="true">{a.kind==='image'?'▧':a.kind==='video'?'▷':a.kind==='audio'?'♪':'▤'}</span><span>{a.kind==='unsupported'?'Открыть вложение':a.name}{a.size!==undefined&&<small>{Math.ceil(a.size/1024)} КБ</small>}</span></button>)}
+                {m.text && <p>{m.text}</p>}{m.attachments.map(a => a.downloadable===false?<div key={a.id} className="attachment">{a.name}</div>:<AttachmentPreview key={a.id} attachment={a} request={{conversationId:m.conversationId,messageId:m.id,attachmentId:a.id}} version={m.editedAt||m.date} paused={!!attachmentTarget} onOpen={()=>setAttachmentTarget({conversationId:m.conversationId,messageId:m.id,attachmentId:a.id})} onUnauthorized={fail}/>)}
                 <div className="message-meta">{!target&&c?.canSend&&<button className="reply-button" disabled={busy} onClick={() => choose(c)}>Ответить <span aria-hidden="true">↗</span></button>}<time dateTime={m.date}>{time(m.date)}</time>{m.outgoing && <span aria-label="Отправлено">✓</span>}</div>
               </div>
             </article></div>;

@@ -22,12 +22,15 @@ b.messages[0].date = '2026-11-07T10:01:30.000Z';
 const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64');
 const wave=Buffer.alloc(8044);wave.write('RIFF',0);wave.writeUInt32LE(8036,4);wave.write('WAVEfmt ',8);wave.writeUInt32LE(16,16);wave.writeUInt16LE(1,20);wave.writeUInt16LE(1,22);wave.writeUInt32LE(8000,24);wave.writeUInt32LE(8000,28);wave.writeUInt16LE(1,32);wave.writeUInt16LE(8,34);wave.write('data',36);wave.writeUInt32LE(8000,40);wave.fill(128,44);
 for(const [name,kind,mimeType,bytes] of [['Тестовое фото.png','image','image/png',png],['Документ.txt','file','application/octet-stream',Buffer.from('Синтетический файл')],['Аудио.wav','audio','audio/wav',wave],['Видео.mp4','video','video/mp4',Buffer.from('Synthetic unsupported video')]] as const){const attachment={id:entityId(a.source.id,'attachment',name),name,kind,mimeType,size:bytes.length,downloadable:true};a.messages[0].attachments.push(attachment);a.media.set(attachment.id,{attachment,bytes});}
+for(const value of a.media.values())if(value.attachment.kind==='video')a.previews.set(value.attachment.id,{attachment:{...value.attachment,kind:'image',mimeType:'image/png',size:png.length},bytes:png});
+const pdfBytes=Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\n%%EOF');const pdf={id:entityId(a.source.id,'attachment','PDF'),name:'Документ.pdf',kind:'file' as const,mimeType:'application/pdf',size:pdfBytes.length,downloadable:true,hasPreview:false};a.messages[0].attachments.push(pdf);a.media.set(pdf.id,{attachment:pdf,bytes:pdfBytes});
 store.select([...a.conversations,...b.conversations].map(c=>c.id));
 const service = new MessengerService([a,b],store); await service.refresh();
 store.upsertMessages([...a.messages,...b.messages]);
 for(const conversation of [...a.conversations,...b.conversations])store.saveProgress(conversation.id,{...store.progress(conversation.id),initialized:true,historyComplete:true});
 const attachments=new AttachmentService(service,dir);
-const server = createApp({ store,service,attachments,clientDirectory,origin:'http://127.0.0.1:14318' });
-server.listen(14318,'127.0.0.1');
+const testPort=Number(process.env.MESSENGER_TEST_PORT||14318);
+const server = createApp({ store,service,attachments,clientDirectory,origin:`http://127.0.0.1:${testPort}` });
+server.listen(testPort,'127.0.0.1');
 function stop() { server.closeAllConnections(); server.close(() => { store.close(); rmSync(dir,{recursive:true,force:true}); }); }
 process.on('SIGTERM',stop); process.on('SIGINT',stop);
