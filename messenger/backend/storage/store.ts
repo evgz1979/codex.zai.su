@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { join } from 'node:path';
 import { chmodSync } from 'node:fs';
 import { privateDirectory } from './private-files.js';
-import { LIMITS, type Snapshot, type Conversation, type Message, type MessagePage, type SyncStatus } from '../../shared/types.js';
+import { LIMITS, type Snapshot, type Conversation, type Message, type MessagePage,type Attachment,type AttachmentRequest, type SyncStatus } from '../../shared/types.js';
 import {AppError} from '../core/errors.js';
 //: Хранит курсоры возобновляемой истории и сверки новых сообщений.
 //: Курсоры источника отделены от курсоров страниц браузерного SQLite API.
@@ -23,6 +23,7 @@ export class Store {
     this.db.exec('PRAGMA journal_mode=DELETE; PRAGMA secure_delete=ON; CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE IF NOT EXISTS selected_conversations (id TEXT PRIMARY KEY); CREATE TABLE IF NOT EXISTS conversation_cache (id TEXT PRIMARY KEY, payload TEXT NOT NULL); CREATE TABLE IF NOT EXISTS message_cache (id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL, date TEXT NOT NULL, payload TEXT NOT NULL); CREATE INDEX IF NOT EXISTS message_conversation ON message_cache(conversation_id,date);');
     if(!(this.db.prepare('PRAGMA table_info(message_cache)').all() as {name:string}[]).some(c=>c.name==='source_key'))this.db.exec('ALTER TABLE message_cache ADD COLUMN source_key TEXT;');
     this.db.exec('CREATE INDEX IF NOT EXISTS message_page_order ON message_cache(conversation_id,date DESC,id DESC); CREATE INDEX IF NOT EXISTS message_source_key ON message_cache(source_key); CREATE TABLE IF NOT EXISTS sync_state (id TEXT PRIMARY KEY,payload TEXT NOT NULL); CREATE TABLE IF NOT EXISTS message_tombstones (source_key TEXT PRIMARY KEY);');
+    this.db.exec("CREATE INDEX IF NOT EXISTS message_date_order ON message_cache(date DESC,id DESC); CREATE TABLE IF NOT EXISTS media_preload (message_id TEXT NOT NULL,attachment_id TEXT NOT NULL,version TEXT NOT NULL,variant TEXT NOT NULL,message_date TEXT NOT NULL,next_attempt INTEGER NOT NULL,PRIMARY KEY(message_id,attachment_id,version,variant));");
     // Мигрируем только прежний локальный кеш. Выбор по умолчанию остаётся пустым.
     const old = this.get('cache');
     if (old) { try { this.saveCache(JSON.parse(old)); } catch { /* Повреждённый старый кеш не является настройкой. */ } this.remove('cache'); }
@@ -77,7 +78,7 @@ export class Store {
   }
   //: Удаляет кеш только явной локальной командой.
   //: Пароли, выбор и Telegram-сессия сохраняются.
-  clearCache() { this.db.exec('DELETE FROM message_cache; DELETE FROM conversation_cache; DELETE FROM sync_state; DELETE FROM message_tombstones; VACUUM;'); this.remove('refreshedAt');this.revision++; }
+  clearCache() { this.db.exec('DELETE FROM message_cache; DELETE FROM conversation_cache; DELETE FROM sync_state; DELETE FROM message_tombstones; DELETE FROM media_preload; VACUUM;'); this.remove('refreshedAt');this.revision++; }
   //: Возвращает одну индексированную страницу SQLite без запроса к источнику.
   //: Курсор привязан к диалогу, дате и ID; незавершённая история может ожидать фоновой загрузки.
   messagePage(id:string,before?:string):MessagePage {
@@ -125,6 +126,19 @@ export class Store {
   //: Возвращает число выбранных диалогов с незавершённой историей.
   //: Состояние относится только к разрешённым диалогам, без пользовательских текстов.
   syncStatus():SyncStatus{const pause=Number(this.get('sync.pausedUntil')||0);return {pendingConversations:this.selected().filter(id=>{const p=this.progress(id);return !p.historyComplete||!!p.newerCursor;}).length,...(pause>Date.now()?{pausedUntil:new Date(pause).toISOString()}:{})};}
+  //: Выбирает ближайшую неподготовленную миниатюру либо оригинал за заданное окно.
+  //: JSON разворачивается только для выбранных диалогов; выполненные задания не повторяются после рестарта.
+  mediaJobs(since:string,now:number,preview:boolean){
+    const variant=preview?'preview':'original';
+    const rows=this.db.prepare(`SELECT m.payload,a.value AS attachment FROM message_cache m JOIN selected_conversations s ON s.id=m.conversation_id JOIN json_each(m.payload,'$.attachments') a LEFT JOIN media_preload p ON p.message_id=m.id AND p.attachment_id=json_extract(a.value,'$.id') AND p.version=COALESCE(json_extract(m.payload,'$.editedAt'),m.date) AND p.variant=? WHERE m.date>=? AND COALESCE(json_extract(a.value,'$.downloadable'),1)<>0 AND (p.message_id IS NULL OR (p.next_attempt>0 AND p.next_attempt<=?)) ORDER BY m.date DESC,m.id DESC LIMIT 20`).all(variant,since,now) as {payload:string;attachment:string}[];
+    return rows.map(row=>({message:JSON.parse(row.payload) as Message,attachment:JSON.parse(row.attachment) as Attachment}));
+  }
+  //: Сохраняет результат фонового задания или время следующей попытки.
+  //: Нулевое значение означает завершение; исключение чата не меняет архив сообщений.
+  finishMediaJob(input:AttachmentRequest,message:Message,nextAttempt=0){this.db.prepare('INSERT OR REPLACE INTO media_preload(message_id,attachment_id,version,variant,message_date,next_attempt) VALUES (?,?,?,?,?,?)').run(message.id,input.attachmentId,message.editedAt||message.date,input.variant||'original',message.date,nextAttempt);}
+  //: Удаляет устаревшие служебные отметки за пределами окна предзагрузки.
+  //: Сообщения и уже скачанные файлы этим действием не удаляются.
+  pruneMediaJobs(since:string){this.db.prepare('DELETE FROM media_preload WHERE message_date<?').run(since);}
   //: Закрывает подключение SQLite.
   //: Не удаляет постоянные настройки.
   close() { this.db.close(); }

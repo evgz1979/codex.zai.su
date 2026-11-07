@@ -1,4 +1,5 @@
 // Только синтетические данные тестов. Не подключается к production entrypoint.
+import {AppError} from '../backend/core/errors.js';
 import type { SourceAdapter,SourceEvent,AttachmentContent } from '../backend/core/source-adapter.js';
 import { destinationFor, entityId, type AttachmentRequest,type Conversation, type Destination, type Message, type Source } from '../shared/types.js';
 export class TestAdapter implements SourceAdapter {
@@ -10,6 +11,7 @@ export class TestAdapter implements SourceAdapter {
   calls: number[] = [];
   fail = false;
   attachmentCalls=0;
+  previews=new Map<string,{attachment:Message['attachments'][number];bytes:Buffer}>();
   media=new Map<string,{attachment:Message['attachments'][number];bytes:Buffer}>();
   listener?:(event:SourceEvent)=>void;
   historyCalls:{id:string;before?:string;limit:number}[]=[];
@@ -60,7 +62,7 @@ export class TestAdapter implements SourceAdapter {
   //: Реальная сеть, файлы владельца и production entrypoint не используются.
   async openAttachment(input:AttachmentRequest,signal:AbortSignal):Promise<AttachmentContent>{
     this.attachmentCalls++;if(this.fail)throw new Error('PRIVATE_PROVIDER_ERROR');signal.throwIfAborted();
-    const value=this.media.get(input.attachmentId);if(!value)throw new Error('No synthetic attachment');
+    const value=input.variant==='preview'?(this.previews.get(input.attachmentId)||(this.media.get(input.attachmentId)?.attachment.kind==='image'?this.media.get(input.attachmentId):undefined)):this.media.get(input.attachmentId);if(input.variant==='preview'&&!value)throw new AppError(415,'Для этого вложения нет миниатюры.');if(!value)throw new Error('No synthetic attachment');
     return {attachment:value.attachment,chunks:(async function*(){yield value.bytes;})()};
   }
   async markRead(id: string) { this.reads.push(id); }

@@ -7,7 +7,7 @@ import { entityId, LIMITS, type Conversation, type ConversationCatalog, type Des
 import {telegramFolders,type TelegramMuteDefaults} from './folders.js';
 import {AppError} from '../../core/errors.js';
 import {NewMessage,EditedMessage,DeletedMessage,type NewMessageEvent,type DeletedMessageEvent} from 'teleproto/events';
-import {telegramAttachments} from './media.js';
+import {telegramAttachments,telegramPreview} from './media.js';
 import {type AttachmentRequest,MEDIA_LIMITS} from '../../../shared/types.js';
 import type {AttachmentContent} from '../../core/source-adapter.js';
 import type {SourceEvent} from '../../core/source-adapter.js';
@@ -181,6 +181,10 @@ export class TelegramAdapter implements SourceAdapter {
     const message=messages[0];if(!(message instanceof Api.Message)||message.id!==native||entityId(this.source.id,'conversation',message.chatId?.toString()||utils.getPeerId(message.peerId))!==input.conversationId)throw new AppError(404,'Вложение больше недоступно.');
     const attachment=telegramAttachments(this.source.id,input.conversationId,message).find(a=>a.id===input.attachmentId);
     if(!attachment||attachment.downloadable===false)throw new AppError(415,'Это вложение доступно только в Telegram.');
+    if(input.variant==='preview'){
+      const preview=message.media&&telegramPreview(message.media);if(!preview&&attachment.kind==='image'&&attachment.size!==undefined&&attachment.size<=MEDIA_LIMITS.previewBytes)return {attachment,chunks:this.client!.iterDownload(message,{signal,limit:MEDIA_LIMITS.previewBytes+1,requestSize:64*1024})};if(!preview)throw new AppError(415,'Для этого вложения нет миниатюры.');
+      return {attachment:{id:attachment.id,kind:'image',name:attachment.name,mimeType:'image/jpeg',size:preview.size,downloadable:true},chunks:preview.bytes?(async function*(){yield preview.bytes!;})():this.client!.iterDownload(preview.location!,{signal,dcId:preview.dcId,limit:MEDIA_LIMITS.previewBytes+1,requestSize:64*1024})};
+    }
     return {attachment,chunks:this.client!.iterDownload(message,{signal,limit:MEDIA_LIMITS.fileBytes+1,requestSize:256*1024})};
   }
   //: Подписывает ядро на изменения только разрешённых диалогов.

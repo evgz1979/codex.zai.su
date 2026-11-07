@@ -64,6 +64,7 @@ test('HTTP вложений: chat-cookie и CSRF, закрытые файлы, �
  try{
   assert.equal((await request('/api/chat/attachment',input)).status,401);const login=await request('/api/chat/login',{password:'test-chat-password'});const info=await login.json() as {csrfToken:string};const headers={Cookie:login.headers.get('set-cookie')!.split(';')[0],'X-CSRF-Token':info.csrfToken};
   assert.equal((await request('/api/chat/attachment',input,{Cookie:headers.Cookie})).status,403);assert.equal((await request('/api/chat/attachment',input,{...headers,Origin:'https://evil.example'})).status,403);
+  assert.equal((await request('/api/chat/attachment',{...input,variant:'preview'},{Cookie:headers.Cookie})).status,403);assert.equal((await request('/api/chat/attachment',{...input,variant:'original'},headers)).status,400);
   const admin=await request('/api/admin/login',{password:'test-admin-password'});assert.equal((await request('/api/chat/attachment',input,{Cookie:admin.headers.get('set-cookie')!.split(';')[0],...{'X-CSRF-Token':info.csrfToken}})).status,401);
   const response=await request('/api/chat/attachment',input,headers);assert.equal(response.status,200);assert.equal(response.headers.get('content-type'),'image/png');assert.equal(response.headers.get('cache-control'),'no-store');assert.equal(response.headers.get('x-content-type-options'),'nosniff');assert.match(response.headers.get('content-disposition')!,/^attachment; filename\*=UTF-8''/);assert.deepEqual(Buffer.from(await response.arrayBuffer()),png);
   assert.equal((await request('/api/chat/attachment',undefined,headers)).status,404);assert.equal((await request('/attachments/anything.bin')).status,404);assert.equal((await request('/api/chat/attachment',{...input,messageId:'wrong'},headers)).status,404);assert.equal((await request('/api/chat/attachment',{...input,attachmentId:'../../vault.key'},headers)).status,404);
@@ -91,4 +92,22 @@ test('HTTP вложений: выход во время скачивания о�
  try{const login=await post('/api/chat/login',{password:'test-chat-password'});const {csrfToken}=await login.json() as {csrfToken:string};const headers={Cookie:login.headers.get('set-cookie')!.split(';')[0],'X-CSRF-Token':csrfToken};
  const pending=post('/api/chat/attachment',input,headers);await started;assert.equal((await post('/api/chat/logout',{},headers)).status,200);resume();const response=await pending;assert.equal(response.status,401);assert.deepEqual(readdirSync(join(dir,'attachments')),[]);
  }finally{resume();server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));}
+});
+
+test('миниатюры: отдельный кеш не заменяет оригинал и не уменьшает его метаданные',async t=>{
+ const {store,adapter,input,media,attachment,message}=await context(t);adapter.previews.set(attachment.id,{attachment:{...attachment,name:'Миниатюра.png'},bytes:png});
+ const preview=await media.open({...input,variant:'preview'},new AbortController().signal,()=>{});assert.equal(store.message(message.id)?.attachments[0].name,attachment.name);preview.release();
+ const original=await media.open(input,new AbortController().signal,()=>{});assert.notEqual(original.path,preview.path);assert.equal(original.attachment.name,attachment.name);original.release();const calls=adapter.attachmentCalls;
+ const cached=await media.open({...input,variant:'preview'},new AbortController().signal,()=>{});cached.release();assert.equal(adapter.attachmentCalls,calls);
+});
+
+test('миниатюры: отсутствие запоминается, а предел размера не зависит от оригинала',async t=>{
+ const {dir,store,adapter,input,media,attachment,message}=await context(t);store.upsertMessages([{...message,attachments:[{...attachment,size:40*1024*1024}]}]);
+ adapter.previews.set(attachment.id,{attachment,bytes:png});const small=await media.open({...input,variant:'preview'},new AbortController().signal,()=>{});assert.equal(small.attachment.size,png.length);small.release();await assert.rejects(media.open(input,new AbortController().signal,()=>{}),{status:413});
+ clearAttachmentCache(dir);adapter.previews.clear();const value=adapter.media.get(attachment.id)!;value.attachment={...value.attachment,kind:'file'};
+ await assert.rejects(media.open({...input,variant:'preview'},new AbortController().signal,()=>{}),{status:415});const calls=adapter.attachmentCalls;await assert.rejects(media.open({...input,variant:'preview'},new AbortController().signal,()=>{}),{status:415});assert.equal(adapter.attachmentCalls,calls);clearAttachmentCache(dir);assert.deepEqual(readdirSync(join(dir,'attachments')),[]);
+});
+
+test('открытие: сигнатура PDF восстанавливает просмотр старого кеша, HTML остаётся файлом',()=>{
+ const file={id:'test:file',kind:'file' as const,name:'Документ.pdf',mimeType:'application/octet-stream'};assert.equal(safeAttachmentType(file,Buffer.from('%PDF-1.4\n')).mimeType,'application/pdf');assert.equal(safeAttachmentType({...file,mimeType:'application/pdf'},Buffer.from('<html>')).mimeType,'application/octet-stream');assert.equal(safeAttachmentType({...file,name:'text.txt'},Buffer.from('<script>alert(1)')).mimeType,'text/plain');
 });

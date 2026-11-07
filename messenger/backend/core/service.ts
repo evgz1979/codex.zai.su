@@ -102,7 +102,7 @@ export class MessengerService {
   //: Проверяет точный маршрут сохранённого вложения перед каждым чтением.
   //: Чужой message ID, исключённый диалог и удалённая запись не открывают источник.
   attachmentMessage(input:AttachmentRequest){
-    if(!input||[input.conversationId,input.messageId,input.attachmentId].some(id=>typeof id!=='string'||!id||id.length>2048))throw new AppError(400,'Некорректный маршрут вложения.');
+    if(!input||(input.variant!==undefined&&input.variant!=='preview')||[input.conversationId,input.messageId,input.attachmentId].some(id=>typeof id!=='string'||!id||id.length>2048))throw new AppError(400,'Некорректный маршрут вложения.');
     const c=this.conversation(input.conversationId);const message=this.store.message(input.messageId);
     if(!message||message.conversationId!==c.id||message.sourceId!==c.sourceId||!message.attachments.some(a=>a.id===input.attachmentId))throw new AppError(404,'Вложение не найдено.');
     return message;
@@ -117,6 +117,7 @@ export class MessengerService {
   //: Поздний результат не отменяет правку, удаление или снятие разрешения.
   attachmentMetadata(input:AttachmentRequest,original:Message,attachment:Message['attachments'][number]){
     const current=this.attachmentMessage(input);if(current.editedAt!==original.editedAt)throw new AppError(409,'Сообщение изменилось. Откройте вложение заново.');
+    if(input.variant==='preview')return;
     this.store.upsertMessages([{...current,attachments:current.attachments.map(a=>a.id===attachment.id?attachment:a)}]);
   }
   //: Явно отмечает диалог прочитанным через адаптер.
