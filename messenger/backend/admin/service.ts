@@ -6,6 +6,7 @@ import type { TelegramAdapter } from '../connectors/telegram/adapter.js';
 import { TelegramLogin } from '../auth/telegram-login.js';
 import { passwordHash, type Role } from '../auth/auth.js';
 import { AppError } from '../core/errors.js';
+import {PASSWORD_LIMITS} from '../../shared/types.js';
 //: Выполняет административные операции над источником и разрешениями.
 //: Возвращает только статусы и метаданные, без Telegram-секретов.
 export class AdminService {
@@ -31,8 +32,8 @@ export class AdminService {
   //: Снимает выбор диалогов, сохраняя прежний архив SQLite.
   async disconnect() { await this.login.cancel(); await this.telegram.revoke(); this.core.selection.clear(); this.core.reset(); this.catalog=[]; }
   //: Заменяет Argon2id-хеш пароля выбранной роли.
-  //: Длина от 16 до 512 символов; HTTP-слой отзывает сессии роли.
-  async changePassword(role: Role, password: string) { if (password.length<16 || password.length>512) throw new AppError(400,'Пароль должен содержать от 16 до 512 символов.'); this.store.set(`auth.${role}`,await passwordHash(password)); }
+  //: Длина от 8 до 512 символов; HTTP-слой отзывает сессии роли.
+  async changePassword(role: Role, password: string) { if (password.length<PASSWORD_LIMITS.min || password.length>PASSWORD_LIMITS.max) throw new AppError(400,'Пароль должен содержать от 8 до 512 символов.'); this.store.set(`auth.${role}`,await passwordHash(password)); }
   //: Завершает незаконченный процесс Telegram-входа.
   //: Используется при остановке приложения.
   async close() { await this.login.cancel(); }

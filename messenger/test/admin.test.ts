@@ -58,5 +58,7 @@ test('HTTP: отдельные права и Secure cookie, отсутствие
  assert.equal((await raw('/telegram.enc',undefined,ah)).status,404);assert.equal((await raw('/.local/vault.key',undefined,ah)).status,404);
  assert.equal((await raw('/api/chat/open',{conversationId:source.conversations[0].id},ch)).status,403);
  assert.equal((await raw('/api/admin/selection',{ids:[]},{...ah,Origin:'https://evil.example'})).status,403);
- await raw('/api/admin/password',{role:'chat',password:'replacement-chat-password'},ah);assert.equal((await raw('/api/chat/snapshot',undefined,ch)).status,401);
+ assert.equal((await raw('/api/admin/password',{role:'chat',password:'1234567'},ah)).status,400);
+ assert.equal((await raw('/api/admin/password',{role:'chat',password:'12345678'},ah)).status,200);assert.equal((await raw('/api/chat/snapshot',undefined,ch)).status,401);
+ assert.equal((await raw('/api/chat/login',{password:'12345678'})).status,200);
 });

@@ -74,6 +74,9 @@ export interface SessionInfo { authenticated: boolean; setupRequired: boolean; c
 //: Задаёт ограничения выборок, кеша и длины текста MVP.
 //: Одна константа используется сервером и клиентской валидацией текста.
 export const LIMITS = { conversations: 1000, recentConversations: 12, messagesPerConversation: 20, selectedMessages: 40, cachedMessages: 400, text: 4096 } as const;
+//: Задаёт одинаковые границы новых паролей Messenger для CLI, API и формы.
+//: Не изменяет существующие пароли и не относится к Telegram 2FA.
+export const PASSWORD_LIMITS = {min:8,max:512} as const;
 //: Кодирует внешний ID из источника, типа и native ID.
 //: Экранирует компоненты, чтобы двоеточия native ID не создавали коллизии.
 export function entityId(sourceId: string, kind: string, nativeId: string): EntityId {

@@ -1,4 +1,12 @@
 import {test,expect} from '@playwright/test';
+test('админка: новый пароль от восьми символов, семь не принимаются формой',async({page})=>{
+ const submissions:unknown[]=[];
+ await page.route('**/api/admin/status',route=>route.fulfill({json:{telegram:{configured:false,connected:false,stage:'idle'},selectedCount:0}}));
+ await page.route('**/api/admin/password',route=>{submissions.push(route.request().postDataJSON());return route.fulfill({json:{ok:true}});});
+ await page.goto('/admin');await page.getByLabel('Пароль администратора').fill('browser-admin-password');await page.getByRole('button',{name:'Войти',exact:true}).click();await page.getByRole('button',{name:'Доступ',exact:true}).click();
+ const password=page.getByLabel('Новый пароль');await expect(password).toHaveAttribute('minlength','8');await password.fill('1234567');expect(await password.evaluate(element=>(element as HTMLInputElement).checkValidity())).toBe(false);expect(submissions).toHaveLength(0);
+ await password.fill('12345678');await page.getByRole('button',{name:'Изменить пароль',exact:true}).click();await expect(page.getByText('Пароль изменён. Сессии этой роли завершены.')).toBeVisible();expect(submissions).toEqual([{role:'chat',password:'12345678'}]);
+});
 test('админка: отдельный вход, Telegram code/2FA и выбор галочками',async({page})=>{
  let stage='idle';let configured=false;let saved:string[]=[];
  const conversation={id:'telegram-47:conversation:1',sourceId:'telegram-47',title:'Тестовый канал',kind:'channel',recipient:{id:'telegram-47:recipient:1',name:'Тестовый канал'},canSend:false,unreadCount:3,updatedAt:new Date().toISOString(),preview:''};
