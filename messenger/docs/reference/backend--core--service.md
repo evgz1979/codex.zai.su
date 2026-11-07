@@ -4,30 +4,6 @@
 
 [Исходный модуль](../../backend/core/service.ts) · [Индекс](README.md)
 
-<a id="symbol-AppError"></a>
-
-## AppError
-
-Описывает безопасную прикладную ошибку API.
-
-Содержит HTTP-статус и текст без внутреннего исключения Telegram.
-
-```typescript
-class AppError extends Error
-```
-
-<a id="symbol-AppError.constructor"></a>
-
-## AppError.constructor
-
-Задаёт статус и пользовательское сообщение ошибки.
-
-Стек и секретные данные не включаются в HTTP-ответ.
-
-```typescript
-constructor(public status: number, message: string)
-```
-
 <a id="symbol-MessengerService"></a>
 
 ## MessengerService
@@ -146,6 +122,18 @@ private persist()
 
 ```typescript
 refresh(): Promise<Snapshot>
+```
+
+<a id="symbol-MessengerService.reset"></a>
+
+## MessengerService.reset
+
+Перечитывает кеш только разрешённых диалогов.
+
+Не загружает данные Telegram и не удаляет архив исключённых диалогов.
+
+```typescript
+reset()
 ```
 
 <a id="symbol-MessengerService.send"></a>

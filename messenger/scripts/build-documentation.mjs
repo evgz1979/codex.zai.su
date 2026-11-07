@@ -5,6 +5,13 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const printer = ts.createPrinter({ removeComments: true, newLine: ts.NewLineKind.LineFeed });
 const purposes = {
+  'backend/admin/service.ts': 'Настройки, метаданные Telegram и права выбора диалогов.',
+  'backend/auth/telegram-login.ts': 'Пошаговый Telegram-вход с временными callbacks кода и 2FA.',
+  'backend/core/errors.ts': 'Безопасная прикладная ошибка HTTP API.',
+  'backend/core/registry.ts': 'Реестр подключённых SourceAdapter.',
+  'backend/core/selection.ts': 'Постоянный выбор разрешённых диалогов и ревизия доступа.',
+  'backend/core/inbox.ts': 'Формирование ленты только выбранных диалогов.',
+  'frontend/src/admin/AdminApp.tsx': 'Отдельная административная страница с собственным входом и формами.',
   'backend/auth/auth.ts': 'Хеширование пароля, веб-сессии в памяти и ограничение попыток входа.',
   'backend/auth/prompt.ts': 'Скрытый интерактивный ввод в TTY без отражения символов.',
   'backend/cli.ts': 'Локальные команды setup, telegram и clear без вывода секретов.',
@@ -139,14 +146,20 @@ export function buildReference(root) {
   const routes = [];
   //: Извлекает статические ветки HTTP-путей и методов.
   //: Не выдаёт условия маршрутизации за полную JSON-схему запросов.
-  function routesVisit(node) {
+  function routesVisit(node, roles = ['admin', 'chat']) {
+    if (ts.isIfStatement(node) && /^role === [\"\']chat[\"\']$/.test(print(node.expression, http))) {
+      routesVisit(node.thenStatement, ['chat']);
+      if (node.elseStatement) routesVisit(node.elseStatement, ['admin']);
+      return;
+    }
     if (ts.isIfStatement(node)) {
       const condition = print(node.expression, http);
       const path = /path === ["'](\/api\/[^"']+)["']/.exec(condition)?.[1];
       const method = /req.method === ["'](GET|POST)["']/.exec(condition)?.[1];
       if (path && method) routes.push({ path, method });
+      if (method) for (const action of condition.matchAll(/action === [\"\']([^\"\']+)[\"\']/g)) for (const role of roles) routes.push({ path: `/api/${role}/${action[1]}`, method });
     }
-    ts.forEachChild(node, routesVisit);
+    ts.forEachChild(node, child => routesVisit(child, roles));
   }
   routesVisit(http);
   output.set('docs/reference/http-api.md', '# Ветки HTTP API\n\nИзвлечено из AST [createApp](backend--http.md#symbol-createApp). Это список веток, не JSON Schema.\n\n| Метод | Путь |\n| --- | --- |\n' + routes.sort((a,b) => a.path.localeCompare(b.path)).map(r => `| ${r.method} | \`${r.path}\` |`).join('\n') + '\n');
@@ -209,7 +222,7 @@ export function checkLinks(root, output) {
       if (fragment && /^L\d/.test(fragment)) throw new Error(`${file}: построчная ссылка ${target}`);
       const absolute = resolve(root, dirname(file), decodeURIComponent(path || '.'));
       const key = path ? relative(root, absolute) : file;
-      if (key.startsWith('..') || (!output.has(key) && !existsSync(resolve(root, key)))) throw new Error(`${file}: отсутствует файл ${target}`);
+      if ((key.startsWith('..') && key !== '../deploy/messenger/README.md') || (!output.has(key) && !existsSync(resolve(root, key)))) throw new Error(`${file}: отсутствует файл ${target}`);
       if (fragment && key.startsWith('docs/reference/')) {
         const content = output.get(key) ?? readFileSync(resolve(root, key), 'utf8');
         if (!content.includes(`id="${fragment}"`)) throw new Error(`${file}: отсутствует якорь ${target}`);

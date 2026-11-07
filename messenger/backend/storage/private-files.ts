@@ -1,4 +1,4 @@
-import { mkdirSync, chmodSync, readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
+import { mkdirSync, chmodSync, readFileSync, writeFileSync, renameSync, existsSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes, createCipheriv, createDecipheriv } from 'node:crypto';
 //: Создаёт каталог приватных данных и выставляет права 0700.
@@ -18,7 +18,7 @@ export function writePrivate(path: string, value: string | Buffer) {
 }
 //: Описывает только серверные реквизиты Telegram и StringSession.
 //: Не входит в shared DTO, API-ответы и клиентскую сборку.
-export interface TelegramCredentials { apiId: number; apiHash: string; session: string }
+export interface TelegramCredentials { apiId: number; apiHash: string; session: string; accountId?: string }
 //: Хранит Telegram credentials в AES-256-GCM файле.
 //: Ключ находится рядом в приватном файле, защита не заменяет безопасность macOS-аккаунта.
 export class SecretVault {
@@ -43,8 +43,11 @@ export class SecretVault {
     const encrypted = Buffer.concat([cipher.update(JSON.stringify(credentials)), cipher.final()]);
     writePrivate(this.secretPath, Buffer.concat([iv, cipher.getAuthTag(), encrypted]));
   }
-  //: Расшифровывает credentials из приватных файлов.
-  //: При отсутствии пары возвращает undefined, ошибка аутентичности выбрасывается вызывающему коду.
+  //: Удаляет локальный зашифрованный файл сессии.
+  //: Ключ и ранее кешированные сообщения не удаляются.
+  clear() { if (existsSync(this.secretPath)) unlinkSync(this.secretPath); }
+  //: Расшифровывает серверные реквизиты из vault.
+  //: Ошибка аутентичности не превращается в пустую успешную сессию.
   load(): TelegramCredentials | undefined {
     if (!this.exists()) return undefined;
     const bytes = readFileSync(this.secretPath);

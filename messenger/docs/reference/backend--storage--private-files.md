@@ -28,6 +28,18 @@ privateDirectory(path: string): string
 class SecretVault
 ```
 
+<a id="symbol-SecretVault.clear"></a>
+
+## SecretVault.clear
+
+Удаляет локальный зашифрованный файл сессии.
+
+Ключ и ранее кешированные сообщения не удаляются.
+
+```typescript
+clear()
+```
+
 <a id="symbol-SecretVault.constructor"></a>
 
 ## SecretVault.constructor
@@ -56,9 +68,9 @@ exists()
 
 ## SecretVault.load
 
-Расшифровывает credentials из приватных файлов.
+Расшифровывает серверные реквизиты из vault.
 
-При отсутствии пары возвращает undefined, ошибка аутентичности выбрасывается вызывающему коду.
+Ошибка аутентичности не превращается в пустую успешную сессию.
 
 ```typescript
 load(): TelegramCredentials | undefined
@@ -89,6 +101,7 @@ export interface TelegramCredentials {
     apiId: number;
     apiHash: string;
     session: string;
+    accountId?: string;
 }
 ```
 

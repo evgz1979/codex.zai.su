@@ -1,6 +1,8 @@
 import { Store } from './storage/store.js';
 import { SecretVault } from './storage/private-files.js';
 import { TelegramAdapter } from './connectors/telegram/adapter.js';
+import { AdminService } from './admin/service.js';
+import { Auth } from './auth/auth.js';
 import { MessengerService } from './core/service.js';
 import { createApp } from './http.js';
 import { dataDirectory, clientDirectory, origin, port } from './config.js';
@@ -9,8 +11,12 @@ import { unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 process.umask(0o077);
 const store = new Store(dataDirectory);
-const service = new MessengerService([new TelegramAdapter(new SecretVault(dataDirectory))], store);
-const server = createApp({ store, service, clientDirectory, origin });
+const vault = new SecretVault(dataDirectory);
+const telegram = new TelegramAdapter(vault);
+const service = new MessengerService([telegram], store);
+const admin = new AdminService(service,telegram,vault,store);
+if (process.env.NODE_ENV==='production' && !new Auth(store).ready()) throw new Error('Passwords must be provisioned before publication');
+const server = createApp({ store, service, admin, clientDirectory, origin });
 server.listen(port, '127.0.0.1', () => {
   writePrivate(join(dataDirectory,'server.pid'),String(process.pid));
   console.log(`Z AI Messenger: ${origin}`);
@@ -23,6 +29,7 @@ async function stop() {
   if (stopping) return;
   stopping = true;
   server.close();
+  await admin.close();
   await service.disconnect();
   store.close();
   try { unlinkSync(join(dataDirectory,'server.pid')); } catch { /* Уже удалён. */ }

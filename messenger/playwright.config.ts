@@ -7,5 +7,5 @@ export default defineConfig({
     { name:'iphone-webkit', use:{ ...devices['iPhone 13'], defaultBrowserType:'webkit' } },
     { name:'small-iphone-webkit', use:{ ...devices['iPhone SE'], defaultBrowserType:'webkit' } },
   ],
-  webServer: { command:'node --import tsx test/browser-server.ts', url:'http://127.0.0.1:14318/api/session', reuseExistingServer:false },
+  webServer: { command:'node --import tsx test/browser-server.ts', url:'http://127.0.0.1:14318/api/chat/session', reuseExistingServer:false },
 });

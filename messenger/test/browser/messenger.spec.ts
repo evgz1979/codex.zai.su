@@ -13,7 +13,7 @@ test('единая лента, выбор адресата, отправка, н
   await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');
   await page.getByRole('button',{name:'Войти в Messenger'}).click();
   await expect(page.getByRole('heading',{name:'Общая лента'})).toBeVisible();
-  await expect(page.getByText('Это синтетическое сообщение из другого источника.')).toBeVisible();
+  await expect(page.locator('.bubble').getByText('Это синтетическое сообщение из другого источника.')).toBeVisible();
   await expect(page.getByLabel('Сообщение',{exact:true})).toBeDisabled();
   const mobile = testInfo.project.name !== 'desktop-chromium';
   if (mobile) await page.getByRole('button',{name:'Открыть диалоги'}).click();
@@ -30,7 +30,7 @@ test('единая лента, выбор адресата, отправка, н
   if (mobile) await page.getByRole('button',{name:'Открыть диалоги'}).click();
   await page.getByRole('button',{name:/Анна Смирнова/}).click();
   await expect(page.getByLabel('Сообщение',{exact:true})).toHaveValue(draftText);
-  const sendRequest = page.waitForRequest(req => req.url().endsWith('/api/send'));
+  const sendRequest = page.waitForRequest(req => req.url().endsWith('/api/chat/send'));
   await page.getByRole('button',{name:'Отправить: Анна Смирнова'}).click();
   const sent = (await sendRequest).postDataJSON();
   expect(sent.destination.sourceId).toBe('fixture-a'); expect(sent.destination.conversationId).toContain('fixture-a:conversation:0');

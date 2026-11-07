@@ -8,9 +8,9 @@
 
 ## Auth
 
-Управляет веб-входом одного владельца и сессиями в памяти.
+Разделяет права чата и админки на сервере.
 
-Секреты Telegram не участвуют в веб-авторизации.
+Роли имеют независимые пароли, cookie и ограниченные сессии в памяти.
 
 ```typescript
 class Auth
@@ -20,69 +20,117 @@ class Auth
 
 ## Auth.constructor
 
-Подключает хранилище настроек авторизации.
+Подключает SQLite для проверки Argon2id-настроек.
 
-Существующие веб-сессии не восстанавливаются из SQLite.
+Сырой пароль и cookie-токены в SQLite не записываются.
 
 ```typescript
 constructor(private store: Store)
+```
+
+<a id="symbol-Auth.cookieName"></a>
+
+## Auth.cookieName
+
+Строит независимое имя cookie роли.
+
+В HTTPS используется обязательный Secure-префикс.
+
+```typescript
+cookieName(role: Role, secure: boolean)
 ```
 
 <a id="symbol-Auth.login"></a>
 
 ## Auth.login
 
-Проверяет пароль и создаёт ограниченную веб-сессию.
+Проверяет Argon2id-пароль и создаёт отдельную сессию роли.
 
-Допускает пять попыток за минуту и не более десяти сессий в памяти.
+Ограничивает ошибки входа и параллельные хеширования для 1 vCPU.
 
 ```typescript
-async login(password: string)
+async login(password: string, role: Role = 'chat')
 ```
 
 <a id="symbol-Auth.logout"></a>
 
 ## Auth.logout
 
-Отзывает сессию текущего cookie-токена.
+Отзывает текущую сессию одной роли.
 
-Не завершает Telegram-сессию и не очищает кеш переписки.
+Выход из чата не завершает административную сессию.
 
 ```typescript
-logout(cookie = '')
+logout(cookie = '', role: Role = 'chat', secure = false)
+```
+
+<a id="symbol-Auth.ready"></a>
+
+## Auth.ready
+
+Проверяет наличие Argon2id-хешей admin и chat.
+
+Прежний локальный scrypt-пароль не разрешает публичный запуск.
+
+```typescript
+ready()
+```
+
+<a id="symbol-Auth.revoke"></a>
+
+## Auth.revoke
+
+Отзывает все веб-сессии выбранной роли.
+
+Вызывается после изменения её пароля.
+
+```typescript
+revoke(role: Role)
 ```
 
 <a id="symbol-Auth.session"></a>
 
 ## Auth.session
 
-Находит действующую сессию по cookie.
+Проверяет токен, роль и срок действия сессии.
 
-Истёкшая сессия удаляется; неизвестный токен не авторизует запрос.
+Перенос токена между именами cookie не меняет права.
 
 ```typescript
-session(cookie = ''): WebSession | undefined
+session(cookie = '', role: Role = 'chat', secure = false): WebSession | undefined
 ```
 
 <a id="symbol-Auth.setupRequired"></a>
 
 ## Auth.setupRequired
 
-Проверяет наличие хеша пароля в настройках.
+Проверяет готовность обеих ролей.
 
-Отсутствующий password означает необходимость локального setup.
+До начального задания паролей публичный вход заблокирован.
 
 ```typescript
 get setupRequired()
+```
+
+<a id="symbol-Auth.token"></a>
+
+## Auth.token
+
+Извлекает cookie только указанной роли.
+
+Другие cookies и роли не дают токен этой сессии.
+
+```typescript
+token(cookie: string, role: Role, secure: boolean)
 ```
 
 <a id="symbol-AuthError"></a>
 
 ## AuthError
 
-Передаёт безопасную ошибку веб-авторизации HTTP-обработчику.
+Передаёт безопасный статус ошибки авторизации.
 
-Хранит только HTTP-статус и текст для пользователя.
+Не содержит пароль, cookie или исходное исключение.
 
 ```typescript
 class AuthError extends Error
@@ -92,9 +140,9 @@ class AuthError extends Error
 
 ## AuthError.constructor
 
-Создаёт ошибку авторизации с HTTP-статусом.
+Создаёт безопасную ошибку входа с HTTP-статусом.
 
-Исходные исключения провайдера в неё не добавляются.
+Внутренние исключения и реквизиты в ответ не включаются.
 
 ```typescript
 constructor(public status: number, message: string)
@@ -104,9 +152,9 @@ constructor(public status: number, message: string)
 
 ## digest
 
-Вычисляет SHA-256 представление cookie-токена.
+Хеширует случайный токен веб-сессии.
 
-Сырой токен не используется как ключ серверной карты сессий.
+Сырой cookie-токен не является ключом карты сессий.
 
 ```typescript
 digest(token: string)
@@ -116,9 +164,9 @@ digest(token: string)
 
 ## passwordHash
 
-Создаёт scrypt-хеш пароля со случайной солью.
+Создаёт Argon2id-хеш с ограниченной памятью для VPS.
 
-Возвращает salt:hexHash и не сохраняет исходный пароль.
+Соль генерируется библиотекой, исходный пароль не сохраняется.
 
 ```typescript
 async passwordHash(password: string): Promise<string>
@@ -128,25 +176,38 @@ async passwordHash(password: string): Promise<string>
 
 ## passwordMatches
 
-Сравнивает введённый пароль с сохранённым scrypt-хешем.
+Проверяет только Argon2id-хеш пароля.
 
-Результаты одинаковой длины сравниваются timingSafeEqual.
+Старые scrypt-настройки не дают доступ к публичному приложению.
 
 ```typescript
 async passwordMatches(password: string, stored: string): Promise<boolean>
+```
+
+<a id="symbol-Role"></a>
+
+## Role
+
+Разделяет административный и пользовательский доступ.
+
+Cookie, пароли и ключи сессий не взаимозаменяемы.
+
+```typescript
+export type Role = 'admin' | 'chat';
 ```
 
 <a id="symbol-WebSession"></a>
 
 ## WebSession
 
-Описывает серверную веб-сессию.
+Содержит роль, CSRF и абсолютный срок веб-сессии.
 
-CSRF и абсолютный срок действия находятся только в памяти процесса.
+Сессия хранится только в памяти серверного процесса.
 
 ```typescript
 interface WebSession {
     csrf: string;
     expires: number;
+    role: Role;
 }
 ```

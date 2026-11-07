@@ -25,7 +25,7 @@ buildReference(root)
 Не выдаёт условия маршрутизации за полную JSON-схему запросов.
 
 ```typescript
-routesVisit(node)
+routesVisit(node, roles = ['admin', 'chat'])
 ```
 
 <a id="symbol-buildReference.sqlVisit"></a>

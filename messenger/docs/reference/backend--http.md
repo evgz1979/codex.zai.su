@@ -8,16 +8,18 @@
 
 ## createApp
 
-Создаёт HTTP-сервер Messenger и ограниченный API.
+Создаёт раздельные API чата и админки с серверной проверкой ролей.
 
-Проверяет Host/Origin, веб-сессию и CSRF; не открывает shell или RPC-прокси.
+Публичная версия требует HTTPS cookie и заранее настроенные Argon2id-пароли.
 
 ```typescript
 createApp(options: {
     service: MessengerService;
     store: Store;
+    admin?: AdminService;
     clientDirectory: string;
     origin: string;
+    secureCookies?: boolean;
 })
 ```
 
@@ -25,22 +27,34 @@ createApp(options: {
 
 ## createApp.body
 
-Читает ограниченный JSON-объект из HTTP-запроса.
+Читает JSON-объект с ограничением размера.
 
-Отклоняет другой Content-Type, тело свыше 20000 байт и некорректный JSON.
+Парсинг не пишет тела запросов в журнал или хранилище.
 
 ```typescript
 async body(req: IncomingMessage): Promise<Record<string, unknown>>
+```
+
+<a id="symbol-createApp.cookie"></a>
+
+## createApp.cookie
+
+Устанавливает cookie для единственной роли.
+
+Использует HttpOnly, Strict, ограниченный Path и Secure в HTTPS.
+
+```typescript
+cookie(res: ServerResponse, role: Role, token: string, maxAge: number)
 ```
 
 <a id="symbol-createApp.send"></a>
 
 ## createApp.send
 
-Записывает JSON-ответ с выбранным HTTP-статусом.
+Передаёт только безопасный JSON-результат операции.
 
-Сериализует только явно переданную прикладную модель.
+Сырые исключения, секреты и тела запросов не сериализуются.
 
 ```typescript
-send(res: ServerResponse, status: number, body: unknown)
+send(res: ServerResponse, status: number, value: unknown)
 ```

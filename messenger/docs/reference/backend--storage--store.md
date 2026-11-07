@@ -8,9 +8,9 @@ SQLite settings: хеш пароля и ограниченный JSON-кеш.
 
 ## Store
 
-Управляет локальной SQLite-таблицей settings.
+Хранит настройки, выбор диалогов и ограниченный кеш каждого диалога.
 
-Хранит хеш пароля и ограниченный кеш, но не Telegram credentials.
+Исключение диалога меняет только выбор, не удаляя сохранённые данные.
 
 ```typescript
 class Store
@@ -20,9 +20,9 @@ class Store
 
 ## Store.clearCache
 
-Удаляет только ключ cache и выполняет VACUUM.
+Удаляет кеш только явной локальной командой.
 
-Пароль и Telegram-сессия остаются на месте.
+Пароли, выбор и Telegram-сессия сохраняются.
 
 ```typescript
 clearCache()
@@ -34,7 +34,7 @@ clearCache()
 
 Закрывает подключение SQLite.
 
-Вызывается владельцем Store при завершении команды или сервера.
+Не удаляет постоянные настройки.
 
 ```typescript
 close()
@@ -44,9 +44,9 @@ close()
 
 ## Store.constructor
 
-Открывает приватную SQLite и создаёт settings при отсутствии.
+Открывает SQLite и создаёт совместимые таблицы кеша и выбора.
 
-Включает DELETE journal и secure_delete, выставляет 0600.
+Прежний кеш мигрируется без автоматического разрешения диалогов.
 
 ```typescript
 constructor(directory: string)
@@ -56,9 +56,9 @@ constructor(directory: string)
 
 ## Store.get
 
-Читает строковое значение одного ключа settings.
+Читает строковую настройку по ключу.
 
-Использует параметризованный SELECT; неизвестный ключ даёт undefined.
+Использует параметризованный SELECT.
 
 ```typescript
 get(key: string): string | undefined
@@ -68,33 +68,69 @@ get(key: string): string | undefined
 
 ## Store.loadCache
 
-Загружает кеш и проверяет возраст refreshedAt.
+Загружает кеш только переданных разрешённых ID.
 
-Кеш без даты или старше суток удаляется; фонового TTL-таймера нет.
+Пустой выбор даёт пустую ленту, исключённый архив не читается для UI.
 
 ```typescript
-loadCache(): Snapshot | undefined
+loadCache(ids: string[] = this.selected()): Snapshot
+```
+
+<a id="symbol-Store.remove"></a>
+
+## Store.remove
+
+Удаляет одну настройку по ключу.
+
+Не удаляет таблицы, выбор или чужие данные.
+
+```typescript
+remove(key: string)
 ```
 
 <a id="symbol-Store.saveCache"></a>
 
 ## Store.saveCache
 
-Сохраняет JSON-снимок с ограниченным числом сообщений.
+Сохраняет ограниченный кеш обновлённых диалогов.
 
-Количество ограничено LIMITS.cachedMessages.
+Оставляет до 40 сообщений активного диалога, не трогает архив остальных.
 
 ```typescript
 saveCache(snapshot: Snapshot)
+```
+
+<a id="symbol-Store.select"></a>
+
+## Store.select
+
+Атомарно заменяет список разрешённых ID.
+
+При ошибке транзакция откатывается, кеш не удаляется.
+
+```typescript
+select(ids: string[])
+```
+
+<a id="symbol-Store.selected"></a>
+
+## Store.selected
+
+Читает разрешённые ID диалогов из SQLite.
+
+Результат сохраняется после перезапуска процесса.
+
+```typescript
+selected(): string[]
 ```
 
 <a id="symbol-Store.set"></a>
 
 ## Store.set
 
-Заменяет строковое значение одного ключа settings.
+Заменяет строковую настройку.
 
-Использует параметризованный INSERT OR REPLACE.
+Не формирует SQL из текста сообщений.
 
 ```typescript
 set(key: string, value: string)

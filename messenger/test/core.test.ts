@@ -24,6 +24,7 @@ test('идентификаторы не конфликтуют между ист
 test('единая лента объединяет источники и сохраняет хронологию', async t => {
   const { store } = context(t);
   const a = new TestAdapter('a'), b = new TestAdapter('b');
+  store.select([...a.conversations,...b.conversations].map(c=>c.id));
   const service = new MessengerService([a,b],store);
   const result = await service.refresh();
   assert.equal(result.conversations.length, 6);
@@ -35,6 +36,7 @@ test('единая лента объединяет источники и сох�
 test('отправка проверяет весь маршрут; повтор HTTP не дублирует отправку', async t => {
   const { store } = context(t);
   const a = new TestAdapter('a'), b = new TestAdapter('b');
+  store.select([...a.conversations,...b.conversations].map(c=>c.id));
   const service = new MessengerService([a,b],store);
   await service.refresh();
   const destination = destinationFor(a.conversations[0]);
@@ -52,7 +54,7 @@ test('отправка проверяет весь маршрут; повтор 
 });
 test('ошибки провайдера не выходят наружу; повтор не отправляет заново', async t => {
   const { store } = context(t);
-  const a = new TestAdapter(); const service = new MessengerService([a], store);
+  const a = new TestAdapter(); store.select(a.conversations.map(c=>c.id)); const service = new MessengerService([a], store);
   await service.refresh(); a.fail = true;
   const request = { destination: destinationFor(a.conversations[0]), text:'test', requestId:'12345678-12345678' };
   await assert.rejects(service.send(request), /Результат отправки неизвестен/);
@@ -61,23 +63,23 @@ test('ошибки провайдера не выходят наружу; пов
   assert.equal(service.snapshot().stale,true);
 });
 test('открытие ограничено; непрочитанные сбрасываются только явным действием', async t => {
-  const { store } = context(t); const a = new TestAdapter(); const service = new MessengerService([a],store);
+  const { store } = context(t); const a = new TestAdapter(); store.select(a.conversations.map(c=>c.id)); const service = new MessengerService([a],store);
   await service.refresh(); const c = a.conversations[0];
   await service.open(c.id); assert.equal(c.unreadCount,3); assert.equal(a.calls.at(-1),40);
   await service.markRead(c.id); assert.equal(service.snapshot().conversations.find(x => x.id === c.id)?.unreadCount,0); assert.deepEqual(a.reads,[c.id]);
 });
-test('SQLite ограничивает кеш и удаляет истёкший; приватные права и шифрование сессии', t => {
+test('SQLite ограничивает активный кеш и сохраняет исключённый архив', t => {
   const { store, dir } = context(t); const a = new TestAdapter();
-  store.saveCache({ sources:[a.source], conversations:[], messages:Array.from({ length:600 },(_,i) => ({ ...a.messages[0], id:String(i) })), refreshedAt: new Date().toISOString(), stale:false });
-  assert.equal(store.loadCache()?.messages.length,400);
-  store.saveCache({ sources:[], conversations:[], messages:[], refreshedAt:'2020-01-01T00:00:00Z', stale:false });
-  assert.equal(store.loadCache(),undefined);
-  const vault = new SecretVault(dir);
-  const credentials = { apiId:123, apiHash:'test-hash-only', session:'test-session-only' };
-  vault.save(credentials); assert.deepEqual(vault.load(),credentials);
+  store.select([a.conversations[0].id]);
+  store.saveCache({ sources:[a.source], conversations:a.conversations, messages:Array.from({length:600},(_,i)=>({...a.messages[0],id:String(i)})), refreshedAt:new Date().toISOString(), stale:false });
+  assert.equal(store.loadCache().messages.length,40);
+  store.select([]); assert.equal(store.loadCache().messages.length,0);
+  store.select([a.conversations[0].id]); assert.equal(store.loadCache().messages.length,40);
+  const vault=new SecretVault(dir); const credentials={apiId:123,apiHash:'test-only',session:'test-only'};
+  vault.save(credentials);assert.deepEqual(vault.load(),credentials);
   assert.ok(!readFileSync(join(dir,'telegram.enc')).includes(Buffer.from(credentials.session)));
-  assert.equal(statSync(dir).mode & 0o777,0o700);
-  for (const file of ['vault.key','telegram.enc','messenger.sqlite']) assert.equal(statSync(join(dir,file)).mode & 0o777,0o600);
+  assert.equal(statSync(dir).mode&0o777,0o700);
+  for(const name of ['vault.key','telegram.enc','messenger.sqlite'])assert.equal(statSync(join(dir,name)).mode&0o777,0o600);
 });
 test('пароль хешируется; сессии отзываются; перебор ограничен', async t => {
   const { store } = context(t); const auth = new Auth(store);
@@ -85,10 +87,30 @@ test('пароль хешируется; сессии отзываются; пе
   const hash = await passwordHash('test-password-only');
   assert.ok(!hash.includes('test-password-only')); assert.ok(await passwordMatches('test-password-only',hash));
   assert.ok(!await passwordMatches('wrong',hash));
-  store.set('password',hash);
+  store.set('auth.chat',hash); store.set('auth.admin',hash);
   const login = await auth.login('test-password-only');
-  assert.equal(auth.session(`zai_session=${login.token}`)?.csrf,login.csrf);
-  auth.logout(`zai_session=${login.token}`); assert.equal(auth.session(`zai_session=${login.token}`),undefined);
-  for (let i=0;i<4;i++) await assert.rejects(auth.login('wrong'),/Неверный/);
+  assert.equal(auth.session(`zai_chat=${login.token}`)?.csrf,login.csrf);
+  auth.logout(`zai_chat=${login.token}`); assert.equal(auth.session(`zai_chat=${login.token}`),undefined);
+  for (let i=0;i<5;i++) await assert.rejects(auth.login('wrong'),/Неверный/);
   await assert.rejects(auth.login('wrong'),/Слишком много/);
+});
+
+test('по умолчанию ничего не выбрано; исключённые диалоги нельзя читать или отправлять', async t => {
+  const {store}=context(t);const a=new TestAdapter();const service=new MessengerService([a],store);
+  assert.equal((await service.refresh()).messages.length,0);assert.equal(a.calls.length,0);
+  assert.throws(()=>service.send({destination:destinationFor(a.conversations[0]),text:'x',requestId:'12345678-12345678'}),/не разрешён/);
+  await assert.rejects(service.open(a.conversations[0].id),/не разрешён/);
+  service.selection.replace([a.conversations[0].id],a.conversations);
+  await service.refresh();assert.equal(a.calls.length,1);assert.equal(service.snapshot().conversations.length,1);
+  assert.equal(service.snapshot().messages.some(m=>m.conversationId===a.conversations[1].id),false);
+  service.selection.clear();assert.equal(service.snapshot().messages.length,0);
+  await assert.rejects(service.markRead(a.conversations[0].id),/не разрешён/);
+  service.selection.replace([a.conversations[0].id],a.conversations);service.reset();assert.equal(service.snapshot().messages.length,1);
+});
+test('снятие выбора во время чтения не кеширует запоздалый результат',async t=>{
+ const {store}=context(t);const a=new TestAdapter();store.select([a.conversations[0].id]);const service=new MessengerService([a],store);
+ let finish:()=>void=()=>{};const gate=new Promise<void>(r=>{finish=r;});
+ a.recentMessages=async()=>{await gate;return a.messages;};
+ const pending=service.refresh();await new Promise(r=>setImmediate(r));service.selection.clear();finish();await pending;
+ assert.equal(service.snapshot().messages.length,0);assert.equal(store.loadCache([a.conversations[0].id]).messages.length,0);
 });

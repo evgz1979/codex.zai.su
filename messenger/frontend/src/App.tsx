@@ -115,11 +115,11 @@ export function App() {
   if (!session || !session.authenticated) return <main className="entry">
     <div className="entry-brand"><Brand /></div>
     <section className="login-card">
-      <h1>{session?.setupRequired ? 'Настройка входа' : 'Вход'}</h1>
-      {!session ? <p role="status">{error || 'Подключение к серверу…'}</p> : session.setupRequired ? <div className="setup-box"><p>Задайте пароль в локальном терминале:</p><code>bash messenger/scripts/npm.sh run setup</code><p>После создания пароля обновите страницу. Подключение Telegram: messenger/README.md.</p><button className="primary" onClick={() => location.reload()}>Обновить страницу</button></div> : <form onSubmit={login} className="login-form">
+      <h1>Вход</h1>
+      {!session ? <p role="status">{error || 'Подключение к серверу…'}</p> : session.setupRequired ? <p role="status">Вход ещё не настроен.</p> : <form onSubmit={login} className="login-form">
         <label htmlFor="password">Пароль</label>
         <input id="password" type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} required maxLength={512} autoFocus />
-        <button className="primary" disabled={busy}>{busy ? 'Входим…' : 'Войти в Messenger'} <span aria-hidden="true">↗</span></button>
+        <button className="primary" disabled={busy}>{busy ? 'Вход…' : 'Войти в Messenger'}</button>
         {error && <p className="error" role="alert">{error}</p>}
       </form>}
     </section>
@@ -141,14 +141,14 @@ export function App() {
         </button>)}
         {!snapshot?.conversations.length && <p className="list-empty">Здесь появятся ваши диалоги после подключения аккаунта и обновления.</p>}
       </nav>
-      <div className="sidebar-footer"><span><i className={`status-dot ${connected ? '' : 'muted'}`} />{connected ? 'Аккаунт подключён' : 'Аккаунт не подключён'}</span><button className="icon-button" aria-label="Выйти" onClick={logout} disabled={busy}><Icon name="logout" /></button></div>
+      <div className="sidebar-footer"><span><i className={`status-dot ${connected ? '' : 'muted'}`} />{unread} непрочитанных</span><button className="icon-button" aria-label="Выйти" onClick={logout} disabled={busy}><Icon name="logout" /></button></div>
     </aside>
     <section className="chat" aria-label="Единая лента сообщений">
       <header className="chat-header"><button className="icon-button mobile-only" aria-label="Открыть диалоги" onClick={() => setDrawer(true)}><Icon name="menu" /></button><div><div className="header-title"><h1>Общая лента</h1></div><p>{unread} непрочитанных</p></div><button className="refresh-button" onClick={refresh} disabled={busy}><Icon name="refresh" /><span>{busy ? 'Подождите…' : 'Обновить'}</span></button></header>
       <div className="feed-info"><span className="status-dot" />{snapshot?.stale ? 'Кеш · нажмите «Обновить» для актуальных сообщений' : snapshot?.refreshedAt ? `Обновлено в ${time(snapshot.refreshedAt)} · вручную` : 'Обновление по вашему запросу'}<span className="feed-limit">Только последние сообщения</span></div>
       {error && <div className="error-banner" role="alert">{error}</div>}
       <div className="feed" ref={feed} tabIndex={0} aria-label="Сообщения" aria-busy={busy}>
-        {!snapshot?.messages.length ? <div className="empty-state"><h2>Нет загруженных сообщений</h2><p>{connected ? 'Нажмите «Обновить».' : 'Подключите Telegram в локальном терминале. Инструкция: messenger/README.md.'}</p><button className="primary" onClick={refresh} disabled={busy}>Обновить сообщения <Icon name="refresh" /></button></div> : <div className="message-stream">{snapshot.messages.map((m,i,messages) => {
+        {!snapshot?.messages.length ? <div className="empty-state"><h2>Нет загруженных сообщений</h2><button className="primary" onClick={refresh} disabled={busy}>Обновить сообщения <Icon name="refresh" /></button></div> : <div className="message-stream">{snapshot.messages.map((m,i,messages) => {
           const c = snapshot.conversations.find(c => c.id === m.conversationId);
           return <div key={m.id}>{(i === 0 || day(messages[i-1].date) !== day(m.date)) && <div className="date-divider"><span>{day(m.date)}</span></div>}
             <article className={`message ${m.outgoing ? 'outgoing' : ''}`} aria-label={`Сообщение: ${m.sender.name}`}>

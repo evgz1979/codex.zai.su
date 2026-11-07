@@ -1,39 +1,43 @@
 import type { SourceAdapter } from './source-adapter.js';
 import type { Store } from '../storage/store.js';
 import { destinationFor, LIMITS, type Conversation, type Message, type SendRequest, type Snapshot } from '../../shared/types.js';
-//: Описывает безопасную прикладную ошибку API.
-//: Содержит HTTP-статус и текст без внутреннего исключения Telegram.
-export class AppError extends Error {
-  //: Задаёт статус и пользовательское сообщение ошибки.
-  //: Стек и секретные данные не включаются в HTTP-ответ.
-  constructor(public status: number, message: string) { super(message); } }
+import { AppError } from './errors.js';
+import { ConnectorRegistry } from './registry.js';
+import { ConversationSelectionService } from './selection.js';
+import { UnifiedInboxService } from './inbox.js';
+export { AppError } from './errors.js';
 //: Объединяет источники в общую ленту и проверяет отправки.
 //: Зависит от SourceAdapter и Store, без Telegram-специфичных ID.
 export class MessengerService {
   private state: Snapshot;
+  readonly registry: ConnectorRegistry;
+  readonly selection: ConversationSelectionService;
+  readonly inbox: UnifiedInboxService;
   private pendingRefresh?: Promise<Snapshot>;
   private sends = new Map<string, { signature: string; result: Promise<Message>; created: number }>();
   //: Загружает ограниченный кеш либо пустой снимок.
   //: Загруженные данные сразу помечаются устаревшими.
   constructor(private adapters: SourceAdapter[], private store: Store) {
-    this.state = store.loadCache() ?? { sources: [], conversations: [], messages: [], refreshedAt: null, stale: true };
+    this.registry = new ConnectorRegistry(adapters);
+    this.selection = new ConversationSelectionService(store);
+    this.inbox = new UnifiedInboxService(this.selection);
+    this.state = store.loadCache();
     this.state.stale = true;
   }
   //: Возвращает текущий снимок и состояния зарегистрированных источников.
   //: Не обращается к сети и не передаёт credentials адаптеров.
   snapshot(): Snapshot {
-    return { ...this.state, sources: this.adapters.map(a => a.source) };
+    return this.inbox.filter({ ...this.state, sources: this.registry.sources() });
   }
   //: Ищет зарегистрированный источник по sourceId.
   //: Неизвестный источник отклоняется с 409.
   private adapter(id: string) {
-    const adapter = this.adapters.find(a => a.source.id === id);
-    if (!adapter) throw new AppError(409, 'Источник недоступен. Обновите ленту.');
-    return adapter;
+    return this.registry.get(id);
   }
   //: Ищет диалог только среди известных серверу DTO.
   //: Отсутствующий conversationId отклоняется с 404.
   private conversation(id: string): Conversation {
+    this.selection.require(id);
     const c = this.state.conversations.find(c => c.id === id);
     if (!c) throw new AppError(404, 'Диалог не найден. Обновите ленту.');
     return c;
@@ -48,17 +52,22 @@ export class MessengerService {
   //: Загружает диалоги и ограниченную свежую выборку сообщений.
   //: Успех заменяет снимок, ошибка помечает прежний снимок stale и возвращает 503.
   private async doRefresh(): Promise<Snapshot> {
+    const revision = this.selection.revision;
+    if (!this.selection.ids().length) return this.snapshot();
     try {
       const conversations: Conversation[] = [];
       const messages: Message[] = [];
       for (const adapter of this.adapters) {
         await adapter.connect();
-        conversations.push(...await adapter.listConversations());
+        conversations.push(...(await adapter.listConversations()).filter(c => this.selection.allows(c.id)));
       }
       conversations.sort((a,b) => b.updatedAt.localeCompare(a.updatedAt));
-      for (const c of conversations.slice(0, LIMITS.recentConversations)) {
+      for (const c of conversations) {
+        if (revision !== this.selection.revision) return this.snapshot();
         messages.push(...await this.adapter(c.sourceId).recentMessages(c.id, LIMITS.messagesPerConversation));
       }
+      if (revision !== this.selection.revision) return this.snapshot();
+      for (const c of conversations) c.preview = messages.filter(m => m.conversationId === c.id).at(-1)?.text || '';
       this.state = { conversations, messages: this.sorted(messages), sources: this.adapters.map(a => a.source), refreshedAt: new Date().toISOString(), stale: false };
       this.persist();
       return this.snapshot();
@@ -81,7 +90,9 @@ export class MessengerService {
     const c = this.conversation(id);
     const adapter = this.adapter(c.sourceId);
     const messages = await adapter.recentMessages(id, LIMITS.selectedMessages);
+    this.selection.require(id);
     this.state.messages = this.sorted([...this.state.messages.filter(m => m.conversationId !== id), ...messages]);
+    this.selection.require(id);
     this.persist();
     return this.snapshot();
   }
@@ -114,7 +125,9 @@ export class MessengerService {
       return previous.result;
     }
     const result = Promise.resolve().then(async () => {
+      this.selection.require(c.id);
       const message = await this.adapter(c.sourceId).sendText(expected, input.text);
+      this.selection.require(c.id);
       this.state.messages = this.sorted([...this.state.messages, message]);
       c.preview = message.text; c.updatedAt = message.date;
       this.persist();
@@ -125,5 +138,8 @@ export class MessengerService {
   }
   //: Закрывает соединения всех зарегистрированных источников.
   //: Ожидает allSettled, чтобы ошибка одного адаптера не пропустила остальные.
-  async disconnect() { await Promise.allSettled(this.adapters.map(a => a.disconnect())); }
+  async disconnect() { await this.registry.disconnect(); }
+  //: Перечитывает кеш только разрешённых диалогов.
+  //: Не загружает данные Telegram и не удаляет архив исключённых диалогов.
+  reset() { this.state = this.store.loadCache(); this.state.stale = true; }
 }

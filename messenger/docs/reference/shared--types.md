@@ -4,6 +4,25 @@
 
 [Исходный модуль](../../shared/types.ts) · [Индекс](README.md)
 
+<a id="symbol-AdminStatus"></a>
+
+## AdminStatus
+
+Возвращает готовность источника и число разрешённых диалогов.
+
+Секреты и пользовательские сообщения в модель не входят.
+
+```typescript
+export interface AdminStatus {
+    telegram: {
+        configured: boolean;
+        connected: boolean;
+        stage: TelegramAuthStage;
+    };
+    selectedCount: number;
+}
+```
+
 <a id="symbol-Attachment"></a>
 
 ## Attachment
@@ -35,7 +54,7 @@ export interface Conversation {
     id: EntityId;
     sourceId: EntityId;
     title: string;
-    kind: 'direct' | 'group';
+    kind: 'direct' | 'group' | 'channel';
     recipient: Recipient;
     unreadCount: number;
     updatedAt: string;
@@ -117,7 +136,7 @@ export type EntityId = string;
 Одна константа используется сервером и клиентской валидацией текста.
 
 ```typescript
-const LIMITS = { conversations: 100, recentConversations: 12, messagesPerConversation: 20, selectedMessages: 40, cachedMessages: 400, text: 4096 } as const
+const LIMITS = { conversations: 1000, recentConversations: 12, messagesPerConversation: 20, selectedMessages: 40, cachedMessages: 400, text: 4096 } as const
 ```
 
 <a id="symbol-Message"></a>
@@ -223,4 +242,16 @@ export interface Source {
     name: string;
     connected: boolean;
 }
+```
+
+<a id="symbol-TelegramAuthStage"></a>
+
+## TelegramAuthStage
+
+Описывает безопасные этапы Telegram-авторизации.
+
+Не содержит введённые данные или MTProto-объекты.
+
+```typescript
+export type TelegramAuthStage = 'idle' | 'connecting' | 'code' | 'password' | 'connected' | 'error';
 ```

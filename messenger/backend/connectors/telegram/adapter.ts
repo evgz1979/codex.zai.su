@@ -8,22 +8,22 @@ import { entityId, LIMITS, type Conversation, type Destination, type Message, ty
 //: Задаёт стабильный ID личного Telegram-источника.
 //: Это ID экземпляра адаптера, а не общий вид провайдера.
 export const TELEGRAM_SOURCE = 'telegram-personal';
-//: Строит ID Telegram-сущности через общий entityId.
-//: Источник включён в каждый внешний идентификатор.
-const id = (kind: string, native: string) => entityId(TELEGRAM_SOURCE, kind, native);
 //: Ограничивает поверхность teleproto, нужную адаптеру.
 //: Тесты подставляют этот порт без реального Telegram-подключения.
-type TelegramPort = Pick<TelegramClient, 'connected' | 'connect' | 'checkAuthorization' | 'destroy' | 'getDialogs' | 'getMessages' | 'sendMessage' | 'markAsRead'>;
+type TelegramPort = Pick<TelegramClient, 'connected' | 'connect' | 'checkAuthorization' | 'destroy' | 'getDialogs' | 'getMessages' | 'sendMessage' | 'markAsRead' | 'logOut'>;
 //: Реализует SourceAdapter для одного личного Telegram-аккаунта.
 //: Сессия и native peer остаются на сервере, DTO не содержат секретов.
 export class TelegramAdapter implements SourceAdapter {
   readonly source: Source = { id: TELEGRAM_SOURCE, kind: 'telegram', name: 'Telegram', connected: false };
   private client?: TelegramPort;
-  private dialogs = new Map<string, Dialog>();
+  private dialogs = new Map<string, Pick<Dialog, 'id' | 'inputEntity'>>();
   private connecting?: Promise<void>;
   //: Подключает приватное хранилище и фабрику клиента.
   //: По умолчанию используется teleproto; отдельная фабрика служит изолированным тестам.
-  constructor(private vault: SecretVault, private createClient: (credentials: NonNullable<ReturnType<SecretVault['load']>>, vault: SecretVault) => TelegramPort = telegramClient) {}
+  constructor(private vault: SecretVault, private createClient: (credentials: NonNullable<ReturnType<SecretVault['load']>>, vault: SecretVault) => TelegramPort = telegramClient) {
+    const credentials = vault.load();
+    if (credentials?.accountId) this.source.id = `telegram-${credentials.accountId}`;
+  }
   //: Устанавливает готовое авторизованное соединение.
   //: Параллельные вызовы используют один Promise подключения.
   async connect() {
@@ -39,6 +39,7 @@ export class TelegramAdapter implements SourceAdapter {
     const credentials = this.vault.load();
     if (!credentials) throw new Error('Telegram login required');
     if (this.client) await this.client.destroy();
+    this.source.id = credentials.accountId ? `telegram-${credentials.accountId}` : TELEGRAM_SOURCE;
     this.client = this.createClient(credentials, this.vault);
     await this.client.connect();
     if (!await this.client.checkAuthorization()) throw new Error('Telegram login required');
@@ -46,6 +47,11 @@ export class TelegramAdapter implements SourceAdapter {
   }
   //: Закрывает клиент и сбрасывает connected.
   //: Удалённая Telegram-авторизация остаётся действующей.
+  async revoke() {
+    try { if (this.vault.exists()) { await this.connect(); await this.client!.logOut(); } } catch { /* Локальный доступ отзывается даже при недоступности Telegram. */ } finally { await this.disconnect(); this.vault.clear(); this.dialogs.clear(); }
+  }
+  //: Закрывает соединение MTProto без удаления авторизации.
+  //: При обычной остановке приложения сохранённая сессия остаётся.
   async disconnect() {
     this.source.connected = false;
     if (this.client) await this.client.destroy();
@@ -58,24 +64,25 @@ export class TelegramAdapter implements SourceAdapter {
     this.dialogs.clear();
     const result: Conversation[] = [];
     for (const d of dialogs) {
-      // Только личные диалоги и группы. Broadcast-каналы и communities пропускаем.
-      if ((!d.isUser && !d.isGroup) || d.isCommunity || !d.id || !d.entity) continue;
+      // Метаданные каналов доступны для административного выбора.
+      if ((!d.isUser && !d.isGroup && !d.isChannel) || d.isCommunity || !d.id || !d.entity) continue;
       const native = d.id.toString();
-      const conversationId = id('conversation', native);
+      const conversationId = entityId(this.source.id, 'conversation', native);
       const e = d.entity;
       if (e instanceof Api.Chat && (e.deactivated || e.migratedTo)) continue;
       if (e instanceof Api.User && e.deleted) continue;
-      this.dialogs.set(conversationId, d);
-      const banned = (e instanceof Api.Channel || e instanceof Api.Chat) && (e.left || e.defaultBannedRights?.sendMessages);
+      this.dialogs.set(conversationId, { id:d.id, inputEntity:d.inputEntity });
+      const banned = (e instanceof Api.Channel || e instanceof Api.Chat) && (e.left || (!(e.creator || e.adminRights) && e.defaultBannedRights?.sendMessages));
       const userBanned = e instanceof Api.Channel && e.bannedRights?.sendMessages;
+      const broadcast = e instanceof Api.Channel && e.broadcast && !(e.creator || e.adminRights?.postMessages);
       const forum = e instanceof Api.Channel && e.forum;
-      const paid = e instanceof Api.User && !!e.sendPaidMessagesStars;
+      const paid = e instanceof Api.User && BigInt(e.sendPaidMessagesStars?.toString() || '0') > 0n;
       result.push({
         id: conversationId, sourceId: this.source.id, title: d.title || d.name || 'Без названия',
-        kind: d.isUser ? 'direct' : 'group', recipient: { id: id('recipient', native), name: d.title || d.name || 'Без названия' },
+        kind: d.isUser ? 'direct' : d.isGroup ? 'group' : 'channel', recipient: { id: entityId(this.source.id, 'recipient', native), name: d.title || d.name || 'Без названия' },
         unreadCount: d.unreadCount, updatedAt: new Date((d.date || 0) * 1000).toISOString(),
-        preview: d.message?.message || (d.message?.media ? 'Вложение' : ''),
-        canSend: !banned && !userBanned && !forum && !paid,
+        preview: '',
+        canSend: !banned && !userBanned && !forum && !paid && !broadcast,
       });
     }
     return result;
@@ -95,11 +102,11 @@ export class TelegramAdapter implements SourceAdapter {
     const sender = m.sender;
     const nativeSender = m.senderId?.toString() || 'unknown';
     return {
-      id: id('message', `${conversationId}/${m.id}`), sourceId: this.source.id, conversationId,
-      sender: { id: id('sender', nativeSender), name: m.out ? 'Вы' : sender ? utils.getDisplayName(sender) || 'Участник' : 'Участник', isSelf: !!m.out },
+      id: entityId(this.source.id, 'message', `${conversationId}/${m.id}`), sourceId: this.source.id, conversationId,
+      sender: { id: entityId(this.source.id, 'sender', nativeSender), name: m.out ? 'Вы' : sender ? utils.getDisplayName(sender) || 'Участник' : 'Участник', isSelf: !!m.out },
       date: new Date(m.date * 1000).toISOString(), text: m.message || '', outgoing: !!m.out,
       status: m.out ? 'sent' : 'received',
-      attachments: m.media && !(m.media instanceof Api.MessageMediaWebPage) ? [{ id: id('attachment', `${conversationId}/${m.id}`), kind: 'unsupported', name: 'Вложение · откройте в Telegram' }] : [],
+      attachments: m.media && !(m.media instanceof Api.MessageMediaWebPage) ? [{ id: entityId(this.source.id, 'attachment', `${conversationId}/${m.id}`), kind: 'unsupported', name: 'Вложение · откройте в Telegram' }] : [],
     };
   }
   //: Читает последние сообщения выбранного диалога.
@@ -113,7 +120,7 @@ export class TelegramAdapter implements SourceAdapter {
   //: Повторно сверяет source и recipient; отключает разметку и link preview.
   async sendText(destination: Destination, text: string) {
     const d = await this.dialog(destination.conversationId);
-    if (destination.sourceId !== this.source.id || destination.recipientId !== id('recipient', d.id!.toString())) throw new Error('Invalid destination');
+    if (destination.sourceId !== this.source.id || destination.recipientId !== entityId(this.source.id, 'recipient', d.id!.toString())) throw new Error('Invalid destination');
     const message = await this.client!.sendMessage(d.inputEntity, { message: text, parseMode: undefined, formattingEntities: [], linkPreview: false });
     return this.mapMessage(message, destination.conversationId);
   }

@@ -27,7 +27,7 @@ export interface Conversation {
   id: EntityId;
   sourceId: EntityId;
   title: string;
-  kind: 'direct' | 'group';
+  kind: 'direct' | 'group' | 'channel';
   recipient: Recipient;
   unreadCount: number;
   updatedAt: string;
@@ -64,7 +64,7 @@ export interface SendRequest { destination: Destination; text: string; requestId
 export interface SessionInfo { authenticated: boolean; setupRequired: boolean; csrfToken?: string }
 //: Задаёт ограничения выборок, кеша и длины текста MVP.
 //: Одна константа используется сервером и клиентской валидацией текста.
-export const LIMITS = { conversations: 100, recentConversations: 12, messagesPerConversation: 20, selectedMessages: 40, cachedMessages: 400, text: 4096 } as const;
+export const LIMITS = { conversations: 1000, recentConversations: 12, messagesPerConversation: 20, selectedMessages: 40, cachedMessages: 400, text: 4096 } as const;
 //: Кодирует внешний ID из источника, типа и native ID.
 //: Экранирует компоненты, чтобы двоеточия native ID не создавали коллизии.
 export function entityId(sourceId: string, kind: string, nativeId: string): EntityId {
@@ -75,3 +75,10 @@ export function entityId(sourceId: string, kind: string, nativeId: string): Enti
 export function destinationFor(c: Conversation): Destination {
   return { sourceId: c.sourceId, conversationId: c.id, recipientId: c.recipient.id };
 }
+
+//: Описывает безопасные этапы Telegram-авторизации.
+//: Не содержит введённые данные или MTProto-объекты.
+export type TelegramAuthStage = 'idle' | 'connecting' | 'code' | 'password' | 'connected' | 'error';
+//: Возвращает готовность источника и число разрешённых диалогов.
+//: Секреты и пользовательские сообщения в модель не входят.
+export interface AdminStatus { telegram: { configured: boolean; connected: boolean; stage: TelegramAuthStage }; selectedCount: number }

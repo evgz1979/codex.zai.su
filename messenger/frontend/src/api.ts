@@ -11,7 +11,7 @@ export class ApiError extends Error {
 //: Выполняет same-origin JSON-запрос к фиксированному /api пути.
 //: Передаёт cookie, CSRF для POST и запрещает кеширование ответа.
 export async function api<T>(path: string, input?: unknown): Promise<T> {
-  const res = await fetch(`/api/${path}`, {
+  const res = await fetch(`/api/${location.pathname.startsWith('/admin') ? 'admin' : 'chat'}/${path}`, {
     method: input === undefined ? 'GET' : 'POST', credentials: 'same-origin', cache: 'no-store',
     headers: input === undefined ? {} : { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
     ...(input === undefined ? {} : { body: JSON.stringify(input) }),

@@ -4,18 +4,6 @@
 
 [Исходный модуль](../../backend/connectors/telegram/adapter.ts) · [Индекс](README.md)
 
-<a id="symbol-id"></a>
-
-## id
-
-Строит ID Telegram-сущности через общий entityId.
-
-Источник включён в каждый внешний идентификатор.
-
-```typescript
-id(kind: string, native: string)
-```
-
 <a id="symbol-TELEGRAM_SOURCE"></a>
 
 ## TELEGRAM_SOURCE
@@ -80,9 +68,9 @@ private async dialog(conversationId: string)
 
 ## TelegramAdapter.disconnect
 
-Закрывает клиент и сбрасывает connected.
+Закрывает соединение MTProto без удаления авторизации.
 
-Удалённая Telegram-авторизация остаётся действующей.
+При обычной остановке приложения сохранённая сессия остаётся.
 
 ```typescript
 async disconnect()
@@ -148,6 +136,18 @@ async markRead(conversationId: string, messageId: string)
 async recentMessages(conversationId: string, limit: number)
 ```
 
+<a id="symbol-TelegramAdapter.revoke"></a>
+
+## TelegramAdapter.revoke
+
+Закрывает клиент и сбрасывает connected.
+
+Удалённая Telegram-авторизация остаётся действующей.
+
+```typescript
+async revoke()
+```
+
 <a id="symbol-TelegramAdapter.sendText"></a>
 
 ## TelegramAdapter.sendText
@@ -169,5 +169,5 @@ async sendText(destination: Destination, text: string)
 Тесты подставляют этот порт без реального Telegram-подключения.
 
 ```typescript
-type TelegramPort = Pick<TelegramClient, 'connected' | 'connect' | 'checkAuthorization' | 'destroy' | 'getDialogs' | 'getMessages' | 'sendMessage' | 'markAsRead'>;
+type TelegramPort = Pick<TelegramClient, 'connected' | 'connect' | 'checkAuthorization' | 'destroy' | 'getDialogs' | 'getMessages' | 'sendMessage' | 'markAsRead' | 'logOut'>;
 ```

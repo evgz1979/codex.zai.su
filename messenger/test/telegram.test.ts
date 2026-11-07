@@ -34,7 +34,7 @@ test('Telegram: DTO, фильтр broadcast, уникальность message ID
   const adapter = new TelegramAdapter(vault,() => fake as unknown as TelegramClient);
   try {
     const conversations = await adapter.listConversations();
-    assert.equal(conversations.length,2); assert.equal(conversations[1].kind,'group');
+    assert.equal(conversations.length,3); assert.equal(conversations[1].kind,'group'); assert.equal(conversations[2].kind,'channel');assert.ok(conversations.every(c=>c.preview===''));
     const a = await adapter.recentMessages(conversations[0].id,1000);
     const b = await adapter.recentMessages(conversations[1].id,1000);
     assert.equal(requestedLimit,40); assert.notEqual(a[0].id,b[0].id);

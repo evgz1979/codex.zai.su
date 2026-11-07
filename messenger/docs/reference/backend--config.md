@@ -8,9 +8,9 @@
 
 ## clientDirectory
 
-Задаёт каталог собранного frontend.
+Задаёт каталог собранных браузерных ресурсов.
 
-HTTP-сервер раздаёт только dist/client.
+Приватное хранилище через него не раздаётся.
 
 ```typescript
 const clientDirectory = resolve(moduleRoot, 'dist/client')
@@ -20,21 +20,21 @@ const clientDirectory = resolve(moduleRoot, 'dist/client')
 
 ## dataDirectory
 
-Задаёт каталог приватных данных модуля.
+Выбирает отдельный каталог пользовательских данных.
 
-Всегда указывает на .local внутри Messenger.
+В production обязателен абсолютный путь за пределами релиза.
 
 ```typescript
-const dataDirectory = resolve(moduleRoot, '.local')
+const dataDirectory = resolve(process.env.MESSENGER_DATA_DIR || resolve(moduleRoot, '.local'))
 ```
 
 <a id="symbol-moduleRoot"></a>
 
 ## moduleRoot
 
-Определяет корень Messenger из расположения конфигурации.
+Находит корень исходной или собранной версии Messenger.
 
-Поддерживает исходный backend и dist/server/backend без зависимости от cwd.
+Не зависит от рабочего каталога процесса.
 
 ```typescript
 const moduleRoot = fileURLToPath(new URL(compiled ? '../../../' : '../', import.meta.url))
@@ -44,22 +44,34 @@ const moduleRoot = fileURLToPath(new URL(compiled ? '../../../' : '../', import.
 
 ## origin
 
-Задаёт точный локальный Origin для HTTP-проверок.
+Задаёт точный внешний Origin доверенного HTTPS-сайта.
 
-Использует 127.0.0.1 и фиксированный port, без доверия proxy-заголовкам.
+Production требует явную переменную окружения и HTTPS.
 
 ```typescript
-const origin = `http://127.0.0.1:${port}`
+const origin = process.env.MESSENGER_PUBLIC_ORIGIN || `http://127.0.0.1:${port}`
 ```
 
 <a id="symbol-port"></a>
 
 ## port
 
-Задаёт единственный production-порт Messenger.
+Задаёт локальный TCP-порт backend.
 
-Публичная привязка и произвольный порт через окружение не поддерживаются.
+Сервис всегда слушает только 127.0.0.1.
 
 ```typescript
 const port = 4318
+```
+
+<a id="symbol-secureCookies"></a>
+
+## secureCookies
+
+Определяет обязательный Secure-режим cookie.
+
+В публичном режиме отключение Secure запрещено конфигурацией.
+
+```typescript
+const secureCookies = origin.startsWith('https://')
 ```
