@@ -36,10 +36,12 @@ test('единая лента, выбор адресата, отправка, н
   expect(sent.destination.sourceId).toBe('fixture-a'); expect(sent.destination.conversationId).toContain('fixture-a:conversation:0');
   await expect(page.locator('.bubble').getByText(draftText,{exact:true})).toBeVisible();
   await expect(page.getByLabel('Сообщение',{exact:true})).toHaveValue('');
-  await page.getByRole('button',{name:'Отметить прочитанным'}).click();
-  await expect(page.getByRole('button',{name:'Отметить прочитанным'})).not.toBeVisible();
-  await page.getByRole('button',{name:'Обновить',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Обновить',exact:true})).toBeEnabled();
+  if (!mobile) {
+    await page.getByRole('button',{name:'Отметить прочитанным'}).click();
+    await expect(page.getByRole('button',{name:'Отметить прочитанным'})).not.toBeVisible();
+  }
+  await expect(page.getByRole('button',{name:'Обновить',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Загрузить ещё 10 сообщений'})).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   const sendBox = await page.locator('.composer').boundingBox();
   expect(sendBox!.x).toBeGreaterThanOrEqual(0); expect(sendBox!.x + sendBox!.width).toBeLessThanOrEqual(page.viewportSize()!.width + 1);
@@ -64,7 +66,7 @@ test('открытый чат скрывает исключённые диало
   test.skip(testInfo.project.name !== 'desktop-chromium');
   await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();
   await expect(page.locator('.bubble').getByText('Это синтетическое сообщение из другого источника.')).toBeVisible();
-  await page.route('**/api/chat/access',route=>route.fulfill({json:{ids:[]}}));
+  await page.route('**/api/chat/access?since=*',route=>route.fulfill({json:{ids:[]}}));
   await expect(page.locator('.bubble')).toHaveCount(0,{timeout:7000});
   await expect(page.getByRole('heading',{name:'Нет загруженных сообщений'})).toBeVisible();
 });
