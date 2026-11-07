@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { destinationFor, LIMITS, type Conversation, type ConversationPageResult, type Message, type MessagePage, type SessionInfo, type Snapshot, type SyncStatus } from '../../shared/types';
+import AttachmentViewer from './AttachmentViewer';
+import type {AttachmentRequest} from '../../shared/types';
 import { api, ApiError, setCsrf } from './api';
 
 //: Форматирует время сообщения для интерфейса.
@@ -22,6 +24,7 @@ function Brand() { return <div className="brand"><span className="monogram">Z</s
 export function App() {
   const [session, setSession] = useState<SessionInfo>();
   const [snapshot, setSnapshot] = useState<Snapshot>();
+  const [attachmentTarget,setAttachmentTarget]=useState<AttachmentRequest>();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [loading,setLoading]=useState(false);
@@ -56,7 +59,7 @@ export function App() {
   //: Показывает ошибку операции и обрабатывает потерю входа.
   //: При 401 очищает снимок, адресата и черновики.
   function fail(e: unknown) {
-    if (e instanceof ApiError && e.status === 401) { cancelView();acceptSession({ authenticated: false, setupRequired: false }); setSnapshot(undefined); setPage(undefined);setDrafts({}); setTargetId(undefined); }
+    if (e instanceof ApiError && e.status === 401) { setAttachmentTarget(undefined);cancelView();acceptSession({ authenticated: false, setupRequired: false }); setSnapshot(undefined); setPage(undefined);setDrafts({}); setTargetId(undefined); }
     setError(e instanceof Error ? e.message : 'Нет связи с локальным сервером.');
   }
   useEffect(() => { api<SessionInfo>('session').then(acceptSession).catch(fail); }, []);
@@ -78,6 +81,7 @@ export function App() {
         if(previous&&(previous.size!==ids.size||[...previous].some(id=>!ids.has(id)))){access.current.revision++;cancelView();}
         access.current.ids=ids;
         const deleted=new Set(result.deletedIds||[]);
+        setAttachmentTarget(old=>old&&ids.has(old.conversationId)&&!deleted.has(old.messageId)&&!result.reset?old:undefined);
         setSnapshot(old=>old?{...old,conversations:old.conversations.filter(c=>ids.has(c.id)),messages:old.messages.filter(m=>ids.has(m.conversationId)&&!deleted.has(m.id))}:old);
         setPage(old=>old&&(old.conversationId==='inbox'||ids.has(old.conversationId))&&!result.reset?{...old,messages:old.messages.filter(m=>ids.has(m.conversationId)&&!deleted.has(m.id))}:undefined);
         setTargetId(old=>old&&ids.has(old)?old:undefined);setDrafts(old=>Object.fromEntries(Object.entries(old).filter(([id])=>ids.has(id))));
@@ -200,7 +204,7 @@ export function App() {
   //: Отзывает текущую веб-сессию и очищает состояние переписки UI.
   //: Не завершает Telegram-авторизацию на сервере.
   async function logout() {
-    cancelView();setBusy(true);
+    setAttachmentTarget(undefined);cancelView();setBusy(true);
     try {
       await api('logout', {}); acceptSession({ authenticated: false, setupRequired: false });
       setSnapshot(undefined);setPage(undefined);setDrafts({});setTargetId(undefined);setError('');setUncertain(false);seenRevision.current=0;appliedRevision.current=0;access.current={revision:0};
@@ -250,7 +254,7 @@ export function App() {
               <div className="bubble">
                 {!target&&<div className="message-context"><strong>{c?.title || 'Диалог'}</strong><span className="source-label">{snapshot?.sources.find(s => s.id === m.sourceId)?.name || 'Источник'}</span></div>}
                 {!m.outgoing && c?.kind === 'group' && <strong className="sender-name">{m.sender.name}</strong>}
-                {m.text && <p>{m.text}</p>}{m.attachments.map(a => <div key={a.id} className="attachment">{a.name}</div>)}
+                {m.text && <p>{m.text}</p>}{m.attachments.map(a => a.downloadable===false?<div key={a.id} className="attachment">{a.name}</div>:<button key={a.id} className="attachment attachment-button" onClick={()=>setAttachmentTarget({conversationId:m.conversationId,messageId:m.id,attachmentId:a.id})} aria-label={`Открыть вложение: ${a.name}`}><span aria-hidden="true">{a.kind==='image'?'▧':a.kind==='video'?'▷':a.kind==='audio'?'♪':'▤'}</span><span>{a.kind==='unsupported'?'Открыть вложение':a.name}{a.size!==undefined&&<small>{Math.ceil(a.size/1024)} КБ</small>}</span></button>)}
                 <div className="message-meta">{!target&&c?.canSend&&<button className="reply-button" disabled={busy} onClick={() => choose(c)}>Ответить <span aria-hidden="true">↗</span></button>}<time dateTime={m.date}>{time(m.date)}</time>{m.outgoing && <span aria-label="Отправлено">✓</span>}</div>
               </div>
             </article></div>;
@@ -262,5 +266,6 @@ export function App() {
         {(uncertain||(target&&target.unreadCount>0)||draft.length>3500)&&<div className="composer-note">{uncertain && <span>Дождитесь синхронизации и проверьте отправку перед повтором</span>}{target && target.unreadCount > 0 && <button disabled={pending} onClick={read}>Отметить прочитанным</button>}{draft.length > 3500 && <span>{draft.length}/{LIMITS.text}</span>}</div>}
       </div>
     </section>
+    {attachmentTarget&&<AttachmentViewer key={`${attachmentTarget.messageId}/${attachmentTarget.attachmentId}`} request={attachmentTarget} onClose={()=>setAttachmentTarget(undefined)} onUnauthorized={fail}/>}
   </main>;
 }

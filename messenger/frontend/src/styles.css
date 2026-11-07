@@ -227,3 +227,21 @@ svg { width: 21px; height: 21px; flex-shrink: 0; }
 @media (prefers-reduced-motion: reduce) {
   * { scroll-behavior: auto !important; }
 }
+
+.attachment-button { display: flex; align-items: center; gap: 8px; min-height: 44px; max-width: 100%; text-align: left; color: #247cb9; }
+.attachment-button > span:first-child { font-size: 24px; flex-shrink: 0; }
+.attachment-button > span:last-child { min-width: 0; overflow-wrap: anywhere; }
+.attachment-button small { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; }
+.attachment-button:hover { background: var(--accent-soft); }
+.media-viewer { width: min(96vw, 1000px); max-height: 94vh; max-height: 94dvh; padding: 0; border: 0; border-radius: 12px; background: var(--surface); color: #17212b; }
+.media-viewer[open] { display: flex; flex-direction: column; }
+.media-viewer::backdrop { background: #101b29cf; }
+.media-viewer header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 5px 8px 5px 14px; border-bottom: 1px solid var(--line); }
+.media-viewer h2 { min-width: 0; overflow-wrap: anywhere; font-size: 14px; font-weight: 600; }
+.media-viewer .icon-button { width: 44px; height: 44px; }
+.media-content { min-height: 100px; padding: 12px; overflow: auto; text-align: center; }
+.media-content img, .media-content video { display: block; max-width: 100%; max-height: 68vh; max-height: 68dvh; margin: auto; object-fit: contain; }
+.media-content audio { width: min(100%, 500px); }
+.media-content p { margin: 10px; }
+.media-viewer footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+.media-viewer footer a { display: inline-flex; align-items: center; min-height: 44px; color: #247cb9; text-decoration: none; font-weight: 600; }
