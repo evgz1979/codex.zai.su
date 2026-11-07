@@ -32,7 +32,7 @@
 | [frontend/src/admin/ConversationPicker.tsx](frontend--src--admin--ConversationPicker.md) | Закладки папок, поиск и независимый от текущей папки выбор диалогов. | 3 |
 | [frontend/src/api.ts](frontend--src--api.md) | Same-origin fetch, CSRF в памяти и безопасная ошибка API. | 4 |
 | [frontend/src/main.tsx](frontend--src--main.md) | Создание React root и подключение локальной таблицы стилей. | 0 |
-| [frontend/src/styles.css](frontend--src--styles.md) | Вёрстка ленты, мобильной панели и админки с закладками; safe-area и короткий viewport. | 0 |
+| [frontend/src/styles.css](frontend--src--styles.md) | Компактная светлая палитра Telegram, общая лента и отдельная админка; safe-area и короткий viewport. | 0 |
 | [frontend/vite.config.ts](frontend--vite.config.md) | React/Vite-сборка в dist/client без отдельного production-порта. | 0 |
 | [playwright.config.ts](playwright.config.md) | Три браузерные конфигурации и изолированный сервер синтетических данных. | 0 |
 | [scripts/build-documentation.mjs](scripts--build-documentation.md) | AST-справочник, маршруты, DDL, тестовый индекс и проверка ссылок без запуска приложения. | 16 |

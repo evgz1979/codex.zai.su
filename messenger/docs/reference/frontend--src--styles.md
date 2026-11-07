@@ -1,6 +1,6 @@
 # frontend/src/styles.css
 
-Вёрстка ленты, мобильной панели и админки с закладками; safe-area и короткий viewport.
+Компактная светлая палитра Telegram, общая лента и отдельная админка; safe-area и короткий viewport.
 
 [Исходный модуль](../../frontend/src/styles.css) · [Индекс](README.md)
 

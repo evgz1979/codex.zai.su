@@ -33,7 +33,7 @@ const purposes = {
   'frontend/src/App.tsx': 'Единый React-интерфейс, веб-вход, адресат, черновики и состояние операций.',
   'frontend/src/api.ts': 'Same-origin fetch, CSRF в памяти и безопасная ошибка API.',
   'frontend/src/main.tsx': 'Создание React root и подключение локальной таблицы стилей.',
-  'frontend/src/styles.css': 'Вёрстка ленты, мобильной панели и админки с закладками; safe-area и короткий viewport.',
+  'frontend/src/styles.css': 'Компактная светлая палитра Telegram, общая лента и отдельная админка; safe-area и короткий viewport.',
   'frontend/vite.config.ts': 'React/Vite-сборка в dist/client без отдельного production-порта.',
   'playwright.config.ts': 'Три браузерные конфигурации и изолированный сервер синтетических данных.',
   'scripts/build-documentation.mjs': 'AST-справочник, маршруты, DDL, тестовый индекс и проверка ссылок без запуска приложения.',
