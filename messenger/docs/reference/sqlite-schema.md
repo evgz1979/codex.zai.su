@@ -10,4 +10,8 @@ CREATE TABLE IF NOT EXISTS selected_conversations (id TEXT PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS conversation_cache (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS message_cache (id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL, date TEXT NOT NULL, payload TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS message_conversation ON message_cache(conversation_id,date);
+CREATE INDEX IF NOT EXISTS message_page_order ON message_cache(conversation_id,date DESC,id DESC);
+CREATE INDEX IF NOT EXISTS message_source_key ON message_cache(source_key);
+CREATE TABLE IF NOT EXISTS sync_state (id TEXT PRIMARY KEY,payload TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS message_tombstones (source_key TEXT PRIMARY KEY);
 ```

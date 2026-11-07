@@ -1,6 +1,6 @@
 # backend/storage/store.ts
 
-SQLite: настройки ролей, выбранные диалоги и ограниченный кеш с сохранением исключённого архива.
+SQLite: настройки ролей, выбранные диалоги и полный кеш выбранной истории с сохранением исключённого архива.
 
 [Исходный модуль](../../backend/storage/store.ts) · [Индекс](README.md)
 
@@ -8,12 +8,36 @@ SQLite: настройки ролей, выбранные диалоги и ог
 
 ## Store
 
-Хранит настройки, выбор диалогов и ограниченный кеш каждого диалога.
+Хранит настройки, выбор диалогов и полный кеш выбранной истории.
 
 Исключение диалога меняет только выбор, не удаляя сохранённые данные.
 
 ```typescript
 class Store
+```
+
+<a id="symbol-Store.access"></a>
+
+## Store.access
+
+Передаёт небольшую ревизию, разрешения и удаления для автоматического UI.
+
+Не читает тексты сообщений; пропуск старого журнала требует сброса окна.
+
+```typescript
+access(since = 0)
+```
+
+<a id="symbol-Store.checkpointExists"></a>
+
+## Store.checkpointExists
+
+Проверяет наличие последней записанной страницы перед возобновлением.
+
+После отката на старый усечённый кеш пропуски приводят к повторному заполнению.
+
+```typescript
+checkpointExists(ids: string[])
 ```
 
 <a id="symbol-Store.clearCache"></a>
@@ -52,6 +76,30 @@ close()
 constructor(directory: string)
 ```
 
+<a id="symbol-Store.conversation"></a>
+
+## Store.conversation
+
+Читает одни сохранённые метаданные диалога.
+
+Историю и реквизиты источника не загружает.
+
+```typescript
+conversation(id: string): Conversation | undefined
+```
+
+<a id="symbol-Store.deleteSourceKeys"></a>
+
+## Store.deleteSourceKeys
+
+Удаляет полученные от источника ключи только среди текущих разрешённых ID.
+
+Архив исключённых диалогов не затрагивается; браузеру передаются только общие ID.
+
+```typescript
+deleteSourceKeys(keys: string[], allowed: string[])
+```
+
 <a id="symbol-Store.get"></a>
 
 ## Store.get
@@ -76,6 +124,30 @@ get(key: string): string | undefined
 loadCache(ids: string[] = this.selected()): Snapshot
 ```
 
+<a id="symbol-Store.messagePage"></a>
+
+## Store.messagePage
+
+Возвращает одну индексированную страницу SQLite без запроса к источнику.
+
+Курсор привязан к диалогу, дате и ID; незавершённая история может ожидать фоновой загрузки.
+
+```typescript
+messagePage(id: string, before?: string): MessagePage
+```
+
+<a id="symbol-Store.progress"></a>
+
+## Store.progress
+
+Читает сохранённый прогресс или начальное состояние нового выбранного чата.
+
+Завершённая история не загружается заново при обычном рестарте.
+
+```typescript
+progress(id: string): SyncProgress
+```
+
 <a id="symbol-Store.remove"></a>
 
 ## Store.remove
@@ -92,12 +164,24 @@ remove(key: string)
 
 ## Store.saveCache
 
-Сохраняет ограниченный кеш обновлённых диалогов.
+Сохраняет метаданные и сообщения без усечения накопленной истории.
 
-Оставляет до 40 сообщений активного диалога, не трогает архив остальных.
+Объём памяти ответа ограничен отдельно; исключённый архив не удаляется.
 
 ```typescript
 saveCache(snapshot: Snapshot)
+```
+
+<a id="symbol-Store.saveProgress"></a>
+
+## Store.saveProgress
+
+Сохраняет курсоры только после успешной записи соответствующей страницы.
+
+Прогресс переживает перезапуск и не содержит коды или ключи Telegram.
+
+```typescript
+saveProgress(id: string, progress: SyncProgress)
 ```
 
 <a id="symbol-Store.select"></a>
@@ -134,4 +218,50 @@ selected(): string[]
 
 ```typescript
 set(key: string, value: string)
+```
+
+<a id="symbol-Store.syncStatus"></a>
+
+## Store.syncStatus
+
+Возвращает число выбранных диалогов с незавершённой историей.
+
+Состояние относится только к разрешённым диалогам, без пользовательских текстов.
+
+```typescript
+syncStatus(): SyncStatus
+```
+
+<a id="symbol-Store.upsertMessages"></a>
+
+## Store.upsertMessages
+
+Записывает страницу или событие с дедупликацией и обновляет превью.
+
+Уже сохранённые одинаковые сообщения не создают лишнюю ревизию.
+
+```typescript
+upsertMessages(messages: Message[], countUnread = false)
+```
+
+<a id="symbol-SyncProgress"></a>
+
+## SyncProgress
+
+Хранит курсоры возобновляемой истории и сверки новых сообщений.
+
+Курсоры источника отделены от курсоров страниц браузерного SQLite API.
+
+```typescript
+export interface SyncProgress {
+    initialized: boolean;
+    historyCursor: string | null;
+    historyComplete: boolean;
+    headKeys: string[];
+    newerCursor: string | null;
+    pendingHeadKeys: string[];
+    nextHeadAt: number;
+    checkpointIds: string[];
+    lastHeadAt?: number;
+}
 ```

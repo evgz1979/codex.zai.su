@@ -28,6 +28,18 @@ class MessengerService
 private adapter(id: string)
 ```
 
+<a id="symbol-MessengerService.cacheMessages"></a>
+
+## MessengerService.cacheMessages
+
+Записывает разрешённые сообщения фоновой страницы с проверкой источника.
+
+Не заменяет полный архив ограниченным окном браузера.
+
+```typescript
+cacheMessages(id: string, messages: Message[])
+```
+
 <a id="symbol-MessengerService.constructor"></a>
 
 ## MessengerService.constructor
@@ -70,10 +82,34 @@ async disconnect()
 
 Обновляет каталог и непрочитанные без обхода истории чатов.
 
-Загруженные ранее сообщения остаются в ограниченном кеше разрешённых ID.
+Полный сохранённый архив остаётся на диске, без повторного чтения для снимка.
 
 ```typescript
 private async doRefresh(): Promise<Snapshot>
+```
+
+<a id="symbol-MessengerService.inboxPage"></a>
+
+## MessengerService.inboxPage
+
+Возвращает страницу единой хронологии из выбранных диалогов SQLite.
+
+Общий курсор не даёт доступа к исключённому архиву или произвольному источнику.
+
+```typescript
+inboxPage(before?: string)
+```
+
+<a id="symbol-MessengerService.ingest"></a>
+
+## MessengerService.ingest
+
+Применяет событие источника только к текущему списку разрешений.
+
+Правки и удаления не открывают доступ к исключённому архиву.
+
+```typescript
+ingest(event: SourceEvent)
 ```
 
 <a id="symbol-MessengerService.markRead"></a>
@@ -92,31 +128,19 @@ async markRead(id: string)
 
 ## MessengerService.open
 
-Загружает одну страницу выбранного диалога независимо от общего кеша.
+Читает страницу только из SQLite и будит фон при незавершённой истории.
 
-before загружает предыдущие 10; ревизия запрещает выдачу отозванного доступа.
+Открытие и прокрутка не вызывают MTProto; доступ проверяется до чтения.
 
 ```typescript
 async open(id: string, before?: string): Promise<ConversationPageResult>
-```
-
-<a id="symbol-MessengerService.persist"></a>
-
-## MessengerService.persist
-
-Нормализует текущие сообщения и сохраняет снимок.
-
-SQLite получает ограниченный JSON-кеш без секретов источников.
-
-```typescript
-private persist()
 ```
 
 <a id="symbol-MessengerService.refresh"></a>
 
 ## MessengerService.refresh
 
-Запускает ручное обновление метаданных разрешённых диалогов.
+Обновляет метаданные разрешённых диалогов для фоновой сверки.
 
 Повторный параллельный вызов использует тот же pendingRefresh.
 
@@ -158,16 +182,4 @@ send(input: SendRequest): Promise<Message>
 
 ```typescript
 snapshot(): Snapshot
-```
-
-<a id="symbol-MessengerService.sorted"></a>
-
-## MessengerService.sorted
-
-Убирает дубликаты ID и упорядочивает сообщения по времени.
-
-При равной дате сравнивает ID и оставляет только cachedMessages последних.
-
-```typescript
-private sorted(messages: Message[])
 ```

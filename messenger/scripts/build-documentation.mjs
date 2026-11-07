@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const printer = ts.createPrinter({ removeComments: true, newLine: ts.NewLineKind.LineFeed });
 const purposes = {
+  'backend/core/sync.ts': 'Автоматическое заполнение полного SQLite-кеша выбранных диалогов, события и возобновляемая история.',
   'backend/connectors/telegram/folders.ts': 'Преобразование папок и правил Telegram в общий административный каталог.',
   'frontend/src/admin/ConversationPicker.tsx': 'Закладки папок, поиск и независимый от текущей папки выбор диалогов.',
   'backend/auth/telegram-issue.ts': 'Allowlist-классификация отказов Telegram без раскрытия исходных исключений.',
@@ -26,7 +27,7 @@ const purposes = {
   'backend/http.ts': 'Фиксированный HTTP API, веб-вход, защита запросов и статические файлы.',
   'backend/index.ts': 'Сборка production-сервера, регистрация TelegramAdapter и остановка.',
   'backend/storage/private-files.ts': 'Права приватных файлов и AES-256-GCM хранилище Telegram-сессии.',
-  'backend/storage/store.ts': 'SQLite: настройки ролей, выбранные диалоги и ограниченный кеш с сохранением исключённого архива.',
+  'backend/storage/store.ts': 'SQLite: настройки ролей, выбранные диалоги и полный кеш выбранной истории с сохранением исключённого архива.',
   'frontend/index.html': 'HTML-точка входа, viewport и подключение React-сборки.',
   'frontend/public/favicon.svg': 'Локальная иконка приложения без внешних ресурсов.',
   'frontend/src/App.tsx': 'Единый React-интерфейс, веб-вход, адресат, черновики и состояние операций.',

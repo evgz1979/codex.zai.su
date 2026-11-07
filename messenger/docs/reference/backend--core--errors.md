@@ -25,5 +25,5 @@ class AppError extends Error
 HTTP-ответ не включает стек или секреты провайдера.
 
 ```typescript
-constructor(public status: number, message: string)
+constructor(public status: number, message: string, public retryAfterSeconds?: number)
 ```

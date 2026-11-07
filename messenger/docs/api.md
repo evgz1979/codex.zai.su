@@ -25,9 +25,10 @@ session и login не требуют сессии, login требует Origin. 
 
 | Метод | /api/chat/… | Тело/результат |
 | --- | --- | --- |
-| GET | access | Только разрешённые ID для очистки открытой вкладки |
+| GET | access?since=revision | Разрешённые ID, ревизия кеша, deletedIds, reset и sync; без текстов |
 | GET | snapshot | Snapshot разрешённых ID с последними 10 уже загруженными сообщениями |
 | POST | refresh | Метаданные и непрочитанные выбранных диалогов; без чтения истории |
+| POST | inbox | `{before?}` → страница единой хронологии из SQLite |
 | POST | open | `{conversationId}` → ConversationPageResult с последними 10 сообщениями этого адресата |
 | POST | older | `{conversationId,before}` → ConversationPageResult с предыдущими 10 |
 | POST | read | `{conversationId}` → явная отметка прочитанного |
@@ -40,12 +41,15 @@ request ID `[a-zA-Z0-9-]{16,80}`. Диалог проверяется по со�
 с другим payload. Неизвестный результат отправки требует ручной сверки.
 
 ConversationPageResult содержит `{snapshot,page}`. MessagePage содержит
-`{conversationId,messages,nextCursor}`; курсор передаётся клиентом без разбора,
-null означает конец. Telegram проверяет источник и диалог курсора. Сервер задаёт
-размер страницы 10, клиент не может увеличить его. Сервисные записи Telegram
-пропускаются в UI, но продвигают курсор; видимых сообщений поэтому может быть меньше.
-После полной страницы последняя дополнительная проверка может вернуть пустую
-страницу с null. Каждый open/older проверяет выбор и его ревизию после RPC.
+`{conversationId,messages,nextCursor,oldestCursor,historyComplete,cached,sourceUpdatedAt}`.
+conversationId=`inbox` обозначает общую ленту. Курсор SQLite привязан к диалогу
+либо общей ленте, дате и ID. Null завершает историю; при незавершённой фоновой
+загрузке курсор может остаться тем же до новой ревизии. Размер страницы — 10.
+Все операции open/older/inbox читают только SQLite; исключённые диалоги запрещены.
+Внутренний historyPage адаптера имеет отдельные Telegram-курсоры и предел 100;
+браузер не вызывает его и не задаёт размер фоновой страницы.
+Snapshot.sync сообщает pendingConversations и необязательный pausedUntil.
+Сохранённый refresh оставлен для совместимости API; пользовательский UI его не вызывает.
 
 ## Админка
 

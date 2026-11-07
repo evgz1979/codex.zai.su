@@ -190,6 +190,20 @@ entityId(sourceId: string, kind: string, nativeId: string): EntityId
 export type EntityId = string;
 ```
 
+<a id="symbol-HistoryPage"></a>
+
+## HistoryPage
+
+Описывает внутреннюю страницу источника для фонового заполнения SQLite.
+
+cursors включает сервисные записи и используется только серверным синхронизатором.
+
+```typescript
+export interface HistoryPage extends MessagePage {
+    cursors: string[];
+}
+```
+
 <a id="symbol-LIMITS"></a>
 
 ## LIMITS
@@ -199,7 +213,7 @@ export type EntityId = string;
 Одна константа используется сервером и клиентской валидацией текста.
 
 ```typescript
-const LIMITS = { conversations: 1000, pageMessages: 10, cachedPerConversation: 40, cachedMessages: 400, text: 4096 } as const
+const LIMITS = { conversations: 1000, pageMessages: 10, syncMessages: 100, cachedMessages: 400, text: 4096 } as const
 ```
 
 <a id="symbol-Message"></a>
@@ -221,6 +235,8 @@ export interface Message {
     outgoing: boolean;
     status: DeliveryStatus;
     attachments: Attachment[];
+    sourceKey?: EntityId;
+    editedAt?: string;
 }
 ```
 
@@ -230,13 +246,17 @@ export interface Message {
 
 Передаёт одну страницу сообщений конкретного диалога.
 
-nextCursor относится только к этому диалогу; null завершает ручную загрузку.
+nextCursor относится только к этому диалогу; null завершает доступную историю; inbox обозначает общую ленту.
 
 ```typescript
 export interface MessagePage {
     conversationId: EntityId;
     messages: Message[];
     nextCursor: string | null;
+    oldestCursor?: string | null;
+    historyComplete?: boolean;
+    cached?: boolean;
+    sourceUpdatedAt?: number;
 }
 ```
 
@@ -306,7 +326,7 @@ export interface SessionInfo {
 
 Передаёт ограниченный снимок общей ленты.
 
-stale указывает на необходимость ручного обновления данных.
+stale отражает результат последней фоновой сверки метаданных.
 
 ```typescript
 export interface Snapshot {
@@ -315,6 +335,7 @@ export interface Snapshot {
     messages: Message[];
     refreshedAt: string | null;
     stale: boolean;
+    sync?: SyncStatus;
 }
 ```
 
@@ -332,6 +353,21 @@ export interface Source {
     kind: string;
     name: string;
     connected: boolean;
+}
+```
+
+<a id="symbol-SyncStatus"></a>
+
+## SyncStatus
+
+Передаёт безопасный статус автоматической синхронизации выбранных диалогов.
+
+Не содержит текстов, native peer, реквизитов или исходных исключений.
+
+```typescript
+export interface SyncStatus {
+    pendingConversations: number;
+    pausedUntil?: string;
 }
 ```
 

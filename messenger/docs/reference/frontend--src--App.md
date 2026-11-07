@@ -44,9 +44,9 @@ cancelView()
 
 ## App.checkAccess
 
-Применяет изменения разрешённых диалогов к уже открытой вкладке.
+Получает разрешения и ревизию SQLite без запросов к Telegram.
 
-Проверяет только ID раз в пять секунд, не загружая историю сообщений.
+Изменения и удаления автоматически применяются только к разрешённой ленте.
 
 ```typescript
 async checkAccess()
@@ -97,7 +97,7 @@ listener(e: KeyboardEvent)
 Быстрое переключение отменяет прежний ответ; догрузка сохраняет положение прокрутки.
 
 ```typescript
-async loadView(conversation?: Conversation, older = false, refreshCatalog = false)
+async loadView(conversation?: Conversation, older = false)
 ```
 
 <a id="symbol-App.login"></a>
@@ -136,18 +136,6 @@ async logout()
 async read()
 ```
 
-<a id="symbol-App.refresh"></a>
-
-## App.refresh
-
-Обновляет метаданные и только открытый либо первый разрешённый диалог.
-
-Не обходит историю остальных адресатов и сбрасывает текущую страницу к последним 10.
-
-```typescript
-async refresh()
-```
-
 <a id="symbol-App.send"></a>
 
 ## App.send
@@ -158,6 +146,18 @@ async refresh()
 
 ```typescript
 async send(e: FormEvent)
+```
+
+<a id="symbol-App.updateFromCache"></a>
+
+## App.updateFromCache
+
+Автоматически перечитывает изменившийся кеш без ожидания MTProto.
+
+Сохраняет старые страницы и не прерывает явный выбор или прокрутку.
+
+```typescript
+async updateFromCache(revision: number)
 ```
 
 <a id="symbol-Brand"></a>
@@ -194,7 +194,7 @@ day(date: string)
 
 ```typescript
 Icon({ name }: {
-    name: 'send' | 'refresh' | 'menu' | 'close' | 'search' | 'logout';
+    name: 'send' | 'menu' | 'close' | 'search' | 'logout';
 })
 ```
 

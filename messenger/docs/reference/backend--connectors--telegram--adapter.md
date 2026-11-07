@@ -28,6 +28,42 @@ const TELEGRAM_SOURCE = 'telegram-personal'
 class TelegramAdapter implements SourceAdapter
 ```
 
+<a id="symbol-TelegramAdapter.bindEvents"></a>
+
+## TelegramAdapter.bindEvents
+
+Подключает по одному обработчику событий нового клиента.
+
+Не журналирует updates; личные удаления имеют глобальную область, каналы — собственную.
+
+```typescript
+private bindEvents()
+```
+
+<a id="symbol-TelegramAdapter.bindEvents.changed"></a>
+
+## TelegramAdapter.bindEvents.changed
+
+Преобразует входящее сообщение только после проверки разрешённого диалога.
+
+Правка не увеличивает счётчик непрочитанных как новое сообщение.
+
+```typescript
+changed(event: NewMessageEvent)
+```
+
+<a id="symbol-TelegramAdapter.bindEvents.deleted"></a>
+
+## TelegramAdapter.bindEvents.deleted
+
+Передаёт области удалённых ID без содержимого сообщения.
+
+Неоднозначные личные удаления разрешаются серверным индексом source_key.
+
+```typescript
+deleted(event: DeletedMessageEvent)
+```
+
 <a id="symbol-TelegramAdapter.connect"></a>
 
 ## TelegramAdapter.connect
@@ -98,6 +134,30 @@ async disconnect()
 
 ```typescript
 private async doConnect()
+```
+
+<a id="symbol-TelegramAdapter.fetchPage"></a>
+
+## TelegramAdapter.fetchPage
+
+Читает один ограниченный фрагмент истории для синхронизатора.
+
+Все raw-курсоры сохраняют продвижение даже через сервисные сообщения.
+
+```typescript
+private async fetchPage(conversationId: string, count: number, before?: string): Promise<HistoryPage>
+```
+
+<a id="symbol-TelegramAdapter.historyPage"></a>
+
+## TelegramAdapter.historyPage
+
+Возвращает внутреннюю страницу до 100 записей для полного фонового кеша.
+
+Не вызывается при открытии страницы браузером и не скачивает медиа.
+
+```typescript
+async historyPage(conversationId: string, before?: string, limit: number = LIMITS.syncMessages): Promise<HistoryPage>
 ```
 
 <a id="symbol-TelegramAdapter.listConversationCatalog"></a>
@@ -208,6 +268,18 @@ async revoke()
 async sendText(destination: Destination, text: string)
 ```
 
+<a id="symbol-TelegramAdapter.subscribe"></a>
+
+## TelegramAdapter.subscribe
+
+Подписывает ядро на изменения только разрешённых диалогов.
+
+Подписка сохраняется при пересоздании MTProto-клиента; unselected-текст не копируется.
+
+```typescript
+subscribe(listener: (event: SourceEvent) => void, allows: (id: string) => boolean)
+```
+
 <a id="symbol-TelegramPort"></a>
 
 ## TelegramPort
@@ -217,5 +289,5 @@ async sendText(destination: Destination, text: string)
 Тесты подставляют этот порт без реального Telegram-подключения.
 
 ```typescript
-type TelegramPort = Pick<TelegramClient, 'connected' | 'connect' | 'checkAuthorization' | 'destroy' | 'getDialogs' | 'getMessages' | 'sendMessage' | 'markAsRead' | 'logOut' | 'invoke' | 'getNotifySettings'>;
+type TelegramPort = Pick<TelegramClient, 'connected' | 'connect' | 'checkAuthorization' | 'destroy' | 'getDialogs' | 'getMessages' | 'sendMessage' | 'markAsRead' | 'logOut' | 'invoke' | 'getNotifySettings' | 'addEventHandler'>;
 ```
