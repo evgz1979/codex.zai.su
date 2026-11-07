@@ -1,5 +1,7 @@
 import {test,expect} from '@playwright/test';
 test('автокеш: прокрутка без кнопок, обновления и удаления, быстрый переход',async({page},testInfo)=>{
+ // Компактные сообщения должны прокручиваться и в невысоком desktop-окне.
+ if(testInfo.project.name==='desktop-chromium')await page.setViewportSize({width:1440,height:700});
  const conversations=['Анна','Команда'].map((title,i)=>({id:`fixture-a:conversation:${i}`,sourceId:'fixture-a',title,kind:'direct',recipient:{id:`fixture-a:recipient:${i}`,name:title},unreadCount:0,updatedAt:'2026-11-07T10:00:00Z',preview:'',canSend:true}));
  const snapshot={conversations,messages:[],sources:[{id:'fixture-a',kind:'test',name:'Telegram',connected:true}],refreshedAt:null,stale:false};
  const histories=conversations.map(c=>Array.from({length:25},(_,i)=>({id:`${c.id}/${i+1}`,sourceId:c.sourceId,conversationId:c.id,sender:{id:'synthetic',name:c.title},text:`${c.title} ${i+1}`,date:new Date(Date.UTC(2026,10,7,0,i)).toISOString(),outgoing:false,status:'received',attachments:[]})));

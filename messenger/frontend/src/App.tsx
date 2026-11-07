@@ -35,9 +35,10 @@ export function App() {
   const [drawer, setDrawer] = useState(false);
   const [uncertain, setUncertain] = useState(false);
   const feed = useRef<HTMLDivElement>(null);
+  const composerInput=useRef<HTMLTextAreaElement>(null);
   const request=useRef<{id:number;controller?:AbortController}>({id:0});
   const access=useRef<{ids?:Set<string>;revision:number}>({revision:0});
-  const scrollPlan=useRef<{mode:'bottom'|'preserve';height?:number;top?:number}|undefined>(undefined);
+  const scrollPlan=useRef<{mode:'bottom'|'preserve';height?:number;top?:number;anchor?:{id:string;offset:number}}|undefined>(undefined);
   const target = snapshot?.conversations.find(c => c.id === targetId);
   const messages=page?.conversationId===(target?.id||'inbox')?page.messages:target?[]:snapshot?.messages||[];
   const pending=busy||loading;
@@ -90,8 +91,15 @@ export function App() {
     void checkAccess();const timer=window.setInterval(checkAccess,2000);document.addEventListener('visibilitychange',checkAccess);
     return()=>{disposed=true;window.clearInterval(timer);document.removeEventListener('visibilitychange',checkAccess);};
   },[session?.authenticated]);
-  useLayoutEffect(()=>{const element=feed.current;const plan=scrollPlan.current;if(!element||!plan)return;element.scrollTop=plan.mode==='preserve'?(plan.top||0)+element.scrollHeight-(plan.height||0):element.scrollHeight;scrollPlan.current=undefined;},[snapshot?.messages,page?.messages,targetId]);
+  useLayoutEffect(()=>{
+    const element=feed.current;const plan=scrollPlan.current;if(!element||!plan)return;
+    const anchor=plan.anchor?element.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(plan.anchor.id)}"]`):undefined;
+    if(plan.mode==='preserve'&&anchor&&plan.anchor)element.scrollTop+=anchor.getBoundingClientRect().top-element.getBoundingClientRect().top-plan.anchor.offset;
+    else element.scrollTop=plan.mode==='preserve'?(plan.top||0)+element.scrollHeight-(plan.height||0):element.scrollHeight;
+    scrollPlan.current=undefined;
+  },[snapshot?.messages,page?.messages,targetId]);
   useEffect(()=>()=>{request.current.controller?.abort();request.current.id++;},[]);
+  useLayoutEffect(()=>{const input=composerInput.current;if(!input)return;input.style.height='auto';input.style.height=`${Math.min(input.scrollHeight,128)}px`;},[draft,targetId,session?.authenticated]);
   useEffect(() => {
     if (!drawer) return;
     //: Закрывает мобильный список по Escape.
@@ -103,7 +111,7 @@ export function App() {
   useEffect(()=>{
     const element=sentinel.current;const c=target;const cursor=page?.nextCursor;
     if(!element||!cursor||typeof IntersectionObserver==='undefined')return;
-    const observer=new IntersectionObserver(entries=>{if(!entries.some(e=>e.isIntersecting)||live.current.pending)return;const key=`${c?.id||'inbox'}/${cursor}/${live.current.revision}`;if(olderAttempt.current===key)return;olderAttempt.current=key;void loadView(c,true);},{root:feed.current,rootMargin:'60px'});
+    const observer=new IntersectionObserver(entries=>{if(!entries.some(e=>e.isIntersecting)||live.current.pending)return;const key=`${c?.id||'inbox'}/${cursor}/${live.current.revision}`;if(olderAttempt.current===key)return;olderAttempt.current=key;void loadView(c,true);},{root:feed.current,rootMargin:'0px'});
     observer.observe(element);return()=>observer.disconnect();
   },[targetId,page?.nextCursor,cacheRevision,loading]);
   //: Автоматически перечитывает изменившийся кеш без ожидания MTProto.
@@ -148,7 +156,11 @@ export function App() {
     try{
       const result=await api<ConversationPageResult>(conversation?(older?'older':'open'):'inbox',{...(conversation?{conversationId:conversation.id}:{}),...(before?{before}:{})},controller.signal);
       if(id!==request.current.id||revision!==access.current.revision)return;
-      scrollPlan.current=older?{mode:'preserve',height:feed.current?.scrollHeight,top:feed.current?.scrollTop}:{mode:'bottom'};
+      if(older){
+        const element=feed.current;const top=element?.getBoundingClientRect().top||0;
+        const anchor=element&&[...element.querySelectorAll<HTMLElement>('[data-message-id]')].find(node=>node.getBoundingClientRect().bottom>top);
+        scrollPlan.current={mode:'preserve',height:element?.scrollHeight,top:element?.scrollTop,...(anchor?{anchor:{id:anchor.dataset.messageId!,offset:anchor.getBoundingClientRect().top-top}}:{})};
+      }else scrollPlan.current={mode:'bottom'};
       setSnapshot(result.snapshot);
       setPage(old=>older&&old?.conversationId===result.page.conversationId?{...result.page,messages:[...new Map([...old.messages,...result.page.messages].map(m=>[m.id,m])).values()].sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id))}:result.page);
 
@@ -215,11 +227,10 @@ export function App() {
       <div className="sidebar-heading"><h2>Диалоги</h2><span className="count">{snapshot?.conversations.length || 0}</span></div>
       <label className="search"><Icon name="search" /><input aria-label="Поиск диалогов" placeholder="Найти разговор" value={query} onChange={e => setQuery(e.target.value)} /></label>
       <button className={`all-row ${!target ? 'active' : ''}`} disabled={busy} onClick={() => { cancelView();live.current.targetId=undefined;setTargetId(undefined);setPage(undefined);scrollPlan.current={mode:'bottom'};setDrawer(false);void loadView(); }}><span className="all-symbol">≋</span><span>Общая лента</span>{unread > 0 && <b className="badge" aria-label={`${unread} непрочитанных`}>{unread}</b>}</button>
-      <div className="list-label">ВЫБРАТЬ АДРЕСАТА</div>
       <nav className="conversation-list" aria-label="Получатели">
         {snapshot?.conversations.filter(c => c.title.toLocaleLowerCase().includes(query.toLocaleLowerCase())).map((c,i) => <button key={c.id} className={`conversation ${target?.id === c.id ? 'selected' : ''}`} disabled={busy} onClick={() => choose(c)} aria-pressed={target?.id === c.id}>
           <span className={`avatar tone-${i % 4}`}>{c.title.slice(0,1).toUpperCase()}</span>
-          <span className="conversation-copy"><span className="conversation-title">{c.title}<time>{c.updatedAt && time(c.updatedAt)}</time></span><span className="preview">{c.preview || (c.kind === 'group' ? 'Группа' : c.kind === 'channel' ? 'Канал' : 'Личный диалог')}</span><span className="source-caption">{snapshot.sources.find(s => s.id === c.sourceId)?.name}</span></span>
+          <span className="conversation-copy"><span className="conversation-title"><span className="conversation-name" title={c.title}>{c.title}</span><time>{c.updatedAt && time(c.updatedAt)}</time></span><span className="preview"><span className="source-caption">{snapshot.sources.find(s => s.id === c.sourceId)?.name} · </span>{c.preview || (c.kind === 'group' ? 'Группа' : c.kind === 'channel' ? 'Канал' : 'Личный диалог')}</span></span>
           {c.unreadCount > 0 && <span className="badge">{c.unreadCount}</span>}
         </button>)}
         {!snapshot?.conversations.length && <p className="list-empty">Здесь появятся ваши диалоги после подключения аккаунта и выбора в админке.</p>}
@@ -235,17 +246,20 @@ export function App() {
         {!messages.length ? <div className="empty-state"><h2>{loading?'Загрузка сообщений…':'Нет загруженных сообщений'}</h2></div> : <div className="message-stream">{messages.map((m,i,messages) => {
           const c = snapshot?.conversations.find(c => c.id === m.conversationId);
           return <div key={m.id}>{(i === 0 || day(messages[i-1].date) !== day(m.date)) && <div className="date-divider"><span>{day(m.date)}</span></div>}
-            <article className={`message ${m.outgoing ? 'outgoing' : ''}`} aria-label={`Сообщение: ${m.sender.name}`}>
-              <div className="message-context"><strong>{c?.title || 'Диалог'}</strong><span className="source-label">↗ {snapshot?.sources.find(s => s.id === m.sourceId)?.name || 'Источник'}</span></div>
-              <div className="bubble">{!m.outgoing && c?.kind === 'group' && <strong className="sender-name">{m.sender.name}</strong>}{m.text && <p>{m.text}</p>}{m.attachments.map(a => <div key={a.id} className="attachment">{a.name}</div>)}<div className="message-meta"><time dateTime={m.date}>{time(m.date)}</time>{m.outgoing && <span aria-label="Отправлено">✓</span>}</div></div>
-              {c?.canSend && <button className="reply-button" disabled={busy} onClick={() => choose(c)}>Ответить <span aria-hidden="true">↗</span></button>}
+            <article data-message-id={m.id} className={`message ${m.outgoing ? 'outgoing' : ''}`} aria-label={`Сообщение: ${m.sender.name}`}>
+              <div className="bubble">
+                {!target&&<div className="message-context"><strong>{c?.title || 'Диалог'}</strong><span className="source-label">{snapshot?.sources.find(s => s.id === m.sourceId)?.name || 'Источник'}</span></div>}
+                {!m.outgoing && c?.kind === 'group' && <strong className="sender-name">{m.sender.name}</strong>}
+                {m.text && <p>{m.text}</p>}{m.attachments.map(a => <div key={a.id} className="attachment">{a.name}</div>)}
+                <div className="message-meta">{!target&&c?.canSend&&<button className="reply-button" disabled={busy} onClick={() => choose(c)}>Ответить <span aria-hidden="true">↗</span></button>}<time dateTime={m.date}>{time(m.date)}</time>{m.outgoing && <span aria-label="Отправлено">✓</span>}</div>
+              </div>
             </article></div>;
         })}</div>}
       </div>
       <div className="composer-area">
-        <div className="destination">{target ? <><span>Кому: <strong>{target.title}</strong><span className="destination-source"> · {snapshot?.sources.find(s => s.id === target.sourceId)?.name}</span></span><button disabled={busy} onClick={() => setDrawer(true)}>Изменить</button></> : <><span>Выберите адресата, чтобы начать разговор</span><button onClick={() => setDrawer(true)}>Выбрать <span aria-hidden="true">↗</span></button></>}</div>
-        <form className="composer" onSubmit={send}><textarea aria-label="Сообщение" placeholder={target ? target.canSend ? 'Написать сообщение…' : 'Этот диалог доступен только для чтения' : 'Сначала выберите адресата'} rows={2} value={draft} maxLength={LIMITS.text} disabled={!target?.canSend || pending} onChange={e => target && setDrafts(old => ({ ...old, [target.id]: e.target.value }))} /><button className="send-button" type="submit" aria-label={target ? `Отправить: ${target.title}` : 'Отправить сообщение'} disabled={!target?.canSend || !draft.trim() || pending || uncertain}><Icon name="send" /></button></form>
-        <div className="composer-note">{uncertain && <span>Дождитесь синхронизации и проверьте отправку перед повтором</span>}{target && target.unreadCount > 0 && <button disabled={pending} onClick={read}>Отметить прочитанным</button>}{draft.length > 3500 && <span>{draft.length}/{LIMITS.text}</span>}</div>
+        <div className="destination">{target ? <><span className="destination-recipient" title={target.title}>Кому: <strong>{target.title}</strong><span className="destination-source"> · {snapshot?.sources.find(s => s.id === target.sourceId)?.name}</span></span><button disabled={busy} onClick={() => setDrawer(true)}>Изменить</button></> : <><span>Адресат не выбран</span><button onClick={() => setDrawer(true)}>Выбрать <span aria-hidden="true">↗</span></button></>}</div>
+        <form className="composer" onSubmit={send}><textarea ref={composerInput} aria-label="Сообщение" placeholder={target ? target.canSend ? 'Написать сообщение…' : 'Этот диалог доступен только для чтения' : 'Сначала выберите адресата'} rows={1} value={draft} maxLength={LIMITS.text} disabled={!target?.canSend || pending} onChange={e => target && setDrafts(old => ({ ...old, [target.id]: e.target.value }))} /><button className="send-button" type="submit" aria-label={target ? `Отправить: ${target.title}` : 'Отправить сообщение'} disabled={!target?.canSend || !draft.trim() || pending || uncertain}><Icon name="send" /></button></form>
+        {(uncertain||(target&&target.unreadCount>0)||draft.length>3500)&&<div className="composer-note">{uncertain && <span>Дождитесь синхронизации и проверьте отправку перед повтором</span>}{target && target.unreadCount > 0 && <button disabled={pending} onClick={read}>Отметить прочитанным</button>}{draft.length > 3500 && <span>{draft.length}/{LIMITS.text}</span>}</div>}
       </div>
     </section>
   </main>;
