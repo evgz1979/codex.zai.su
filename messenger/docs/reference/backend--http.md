@@ -17,10 +17,35 @@ createApp(options: {
     service: MessengerService;
     store: Store;
     admin?: AdminService;
+    attachments?: AttachmentService;
     clientDirectory: string;
     origin: string;
     secureCookies?: boolean;
 })
+```
+
+<a id="symbol-createApp.abort"></a>
+
+## createApp.abort
+
+Прерывает сетевую загрузку при закрытии HTTP-ответа.
+
+Не оставляет фонового копирования после ухода пользователя.
+
+```typescript
+abort()
+```
+
+<a id="symbol-createApp.authorize"></a>
+
+## createApp.authorize
+
+Повторно проверяет текущую chat-сессию для потока вложения.
+
+Отзыв роли не даёт закончить начатое чтение кеша.
+
+```typescript
+authorize()
 ```
 
 <a id="symbol-createApp.body"></a>
@@ -57,4 +82,16 @@ cookie(res: ServerResponse, role: Role, token: string, maxAge: number)
 
 ```typescript
 send(res: ServerResponse, status: number, value: unknown)
+```
+
+<a id="symbol-createApp.transform"></a>
+
+## createApp.transform
+
+Проверяет права перед каждой порцией HTTP-ответа.
+
+После начала ответа отказ закрывает соединение без раскрытия ошибки.
+
+```typescript
+transform(chunk, _encoding, callback)
 ```

@@ -28,6 +28,42 @@ class MessengerService
 private adapter(id: string)
 ```
 
+<a id="symbol-MessengerService.attachmentContent"></a>
+
+## MessengerService.attachmentContent
+
+Открывает поток через адаптер источника только после проверки сохранённого выбора.
+
+Старые placeholder-вложения получают актуальные метаданные без обхода истории.
+
+```typescript
+async attachmentContent(input: AttachmentRequest, signal: AbortSignal)
+```
+
+<a id="symbol-MessengerService.attachmentMessage"></a>
+
+## MessengerService.attachmentMessage
+
+Проверяет точный маршрут сохранённого вложения перед каждым чтением.
+
+Чужой message ID, исключённый диалог и удалённая запись не открывают источник.
+
+```typescript
+attachmentMessage(input: AttachmentRequest)
+```
+
+<a id="symbol-MessengerService.attachmentMetadata"></a>
+
+## MessengerService.attachmentMetadata
+
+Обновляет безопасные метаданные только неизменённого сообщения после загрузки.
+
+Поздний результат не отменяет правку, удаление или снятие разрешения.
+
+```typescript
+attachmentMetadata(input: AttachmentRequest, original: Message, attachment: Message['attachments'][number])
+```
+
 <a id="symbol-MessengerService.cacheMessages"></a>
 
 ## MessengerService.cacheMessages

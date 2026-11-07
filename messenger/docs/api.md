@@ -32,6 +32,7 @@ session и login не требуют сессии, login требует Origin. 
 | POST | open | `{conversationId}` → ConversationPageResult с последними 10 сообщениями этого адресата |
 | POST | older | `{conversationId,before}` → ConversationPageResult с предыдущими 10 |
 | POST | read | `{conversationId}` → явная отметка прочитанного |
+| POST | attachment | `{conversationId,messageId,attachmentId}` → двоичное содержимое до 32 МиБ |
 | POST | send | `{destination,text,requestId}` → отправленный Message |
 
 Destination содержит sourceId, conversationId, recipientId. Текст 1–4096 UTF-16
@@ -50,6 +51,20 @@ conversationId=`inbox` обозначает общую ленту. Курсор 
 браузер не вызывает его и не задаёт размер фоновой страницы.
 Snapshot.sync сообщает pendingConversations и необязательный pausedUntil.
 Сохранённый refresh оставлен для совместимости API; пользовательский UI его не вызывает.
+
+
+В отличие от JSON-методов, `attachment` возвращает тело файла с Content-Length,
+Content-Type и Content-Disposition attachment. X-Attachment-Kind сообщает
+image/video/audio/file, X-Attachment-Name — имя в percent encoding UTF-8. Ответ
+no-store; имена не используются как пути. Запрос требует chat-cookie, Origin и
+CSRF; admin-cookie не даёт доступа. GET этого метода не поддерживается.
+Проверяются выбранность, сохранённое сообщение, его источник и конкретное вложение.
+Проверка повторяется после загрузки и перед каждой порцией ответа. В случае отзыва
+после отправки заголовков соединение закрывается, а не возвращает усечённый успех.
+Лимит — два одновременных запроса, срок — 60 секунд, размер — 32 МиБ. 413 означает
+превышение размера, 415 — неподдерживаемый объект Telegram, 408 — прерывание.
+Старое unsupported-вложение уточняется одним запросом конкретного сообщения;
+история остальных сообщений для этого не загружается. Публичных файловых GET URL нет.
 
 ## Админка
 

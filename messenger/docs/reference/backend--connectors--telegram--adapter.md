@@ -232,6 +232,18 @@ async markRead(conversationId: string, messageId: string)
 async messagePage(conversationId: string, limit: number, before?: string): Promise<MessagePage>
 ```
 
+<a id="symbol-TelegramAdapter.openAttachment"></a>
+
+## TelegramAdapter.openAttachment
+
+Получает точное сообщение и создаёт ограниченный поток его медиа.
+
+Peer, message и attachment сверяются; свежие file references остаются на сервере.
+
+```typescript
+async openAttachment(input: AttachmentRequest, signal: AbortSignal): Promise<AttachmentContent>
+```
+
 <a id="symbol-TelegramAdapter.recentMessages"></a>
 
 ## TelegramAdapter.recentMessages
@@ -289,5 +301,5 @@ subscribe(listener: (event: SourceEvent) => void, allows: (id: string) => boolea
 Тесты подставляют этот порт без реального Telegram-подключения.
 
 ```typescript
-type TelegramPort = Pick<TelegramClient, 'connected' | 'connect' | 'checkAuthorization' | 'destroy' | 'getDialogs' | 'getMessages' | 'sendMessage' | 'markAsRead' | 'logOut' | 'invoke' | 'getNotifySettings' | 'addEventHandler'>;
+type TelegramPort = Pick<TelegramClient, 'connected' | 'connect' | 'checkAuthorization' | 'destroy' | 'getDialogs' | 'getMessages' | 'sendMessage' | 'markAsRead' | 'logOut' | 'invoke' | 'getNotifySettings' | 'addEventHandler' | 'iterDownload'>;
 ```

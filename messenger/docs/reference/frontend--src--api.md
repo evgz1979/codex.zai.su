@@ -40,6 +40,21 @@ class ApiError extends Error
 constructor(public status: number, message: string)
 ```
 
+<a id="symbol-attachmentData"></a>
+
+## attachmentData
+
+Загружает байты одного вложения только по явному запросу через chat API.
+
+Cookie и CSRF остаются same-origin; произвольные URL и секреты источника не принимаются.
+
+```typescript
+async attachmentData(input: AttachmentRequest, signal: AbortSignal): Promise<{
+    blob: Blob;
+    attachment: Attachment;
+}>
+```
+
 <a id="symbol-setCsrf"></a>
 
 ## setCsrf

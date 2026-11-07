@@ -124,6 +124,18 @@ get(key: string): string | undefined
 loadCache(ids: string[] = this.selected()): Snapshot
 ```
 
+<a id="symbol-Store.message"></a>
+
+## Store.message
+
+Читает ровно одно сообщение по общему ID для защищённого доступа к медиа.
+
+Проверку выбора выполняет ядро перед обращением к этому методу.
+
+```typescript
+message(id: string): Message | undefined
+```
+
 <a id="symbol-Store.messagePage"></a>
 
 ## Store.messagePage

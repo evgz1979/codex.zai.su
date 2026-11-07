@@ -44,15 +44,32 @@ export interface AdminStatus {
 
 Описывает метаданные вложения общей модели.
 
-MVP не скачивает вложения и использует обозначение unsupported.
+Содержимое загружается отдельно по явному действию, без реквизитов провайдера.
 
 ```typescript
 export interface Attachment {
     id: EntityId;
-    kind: 'image' | 'file' | 'audio' | 'unsupported';
+    kind: 'image' | 'video' | 'file' | 'audio' | 'unsupported';
     name: string;
     mimeType?: string;
     size?: number;
+    downloadable?: boolean;
+}
+```
+
+<a id="symbol-AttachmentRequest"></a>
+
+## AttachmentRequest
+
+Задаёт точный маршрут чтения вложения сохранённого сообщения.
+
+Сервер повторно проверяет диалог, сообщение, источник и ID вложения.
+
+```typescript
+export interface AttachmentRequest {
+    conversationId: EntityId;
+    messageId: EntityId;
+    attachmentId: EntityId;
 }
 ```
 
@@ -214,6 +231,18 @@ export interface HistoryPage extends MessagePage {
 
 ```typescript
 const LIMITS = { conversations: 1000, pageMessages: 10, syncMessages: 100, cachedMessages: 400, text: 4096 } as const
+```
+
+<a id="symbol-MEDIA_LIMITS"></a>
+
+## MEDIA_LIMITS
+
+Ограничивает память запроса и объём приватного кеша медиа.
+
+Медиа не скачиваются фоновым синхронизатором истории.
+
+```typescript
+const MEDIA_LIMITS = { fileBytes: 32 * 1024 * 1024, cacheBytes: 256 * 1024 * 1024, parallel: 2, cacheFiles: 256, timeoutMs: 60000 } as const
 ```
 
 <a id="symbol-Message"></a>

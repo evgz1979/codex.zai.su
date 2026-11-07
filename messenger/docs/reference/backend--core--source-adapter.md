@@ -4,6 +4,21 @@
 
 [Исходный модуль](../../backend/core/source-adapter.ts) · [Индекс](README.md)
 
+<a id="symbol-AttachmentContent"></a>
+
+## AttachmentContent
+
+Передаёт поток байтов одного вложения внутри backend.
+
+В браузер не передаются native location, ключи и объект клиента.
+
+```typescript
+export interface AttachmentContent {
+    attachment: Attachment;
+    chunks: AsyncIterable<Uint8Array>;
+}
+```
+
 <a id="symbol-SourceAdapter"></a>
 
 ## SourceAdapter
@@ -23,6 +38,7 @@ export interface SourceAdapter {
     messagePage?(conversationId: string, limit: number, before?: string): Promise<MessagePage>;
     historyPage?(conversationId: string, before?: string, limit?: number): Promise<HistoryPage>;
     subscribe?(listener: (event: SourceEvent) => void, allows: (conversationId: string) => boolean): () => void;
+    openAttachment?(request: AttachmentRequest, signal: AbortSignal): Promise<AttachmentContent>;
     sendText(destination: Destination, text: string): Promise<Message>;
     markRead(conversationId: string, messageId: string): Promise<void>;
 }

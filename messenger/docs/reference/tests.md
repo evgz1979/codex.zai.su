@@ -5,6 +5,17 @@
 - [test/admin.test.ts](../../test/admin.test.ts): HTTP: отдельные права и Secure cookie, отсутствие Telegram-секретов в ответах
 - [test/admin.test.ts](../../test/admin.test.ts): Telegram-вход: этапы code/2FA, сохранение сессии без кода и пароля, отмена
 - [test/admin.test.ts](../../test/admin.test.ts): админка: метаданные не синхронизируют историю; выбор сохраняется в SQLite
+- [test/attachments.test.ts](../../test/attachments.test.ts): HTTP вложений: chat-cookie и CSRF, закрытые файлы, безопасные заголовки и ошибки
+- [test/attachments.test.ts](../../test/attachments.test.ts): HTTP вложений: выход во время скачивания отзывает запрос и удаляет частичный файл
+- [test/attachments.test.ts](../../test/attachments.test.ts): вложения: HTML/SVG не становятся встроенными картинками или документами
+- [test/attachments.test.ts](../../test/attachments.test.ts): вложения: LRU ограничивает диск, очистка не удаляет настройки и текстовую историю
+- [test/attachments.test.ts](../../test/attachments.test.ts): вложения: исключение во время загрузки удаляет частичный файл и закрывает итератор
+- [test/attachments.test.ts](../../test/attachments.test.ts): вложения: лимиты размера и параллелизма, отмена и неполная загрузка не оставляют кеш
+- [test/attachments.test.ts](../../test/attachments.test.ts): вложения: отказ источника не раскрывает исключение и освобождает слот
+- [test/attachments.test.ts](../../test/attachments.test.ts): вложения: повторная синхронизация MIME не отменяет проверку сигнатуры готового кеша
+- [test/attachments.test.ts](../../test/attachments.test.ts): вложения: приватный кеш повторно открывается без Telegram, выбранность проверяется до кеша
+- [test/attachments.test.ts](../../test/attachments.test.ts): вложения: старое обозначение unsupported уточняется без повторной загрузки истории
+- [test/attachments.test.ts](../../test/attachments.test.ts): вложения: чужой маршрут, удаление и отзыв веб-сессии не читают источник или готовый кеш
 - [test/auto-sync.test.ts](../../test/auto-sync.test.ts): автокеш: FloodWait метаданных сохраняет паузу при перезапуске
 - [test/auto-sync.test.ts](../../test/auto-sync.test.ts): автокеш: FloodWait не продвигает курсор и не создаёт цикл повторов
 - [test/auto-sync.test.ts](../../test/auto-sync.test.ts): автокеш: вся история больше 40 сохраняется, открытие и прокрутка не вызывают источник
@@ -17,6 +28,8 @@
 - [test/browser/admin.spec.ts](../../test/browser/admin.spec.ts): админка: отдельный вход, Telegram code/2FA и выбор галочками
 - [test/browser/admin.spec.ts](../../test/browser/admin.spec.ts): админка: папки отдельными закладками, общий выбор, поиск и клавиатура
 - [test/browser/admin.spec.ts](../../test/browser/admin.spec.ts): админка: причина отказа получения кода видна после очистки секретных полей
+- [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: исключение диалога закрывает уже открытое изображение
+- [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: только по нажатию, фото/аудио/видео, скачивание, Escape и мобильные границы
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): единая лента, выбор адресата, отправка, непрочитанные, выход и мобильные границы
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): открытый чат скрывает исключённые диалоги без синхронизации истории
 - [test/browser/paging.spec.ts](../../test/browser/paging.spec.ts): автокеш: прокрутка без кнопок, обновления и удаления, быстрый переход
@@ -53,5 +66,7 @@
 - [test/telegram-folders.test.ts](../../test/telegram-folders.test.ts): Telegram-папки: контакты, боты, группы и каналы используют отдельные правила
 - [test/telegram-folders.test.ts](../../test/telegram-folders.test.ts): Telegram-папки: порядок, закрепления, исключения, пересечения, Self и типы ID
 - [test/telegram-folders.test.ts](../../test/telegram-folders.test.ts): Telegram-папки: прочитанные, архив, глобальный mute, упоминания и явное включение
+- [test/telegram-media.test.ts](../../test/telegram-media.test.ts): Telegram-вложения: один message ID нужного peer, поток и AbortSignal; чужой peer отклоняется
+- [test/telegram-media.test.ts](../../test/telegram-media.test.ts): Telegram-вложения: фото, видео, голосовое и файлы без native secrets в DTO
 - [test/telegram.test.ts](../../test/telegram.test.ts): Telegram-события: выбор до преобразования, правки, области ID удалений и снятие подписки
 - [test/telegram.test.ts](../../test/telegram.test.ts): Telegram: DTO, фильтр broadcast, уникальность message ID и буквальная отправка
