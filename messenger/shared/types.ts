@@ -81,4 +81,39 @@ export function destinationFor(c: Conversation): Destination {
 export type TelegramAuthStage = 'idle' | 'connecting' | 'code' | 'password' | 'connected' | 'error';
 //: Возвращает готовность источника и число разрешённых диалогов.
 //: Секреты и пользовательские сообщения в модель не входят.
-export interface AdminStatus { telegram: { configured: boolean; connected: boolean; stage: TelegramAuthStage }; selectedCount: number }
+export interface AdminStatus { telegram: { configured: boolean; connected: boolean; stage: TelegramAuthStage; issue?: TelegramAuthIssue }; selectedCount: number }
+
+//: Перечисляет разрешённые категории отказа Telegram.
+//: Произвольный текст исключений и введённые реквизиты не входят в контракт.
+export type TelegramAuthIssueCode = 'invalid_api'|'api_blocked'|'invalid_phone'|'phone_blocked'|'account_missing'|'invalid_code'|'invalid_password'|'code_expired'|'rate_limited'|'update_required'|'restart_required'|'telegram_unavailable'|'network_timeout'|'network_error'|'captcha_required'|'email_required'|'official_app_required'|'cancelled'|'flow_expired'|'session_failed'|'unknown';
+//: Описывает безопасную причину отказа и числовое время ожидания.
+//: Не включает телефон, ключи, код, 2FA или request Telegram.
+export interface TelegramAuthIssue {code:TelegramAuthIssueCode;retryAfterSeconds?:number}
+//: Выбирает фиксированный текст ошибки для административного интерфейса.
+//: Не вставляет строки провайдера; допускает только безопасное число секунд.
+export function telegramAuthIssueText(issue:TelegramAuthIssue):string {
+  const messages:Record<TelegramAuthIssueCode,string>={
+    invalid_api:'Telegram отклонил пару api_id / api_hash. Сверьте оба значения одного приложения на my.telegram.org.',
+    api_blocked:'Telegram заблокировал этот API ID. Проверьте приложение на my.telegram.org.',
+    invalid_phone:'Telegram не принял номер. Укажите международный формат с + и кодом страны.',
+    phone_blocked:'Telegram заблокировал авторизацию этого номера. Проверьте аккаунт в официальном приложении.',
+    account_missing:'Для этого номера не найден существующий Telegram-аккаунт. Регистрация здесь не выполняется.',
+    invalid_code:'Telegram не принял код. Введите последний код для входа в Messenger, а не для my.telegram.org.',
+    invalid_password:'Telegram не принял пароль 2FA. Это пароль облачной двухэтапной проверки Telegram, не пароль Messenger.',
+    code_expired:'Код Telegram истёк. Начните вход заново и используйте последний полученный код.',
+    rate_limited:'Telegram ограничил попытки входа. Не запрашивайте код повторно, пока ограничение не закончится.',
+    update_required:'Telegram требует обновления MTProto-клиента. Повторный запрос кода не исправит эту ошибку.',
+    restart_required:'Telegram запросил перезапуск авторизации. Начните вход заново.',
+    telegram_unavailable:'Telegram не смог выполнить авторизацию. Повторите позже.',
+    network_timeout:'Истекло время ответа Telegram. Код не запрашивается повторно автоматически.',
+    network_error:'Не удалось установить соединение с Telegram. Повторите позже.',
+    captcha_required:'Telegram потребовал CAPTCHA. Этот способ входа пока не поддерживается.',
+    email_required:'Telegram запросил подтверждение email. Этот шаг пока не поддерживается админкой.',
+    official_app_required:'Telegram требует шаг получения кода, доступный только официальному приложению. Здесь продолжить вход нельзя.',
+    cancelled:'Вход отменён.',flow_expired:'Истекли пять минут ожидания входа. Начните авторизацию заново.',
+    session_failed:'Telegram не подтвердил готовность сессии. Начните вход заново.',
+    unknown:'Авторизация завершилась неизвестной ошибкой. Диагностика: unknown. Секреты не выводятся.',
+  };
+  const text=Object.hasOwn(messages,issue.code)?messages[issue.code]:messages.unknown;
+  return issue.code==='rate_limited'&&Number.isSafeInteger(issue.retryAfterSeconds)&&issue.retryAfterSeconds!>0&&issue.retryAfterSeconds!<=31536000?`${text} Подождите ${issue.retryAfterSeconds} сек.`:text;
+}

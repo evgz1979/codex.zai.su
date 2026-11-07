@@ -27,10 +27,12 @@
   {"path":"backend/auth/prompt.ts","name":"secretPrompt","anchor":"symbol-secretPrompt"},
   {"path":"backend/auth/prompt.ts","name":"secretPrompt.finish","anchor":"symbol-secretPrompt.finish"},
   {"path":"backend/auth/prompt.ts","name":"secretPrompt.onData","anchor":"symbol-secretPrompt.onData"},
+  {"path":"backend/auth/telegram-issue.ts","name":"telegramAuthIssue","anchor":"symbol-telegramAuthIssue"},
   {"path":"backend/auth/telegram-login.ts","name":"TelegramLogin","anchor":"symbol-TelegramLogin"},
   {"path":"backend/auth/telegram-login.ts","name":"TelegramLogin.begin","anchor":"symbol-TelegramLogin.begin"},
   {"path":"backend/auth/telegram-login.ts","name":"TelegramLogin.cancel","anchor":"symbol-TelegramLogin.cancel"},
   {"path":"backend/auth/telegram-login.ts","name":"TelegramLogin.constructor","anchor":"symbol-TelegramLogin.constructor"},
+  {"path":"backend/auth/telegram-login.ts","name":"TelegramLogin.onAuthError","anchor":"symbol-TelegramLogin.onAuthError"},
   {"path":"backend/auth/telegram-login.ts","name":"TelegramLogin.prompt","anchor":"symbol-TelegramLogin.prompt"},
   {"path":"backend/auth/telegram-login.ts","name":"TelegramLogin.setStage","anchor":"symbol-TelegramLogin.setStage"},
   {"path":"backend/auth/telegram-login.ts","name":"TelegramLogin.submit","anchor":"symbol-TelegramLogin.submit"},
@@ -178,5 +180,8 @@
   {"path":"shared/types.ts","name":"SessionInfo","anchor":"symbol-SessionInfo"},
   {"path":"shared/types.ts","name":"Snapshot","anchor":"symbol-Snapshot"},
   {"path":"shared/types.ts","name":"Source","anchor":"symbol-Source"},
+  {"path":"shared/types.ts","name":"TelegramAuthIssue","anchor":"symbol-TelegramAuthIssue"},
+  {"path":"shared/types.ts","name":"TelegramAuthIssueCode","anchor":"symbol-TelegramAuthIssueCode"},
+  {"path":"shared/types.ts","name":"telegramAuthIssueText","anchor":"symbol-telegramAuthIssueText"},
   {"path":"shared/types.ts","name":"TelegramAuthStage","anchor":"symbol-TelegramAuthStage"}
 ]

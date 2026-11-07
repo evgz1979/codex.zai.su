@@ -18,6 +18,7 @@ export interface AdminStatus {
         configured: boolean;
         connected: boolean;
         stage: TelegramAuthStage;
+        issue?: TelegramAuthIssue;
     };
     selectedCount: number;
 }
@@ -242,6 +243,45 @@ export interface Source {
     name: string;
     connected: boolean;
 }
+```
+
+<a id="symbol-TelegramAuthIssue"></a>
+
+## TelegramAuthIssue
+
+Описывает безопасную причину отказа и числовое время ожидания.
+
+Не включает телефон, ключи, код, 2FA или request Telegram.
+
+```typescript
+export interface TelegramAuthIssue {
+    code: TelegramAuthIssueCode;
+    retryAfterSeconds?: number;
+}
+```
+
+<a id="symbol-TelegramAuthIssueCode"></a>
+
+## TelegramAuthIssueCode
+
+Перечисляет разрешённые категории отказа Telegram.
+
+Произвольный текст исключений и введённые реквизиты не входят в контракт.
+
+```typescript
+export type TelegramAuthIssueCode = 'invalid_api' | 'api_blocked' | 'invalid_phone' | 'phone_blocked' | 'account_missing' | 'invalid_code' | 'invalid_password' | 'code_expired' | 'rate_limited' | 'update_required' | 'restart_required' | 'telegram_unavailable' | 'network_timeout' | 'network_error' | 'captcha_required' | 'email_required' | 'official_app_required' | 'cancelled' | 'flow_expired' | 'session_failed' | 'unknown';
+```
+
+<a id="symbol-telegramAuthIssueText"></a>
+
+## telegramAuthIssueText
+
+Выбирает фиксированный текст ошибки для административного интерфейса.
+
+Не вставляет строки провайдера; допускает только безопасное число секунд.
+
+```typescript
+telegramAuthIssueText(issue: TelegramAuthIssue): string
 ```
 
 <a id="symbol-TelegramAuthStage"></a>

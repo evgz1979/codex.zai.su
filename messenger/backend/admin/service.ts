@@ -16,7 +16,7 @@ export class AdminService {
   constructor(private core: MessengerService, private telegram: TelegramAdapter, private vault: SecretVault, private store: Store, login?: TelegramLogin) { this.login=login||new TelegramLogin(vault); }
   //: Возвращает статус источника и количество разрешённых диалогов.
   //: Не возвращает ключи, сессию, телефон, код или 2FA.
-  status(): AdminStatus { return { telegram:{configured:this.vault.exists(),connected:this.telegram.source.connected,stage:this.vault.exists()?'connected':this.login.stage},selectedCount:this.core.selection.ids().length }; }
+  status(): AdminStatus { return { telegram:{configured:this.vault.exists(),connected:this.telegram.source.connected,stage:this.vault.exists()?'connected':this.login.stage,...(!this.vault.exists()&&this.login.issue?{issue:this.login.issue}:{})},selectedCount:this.core.selection.ids().length }; }
   //: Получает каталог метаданных для выбора диалогов.
   //: Историю не запрашивает, preview очищается перед ответом.
   async dialogs() { this.catalog=await this.telegram.listConversations(); return {conversations:this.catalog.map(c=>({...c,preview:''})),selectedIds:this.core.selection.ids()}; }

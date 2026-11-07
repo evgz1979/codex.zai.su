@@ -19,3 +19,14 @@ test('админка: отдельный вход, Telegram code/2FA и выбо
  await expect(page.getByLabel('Сообщение',{exact:true})).toHaveCount(0);
  await page.getByRole('button',{name:'Выйти из админки'}).click();await expect(page.getByLabel('Пароль администратора')).toBeVisible();
 });
+test('админка: причина отказа получения кода видна после очистки секретных полей',async({page})=>{
+ let failed=false;
+ await page.route('**/api/admin/status',route=>route.fulfill({json:{telegram:{configured:false,connected:false,stage:failed?'error':'idle',...(failed?{issue:{code:'invalid_api'}}:{})},selectedCount:0}}));
+ await page.route('**/api/admin/telegram/begin',route=>{failed=true;return route.fulfill({json:{stage:'error'}});});
+ await page.goto('/admin');await page.getByLabel('Пароль администратора').fill('browser-admin-password');await page.getByRole('button',{name:'Войти',exact:true}).click();
+ await page.getByLabel('api_id',{exact:true}).fill('123');await page.getByLabel('api_hash',{exact:true}).fill('1'.repeat(32));await page.getByLabel('Номер телефона').fill('+79990000000');await page.getByRole('button',{name:'Получить код'}).click();
+ await expect(page.getByRole('alert')).toContainText('Telegram отклонил пару api_id / api_hash.');
+ await expect(page.getByLabel('api_hash',{exact:true})).toHaveValue('');await expect(page.getByLabel('Номер телефона')).toHaveValue('');
+ await expect(page.getByRole('button',{name:'Получить код'})).toBeEnabled();
+ await expect(page.getByLabel('Код Telegram',{exact:true})).toHaveCount(0);
+});

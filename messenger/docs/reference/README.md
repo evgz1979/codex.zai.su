@@ -7,7 +7,8 @@
 | [backend/admin/service.ts](backend--admin--service.md) | Настройки, метаданные Telegram и права выбора диалогов. | 8 |
 | [backend/auth/auth.ts](backend--auth--auth.md) | Хеширование пароля, веб-сессии в памяти и ограничение попыток входа. | 17 |
 | [backend/auth/prompt.ts](backend--auth--prompt.md) | Скрытый интерактивный ввод в TTY без отражения символов. | 3 |
-| [backend/auth/telegram-login.ts](backend--auth--telegram-login.md) | Пошаговый Telegram-вход с временными callbacks кода и 2FA. | 8 |
+| [backend/auth/telegram-issue.ts](backend--auth--telegram-issue.md) | Allowlist-классификация отказов Telegram без раскрытия исходных исключений. | 1 |
+| [backend/auth/telegram-login.ts](backend--auth--telegram-login.md) | Пошаговый Telegram-вход с временными callbacks кода и 2FA. | 9 |
 | [backend/cli.ts](backend--cli.md) | Локальные команды setup, telegram и clear без вывода секретов. | 1 |
 | [backend/config.ts](backend--config.md) | Фиксированные loopback-порт, Origin и пути модуля для source/build. | 6 |
 | [backend/connectors/telegram/adapter.ts](backend--connectors--telegram--adapter.md) | Преобразование Telegram dialogs/messages в общие DTO и проверка назначения. | 14 |
@@ -36,4 +37,4 @@
 | [scripts/start.sh](scripts--start-sh.md) | Запуск собранного сервера по абсолютному пути для безопасной проверки PID. | 0 |
 | [scripts/stop.mjs](scripts--stop.md) | Проверка PID и команды процесса перед SIGTERM только Messenger. | 0 |
 | [scripts/stop.sh](scripts--stop-sh.md) | Выбор Node.js и запуск штатного stop.mjs. | 0 |
-| [shared/types.ts](shared--types.md) | Общие DTO, статусы, лимиты, ID и Destination без зависимости от Telegram. | 16 |
+| [shared/types.ts](shared--types.md) | Общие DTO, статусы, лимиты, ID и Destination без зависимости от Telegram. | 19 |

@@ -8,9 +8,9 @@
 
 ## TelegramLogin
 
-Управляет пошаговым Telegram-входом из защищённой админки.
+Управляет пошаговым входом Telegram и безопасной причиной отказа.
 
-Код и 2FA передаются одноразовому callback, не записываются в файлы и ответы.
+Не хранит коды/2FA, не повторяет sendCode автоматически и ограничивает проверки.
 
 ```typescript
 class TelegramLogin
@@ -20,9 +20,9 @@ class TelegramLogin
 
 ## TelegramLogin.begin
 
-Начинает авторизацию по api_id, api_hash и телефону.
+Начинает один вход по явно введённым реквизитам.
 
-Проверяет поля, ограничивает жизнь входа пятью минутами, не подключает реальный аккаунт автоматически.
+Ошибки создания клиента и сети завершают ожидание безопасным этапом error.
 
 ```typescript
 async begin(input: {
@@ -36,33 +36,45 @@ async begin(input: {
 
 ## TelegramLogin.cancel
 
-Отменяет ожидание секрета и закрывает клиент.
+Отменяет ожидание и закрывает клиент без записи введённых секретов.
 
-Не оставляет незавершённые callbacks или таймер авторизации.
+Истечение таймера сохраняет только категорию flow_expired.
 
 ```typescript
-async cancel()
+async cancel(preserveIssue = false)
 ```
 
 <a id="symbol-TelegramLogin.constructor"></a>
 
 ## TelegramLogin.constructor
 
-Подключает vault и фабрику MTProto-клиента.
+Подключает серверный vault и штатную либо тестовую фабрику.
 
-В production используется только штатный приватный клиент.
+Не читает секреты обратно в административные ответы.
 
 ```typescript
 constructor(private vault: SecretVault, private factory = telegramClient)
+```
+
+<a id="symbol-TelegramLogin.onAuthError"></a>
+
+## TelegramLogin.onAuthError
+
+Классифицирует отказ без сохранения исходного исключения.
+
+Только неверный код/2FA можно повторить в пределах пяти проверок.
+
+```typescript
+private onAuthError(error: Error)
 ```
 
 <a id="symbol-TelegramLogin.prompt"></a>
 
 ## TelegramLogin.prompt
 
-Передаёт код или 2FA одноразовому callback teleproto.
+Запрашивает код или 2FA у владельца через одноразовый callback.
 
-В объекте сервиса хранится resolver, а не значение кода или пароля.
+Повтор неверного значения сохраняет текущий запрос кода Telegram.
 
 ```typescript
 private prompt(stage: 'code' | 'password')
@@ -72,9 +84,9 @@ private prompt(stage: 'code' | 'password')
 
 ## TelegramLogin.setStage
 
-Публикует безопасное имя следующего шага.
+Передаёт ожидающему HTTP-запросу только безопасное имя этапа.
 
-Разрешает ожидающий HTTP-запрос без передачи введённого секрета.
+Один resolver обслуживает один переход авторизации.
 
 ```typescript
 private setStage(stage: TelegramAuthStage)
@@ -84,9 +96,9 @@ private setStage(stage: TelegramAuthStage)
 
 ## TelegramLogin.submit
 
-Передаёт секрет только ожидающему шагу code или password.
+Передаёт значение только ожидающему шагу code или password.
 
-Повторный или неверный этап отклоняется, значение не сохраняется.
+Не выводит значение в ответ или журнал и ограничивает число проверок.
 
 ```typescript
 async submit(stage: 'code' | 'password', value: string)
@@ -96,9 +108,9 @@ async submit(stage: 'code' | 'password', value: string)
 
 ## TelegramLogin.waitStage
 
-Ожидает смену этапа авторизации.
+Ожидает следующий переход процесса входа.
 
-Одновременно активен один переход и один ожидающий ответ.
+Значение введённого секрета сюда не возвращается.
 
 ```typescript
 private waitStage()

@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const printer = ts.createPrinter({ removeComments: true, newLine: ts.NewLineKind.LineFeed });
 const purposes = {
+  'backend/auth/telegram-issue.ts': 'Allowlist-классификация отказов Telegram без раскрытия исходных исключений.',
   'backend/admin/service.ts': 'Настройки, метаданные Telegram и права выбора диалогов.',
   'backend/auth/telegram-login.ts': 'Пошаговый Telegram-вход с временными callbacks кода и 2FA.',
   'backend/core/errors.ts': 'Безопасная прикладная ошибка HTTP API.',

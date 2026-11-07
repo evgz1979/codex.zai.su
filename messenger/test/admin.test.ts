@@ -52,6 +52,9 @@ test('HTTP: отдельные права и Secure cookie, отсутствие
  assert.equal((await raw('/api/chat/snapshot',undefined,ah)).status,401);
  assert.equal((await raw('/api/admin/selection',{ids:[]},{Cookie:ah.Cookie})).status,403);
  const info=await raw('/api/admin/status',undefined,ah);assert.equal(info.status,200);assert.ok(!/apiHash|api_hash|session|password/.test(info.body));
+ admin.login.issue={code:'invalid_api'};admin.login.stage='error';
+ const failed=await raw('/api/admin/status',undefined,ah);assert.deepEqual(JSON.parse(failed.body).telegram.issue,{code:'invalid_api'});
+ assert.equal((await raw('/api/admin/status',undefined,ch)).status,401);
  assert.equal((await raw('/telegram.enc',undefined,ah)).status,404);assert.equal((await raw('/.local/vault.key',undefined,ah)).status,404);
  assert.equal((await raw('/api/chat/open',{conversationId:source.conversations[0].id},ch)).status,403);
  assert.equal((await raw('/api/admin/selection',{ids:[]},{...ah,Origin:'https://evil.example'})).status,403);
