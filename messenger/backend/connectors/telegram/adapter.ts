@@ -3,14 +3,15 @@ import type { Dialog } from 'teleproto/tl/custom/dialog';
 import type { SourceAdapter } from '../../core/source-adapter.js';
 import { SecretVault } from '../../storage/private-files.js';
 import { telegramClient } from './client.js';
-import { entityId, LIMITS, type Conversation, type Destination, type Message, type Source } from '../../../shared/types.js';
+import { entityId, LIMITS, type Conversation, type ConversationCatalog, type Destination, type Message, type Source } from '../../../shared/types.js';
+import {telegramFolders,type TelegramMuteDefaults} from './folders.js';
 
 //: Задаёт стабильный ID личного Telegram-источника.
 //: Это ID экземпляра адаптера, а не общий вид провайдера.
 export const TELEGRAM_SOURCE = 'telegram-personal';
 //: Ограничивает поверхность teleproto, нужную адаптеру.
 //: Тесты подставляют этот порт без реального Telegram-подключения.
-type TelegramPort = Pick<TelegramClient, 'connected' | 'connect' | 'checkAuthorization' | 'destroy' | 'getDialogs' | 'getMessages' | 'sendMessage' | 'markAsRead' | 'logOut'>;
+type TelegramPort = Pick<TelegramClient, 'connected' | 'connect' | 'checkAuthorization' | 'destroy' | 'getDialogs' | 'getMessages' | 'sendMessage' | 'markAsRead' | 'logOut' | 'invoke' | 'getNotifySettings'>;
 //: Реализует SourceAdapter для одного личного Telegram-аккаунта.
 //: Сессия и native peer остаются на сервере, DTO не содержат секретов.
 export class TelegramAdapter implements SourceAdapter {
@@ -56,9 +57,19 @@ export class TelegramAdapter implements SourceAdapter {
     this.source.connected = false;
     if (this.client) await this.client.destroy();
   }
-  //: Получает ограниченный список личных диалогов и групп.
-  //: Пропускает broadcast/communities, запрещает запись в форумы и платные диалоги.
+  //: Получает ограниченный список диалогов для общей ленты.
+  //: Папки не запрашиваются; история остаётся отдельной операцией.
   async listConversations(): Promise<Conversation[]> {
+    return (await this.loadCatalog(false)).conversations;
+  }
+  //: Получает административный каталог с существующими папками Telegram.
+  //: Не меняет папки, выбор диалогов или сохранённую авторизацию.
+  async listConversationCatalog():Promise<ConversationCatalog> {
+    return this.loadCatalog(true);
+  }
+  //: Читает метаданные и при необходимости правила папок одним каталогом.
+  //: В памяти адаптера остаются только ID и peer, без содержимого сообщений.
+  private async loadCatalog(withFolders:boolean):Promise<ConversationCatalog> {
     await this.connect();
     const dialogs = await this.client!.getDialogs({ limit: LIMITS.conversations });
     this.dialogs.clear();
@@ -85,7 +96,17 @@ export class TelegramAdapter implements SourceAdapter {
         canSend: !banned && !userBanned && !forum && !paid && !broadcast,
       });
     }
-    return result;
+    let folders:ConversationCatalog['folders']=[];
+    if(withFolders){
+      const {filters}=await this.client!.invoke(new Api.messages.GetDialogFilters());
+      const defaults:TelegramMuteDefaults={users:0,groups:0,channels:0};
+      if(filters.some(f=>f instanceof Api.DialogFilter&&f.excludeMuted)){
+        const categories=[['users',new Api.InputNotifyUsers()],['groups',new Api.InputNotifyChats()],['channels',new Api.InputNotifyBroadcasts()]] as const;
+        await Promise.all(categories.map(async([kind,peer])=>{const settings=await this.client!.getNotifySettings(peer);defaults[kind]=settings.muteUntil??0;}));
+      }
+      folders=telegramFolders(this.source.id,filters,dialogs,new Set(result.map(c=>c.id)),defaults);
+    }
+    return {conversations:result,folders,truncated:(dialogs.total??0)>dialogs.length||dialogs.length>=LIMITS.conversations};
   }
   //: Находит native dialog по общему conversationId.
   //: При отсутствии в памяти заново получает ограниченный список диалогов.

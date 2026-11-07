@@ -4,6 +4,20 @@
 
 [Исходный модуль](../../shared/types.ts) · [Индекс](README.md)
 
+<a id="symbol-AdminDialogCatalog"></a>
+
+## AdminDialogCatalog
+
+Дополняет каталог сохранёнными разрешениями для административного выбора.
+
+Не используется в пользовательском API и не расширяет allowlist через папки.
+
+```typescript
+export interface AdminDialogCatalog extends ConversationCatalog {
+    selectedIds: EntityId[];
+}
+```
+
 <a id="symbol-AdminStatus"></a>
 
 ## AdminStatus
@@ -61,6 +75,39 @@ export interface Conversation {
     updatedAt: string;
     preview: string;
     canSend: boolean;
+}
+```
+
+<a id="symbol-ConversationCatalog"></a>
+
+## ConversationCatalog
+
+Передаёт ограниченный каталог метаданных источника и его папки.
+
+truncated сообщает о неполной выборке; история и native peer сюда не входят.
+
+```typescript
+export interface ConversationCatalog {
+    conversations: Conversation[];
+    folders: ConversationFolder[];
+    truncated: boolean;
+}
+```
+
+<a id="symbol-ConversationFolder"></a>
+
+## ConversationFolder
+
+Описывает папку источника и входящие в неё диалоги каталога.
+
+Один диалог может входить в несколько папок; членство не даёт прав чтения.
+
+```typescript
+export interface ConversationFolder {
+    id: EntityId;
+    sourceId: EntityId;
+    title: string;
+    conversationIds: EntityId[];
 }
 ```
 

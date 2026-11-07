@@ -8,9 +8,9 @@
 
 ## SourceAdapter
 
-Задаёт контракт чтения, отправки и отметки прочитанного для источника.
+Задаёт контракт чтения, отправки и необязательного каталога папок источника.
 
-Сессии и native API не входят в общие DTO.
+Папки содержат только метаданные и не дают доступа к истории без выбора.
 
 ```typescript
 export interface SourceAdapter {
@@ -18,6 +18,7 @@ export interface SourceAdapter {
     connect(): Promise<void>;
     disconnect(): Promise<void>;
     listConversations(): Promise<Conversation[]>;
+    listConversationCatalog?(): Promise<ConversationCatalog>;
     recentMessages(conversationId: string, limit: number): Promise<Message[]>;
     sendText(destination: Destination, text: string): Promise<Message>;
     markRead(conversationId: string, messageId: string): Promise<void>;

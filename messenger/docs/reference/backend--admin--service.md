@@ -56,12 +56,12 @@ constructor(private core: MessengerService, private telegram: TelegramAdapter, p
 
 ## AdminService.dialogs
 
-Получает каталог метаданных для выбора диалогов.
+Получает каталог метаданных с папками источника для выбора диалогов.
 
-Историю не запрашивает, preview очищается перед ответом.
+Историю не запрашивает, preview очищается; папки не меняют разрешения.
 
 ```typescript
-async dialogs()
+async dialogs(): Promise<AdminDialogCatalog>
 ```
 
 <a id="symbol-AdminService.disconnect"></a>

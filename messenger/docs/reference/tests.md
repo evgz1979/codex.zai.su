@@ -6,6 +6,7 @@
 - [test/admin.test.ts](../../test/admin.test.ts): Telegram-вход: этапы code/2FA, сохранение сессии без кода и пароля, отмена
 - [test/admin.test.ts](../../test/admin.test.ts): админка: метаданные не синхронизируют историю; выбор сохраняется в SQLite
 - [test/browser/admin.spec.ts](../../test/browser/admin.spec.ts): админка: отдельный вход, Telegram code/2FA и выбор галочками
+- [test/browser/admin.spec.ts](../../test/browser/admin.spec.ts): админка: папки отдельными закладками, общий выбор, поиск и клавиатура
 - [test/browser/admin.spec.ts](../../test/browser/admin.spec.ts): админка: причина отказа получения кода видна после очистки секретных полей
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): единая лента, выбор адресата, отправка, непрочитанные, выход и мобильные границы
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): открытый чат скрывает исключённые диалоги без синхронизации истории
@@ -33,4 +34,8 @@
 - [test/telegram-auth.test.ts](../../test/telegram-auth.test.ts): Telegram: ошибка фабрики не оставляет вечный connecting и не блокирует новый вход
 - [test/telegram-auth.test.ts](../../test/telegram-auth.test.ts): Telegram: ошибки начального запроса классифицируются без исходных исключений
 - [test/telegram-auth.test.ts](../../test/telegram-auth.test.ts): Telegram: пять неверных кодов завершают вход без нового sendCode
+- [test/telegram-folders.test.ts](../../test/telegram-folders.test.ts): Telegram-каталог: папки не читают историю, не разрешают диалоги и переживают переподключение
+- [test/telegram-folders.test.ts](../../test/telegram-folders.test.ts): Telegram-папки: контакты, боты, группы и каналы используют отдельные правила
+- [test/telegram-folders.test.ts](../../test/telegram-folders.test.ts): Telegram-папки: порядок, закрепления, исключения, пересечения, Self и типы ID
+- [test/telegram-folders.test.ts](../../test/telegram-folders.test.ts): Telegram-папки: прочитанные, архив, глобальный mute, упоминания и явное включение
 - [test/telegram.test.ts](../../test/telegram.test.ts): Telegram: DTO, фильтр broadcast, уникальность message ID и буквальная отправка

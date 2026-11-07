@@ -5,6 +5,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const printer = ts.createPrinter({ removeComments: true, newLine: ts.NewLineKind.LineFeed });
 const purposes = {
+  'backend/connectors/telegram/folders.ts': 'Преобразование папок и правил Telegram в общий административный каталог.',
+  'frontend/src/admin/ConversationPicker.tsx': 'Закладки папок, поиск и независимый от текущей папки выбор диалогов.',
   'backend/auth/telegram-issue.ts': 'Allowlist-классификация отказов Telegram без раскрытия исходных исключений.',
   'backend/admin/service.ts': 'Настройки, метаданные Telegram и права выбора диалогов.',
   'backend/auth/telegram-login.ts': 'Пошаговый Telegram-вход с временными callbacks кода и 2FA.',

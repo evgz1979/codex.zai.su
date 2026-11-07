@@ -7,7 +7,7 @@ test('админка: отдельный вход, Telegram code/2FA и выбо
  await page.route('**/api/admin/telegram/begin',route=>{const input=route.request().postDataJSON();expect(input.apiHash).toBe('1'.repeat(32));stage='code';return route.fulfill({json:{stage}});});
  await page.route('**/api/admin/telegram/code',route=>{stage='password';return route.fulfill({json:{stage}});});
  await page.route('**/api/admin/telegram/password',route=>{stage='connected';configured=true;return route.fulfill({json:{stage}});});
- await page.route('**/api/admin/dialogs',route=>route.fulfill({json:{conversations:[conversation],selectedIds:saved}}));
+ await page.route('**/api/admin/dialogs',route=>route.fulfill({json:{conversations:[conversation],folders:[],truncated:false,selectedIds:saved}}));
  await page.route('**/api/admin/selection',route=>{saved=route.request().postDataJSON().ids;return route.fulfill({json:{selectedIds:saved}});});
  await page.goto('/admin');await page.getByLabel('Пароль администратора').fill('browser-admin-password');await page.getByRole('button',{name:'Войти',exact:true}).click();
  await expect(page.getByRole('heading',{name:'Источники → Telegram'})).toBeVisible();
@@ -18,6 +18,26 @@ test('админка: отдельный вход, Telegram code/2FA и выбо
  await box.uncheck();await page.getByRole('button',{name:'Сохранить выбор'}).click();await expect(page.getByText('Выбрано: 0 / 100',{exact:false})).toBeVisible();expect(saved).toEqual([]);
  await expect(page.getByLabel('Сообщение',{exact:true})).toHaveCount(0);
  await page.getByRole('button',{name:'Выйти из админки'}).click();await expect(page.getByLabel('Пароль администратора')).toBeVisible();
+});
+test('админка: папки отдельными закладками, общий выбор, поиск и клавиатура',async({page})=>{
+ const conversations=['Команда','Анна','Общий чат'].map((title,i)=>({id:`telegram-47:conversation:${i}`,sourceId:'telegram-47',title,kind:'direct',recipient:{id:`telegram-47:recipient:${i}`,name:title},canSend:true,unreadCount:0,updatedAt:new Date().toISOString(),preview:''}));
+ let saved:string[]=[];let saves=0;let removed=false;
+ const folders=[{id:'telegram-47:folder:2',sourceId:'telegram-47',title:'Работа',conversationIds:[conversations[2].id,conversations[0].id]},{id:'telegram-47:folder:3',sourceId:'telegram-47',title:'Личное',conversationIds:[conversations[1].id,conversations[2].id]},{id:'telegram-47:folder:4',sourceId:'telegram-47',title:'Папка с длинным названием',conversationIds:[]}];
+ await page.route('**/api/admin/status',route=>route.fulfill({json:{telegram:{configured:true,connected:true,stage:'connected'},selectedCount:saved.length}}));
+ await page.route('**/api/admin/dialogs',route=>route.fulfill({json:{conversations,folders:removed?folders.filter(f=>f.title!=='Работа'):folders,truncated:false,selectedIds:saved}}));
+ await page.route('**/api/admin/selection',route=>{saved=route.request().postDataJSON().ids;saves++;return route.fulfill({json:{selectedIds:saved}});});
+ await page.goto('/admin');await page.getByLabel('Пароль администратора').fill('browser-admin-password');await page.getByRole('button',{name:'Войти',exact:true}).click();await page.getByRole('button',{name:'Получить список диалогов'}).click();
+ await expect(page.getByRole('tablist',{name:'Папки диалогов'})).toBeVisible();await expect(page.getByRole('tab',{name:'Все диалоги',exact:true})).toHaveAttribute('aria-selected','true');
+ await page.getByRole('tab',{name:'Работа',exact:true}).click();await expect(page.getByLabel('Разрешить: Анна')).toHaveCount(0);await page.getByLabel('Разрешить: Команда').check();
+ const workRows=page.getByRole('tabpanel').getByRole('row');await expect(workRows.nth(1)).toContainText('Общий чат');
+ await page.getByLabel('Разрешить: Общий чат').check();await page.getByRole('tab',{name:'Личное',exact:true}).click();await expect(page.getByLabel('Разрешить: Общий чат')).toBeChecked();await expect(page.getByLabel('Разрешить: Команда')).toHaveCount(0);
+ await page.getByLabel('Разрешить: Анна').check();await page.getByLabel('Поиск по названию').fill('Анна');await expect(page.getByLabel('Разрешить: Общий чат')).toHaveCount(0);
+ expect(saves).toBe(0);await page.getByRole('button',{name:'Сохранить выбор'}).click();await expect(page.getByText('Выбор сохранён.')).toBeVisible();expect(new Set(saved)).toEqual(new Set(conversations.map(c=>c.id)));
+ await page.getByLabel('Поиск по названию').fill('');await page.getByRole('tab',{name:'Папка с длинным названием',exact:true}).click();await expect(page.getByText('В этой папке нет загруженных диалогов.',{exact:true})).toBeVisible();
+ await page.getByRole('tab',{name:'Папка с длинным названием',exact:true}).press('Home');await expect(page.getByRole('tab',{name:'Все диалоги',exact:true})).toBeFocused();await page.getByRole('tab',{name:'Все диалоги',exact:true}).press('ArrowRight');await expect(page.getByRole('tab',{name:'Работа',exact:true})).toHaveAttribute('aria-selected','true');
+ removed=true;await page.getByRole('button',{name:'Получить список диалогов'}).click();await expect(page.getByRole('tab',{name:'Работа',exact:true})).toHaveCount(0);await expect(page.getByRole('tab',{name:'Все диалоги',exact:true})).toHaveAttribute('aria-selected','true');await expect(page.getByLabel('Разрешить: Команда')).toBeChecked();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+ await page.screenshot({path:`test-results/admin-folders-${test.info().project.name}.png`,fullPage:true});
 });
 test('админка: причина отказа получения кода видна после очистки секретных полей',async({page})=>{
  let failed=false;

@@ -34,6 +34,15 @@ export interface Conversation {
   preview: string;
   canSend: boolean;
 }
+//: Описывает папку источника и входящие в неё диалоги каталога.
+//: Один диалог может входить в несколько папок; членство не даёт прав чтения.
+export interface ConversationFolder { id: EntityId; sourceId: EntityId; title: string; conversationIds: EntityId[] }
+//: Передаёт ограниченный каталог метаданных источника и его папки.
+//: truncated сообщает о неполной выборке; история и native peer сюда не входят.
+export interface ConversationCatalog { conversations: Conversation[]; folders: ConversationFolder[]; truncated: boolean }
+//: Дополняет каталог сохранёнными разрешениями для административного выбора.
+//: Не используется в пользовательском API и не расширяет allowlist через папки.
+export interface AdminDialogCatalog extends ConversationCatalog { selectedIds: EntityId[] }
 //: Описывает текстовое сообщение и его происхождение.
 //: Включает источник, диалог, отправителя, дату и наблюдаемый статус.
 export interface Message {

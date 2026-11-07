@@ -88,16 +88,40 @@ async disconnect()
 private async doConnect()
 ```
 
+<a id="symbol-TelegramAdapter.listConversationCatalog"></a>
+
+## TelegramAdapter.listConversationCatalog
+
+Получает административный каталог с существующими папками Telegram.
+
+Не меняет папки, выбор диалогов или сохранённую авторизацию.
+
+```typescript
+async listConversationCatalog(): Promise<ConversationCatalog>
+```
+
 <a id="symbol-TelegramAdapter.listConversations"></a>
 
 ## TelegramAdapter.listConversations
 
-Получает ограниченный список личных диалогов и групп.
+Получает ограниченный список диалогов для общей ленты.
 
-Пропускает broadcast/communities, запрещает запись в форумы и платные диалоги.
+Папки не запрашиваются; история остаётся отдельной операцией.
 
 ```typescript
 async listConversations(): Promise<Conversation[]>
+```
+
+<a id="symbol-TelegramAdapter.loadCatalog"></a>
+
+## TelegramAdapter.loadCatalog
+
+Читает метаданные и при необходимости правила папок одним каталогом.
+
+В памяти адаптера остаются только ID и peer, без содержимого сообщений.
+
+```typescript
+private async loadCatalog(withFolders: boolean): Promise<ConversationCatalog>
 ```
 
 <a id="symbol-TelegramAdapter.mapMessage"></a>
@@ -169,5 +193,5 @@ async sendText(destination: Destination, text: string)
 Тесты подставляют этот порт без реального Telegram-подключения.
 
 ```typescript
-type TelegramPort = Pick<TelegramClient, 'connected' | 'connect' | 'checkAuthorization' | 'destroy' | 'getDialogs' | 'getMessages' | 'sendMessage' | 'markAsRead' | 'logOut'>;
+type TelegramPort = Pick<TelegramClient, 'connected' | 'connect' | 'checkAuthorization' | 'destroy' | 'getDialogs' | 'getMessages' | 'sendMessage' | 'markAsRead' | 'logOut' | 'invoke' | 'getNotifySettings'>;
 ```

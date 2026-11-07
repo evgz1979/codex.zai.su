@@ -123,3 +123,15 @@ async refreshStatus()
 ```typescript
 async run(task: () => Promise<void>)
 ```
+
+<a id="symbol-AdminApp.saveSelection"></a>
+
+## AdminApp.saveSelection
+
+Сохраняет общий выбор, включая скрытые текущей закладкой диалоги.
+
+Папка не отправляется как разрешение и не включает новые чаты автоматически.
+
+```typescript
+async saveSelection()
+```

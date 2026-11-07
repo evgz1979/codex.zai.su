@@ -1,4 +1,4 @@
-import type { Conversation, AdminStatus } from '../../shared/types.js';
+import type { Conversation, AdminStatus, AdminDialogCatalog } from '../../shared/types.js';
 import type { Store } from '../storage/store.js';
 import type { SecretVault } from '../storage/private-files.js';
 import type { MessengerService } from '../core/service.js';
@@ -17,9 +17,13 @@ export class AdminService {
   //: Возвращает статус источника и количество разрешённых диалогов.
   //: Не возвращает ключи, сессию, телефон, код или 2FA.
   status(): AdminStatus { return { telegram:{configured:this.vault.exists(),connected:this.telegram.source.connected,stage:this.vault.exists()?'connected':this.login.stage,...(!this.vault.exists()&&this.login.issue?{issue:this.login.issue}:{})},selectedCount:this.core.selection.ids().length }; }
-  //: Получает каталог метаданных для выбора диалогов.
-  //: Историю не запрашивает, preview очищается перед ответом.
-  async dialogs() { this.catalog=await this.telegram.listConversations(); return {conversations:this.catalog.map(c=>({...c,preview:''})),selectedIds:this.core.selection.ids()}; }
+  //: Получает каталог метаданных с папками источника для выбора диалогов.
+  //: Историю не запрашивает, preview очищается; папки не меняют разрешения.
+  async dialogs():Promise<AdminDialogCatalog> {
+    const catalog=this.telegram.listConversationCatalog?await this.telegram.listConversationCatalog():{conversations:await this.telegram.listConversations(),folders:[],truncated:false};
+    this.catalog=catalog.conversations;
+    return {...catalog,conversations:this.catalog.map(c=>({...c,preview:''})),selectedIds:this.core.selection.ids()};
+  }
   //: Сохраняет разрешённые ID и перестраивает видимый снимок.
   //: Нельзя разрешить ID, отсутствующий в полученном каталоге.
   select(ids: string[]) { this.core.selection.replace(ids,this.catalog); this.core.reset(); return this.core.selection.ids(); }
