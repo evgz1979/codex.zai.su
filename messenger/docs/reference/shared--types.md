@@ -44,7 +44,7 @@ export interface AdminStatus {
 
 Описывает метаданные вложения общей модели.
 
-Содержимое загружается отдельно по явному действию, без реквизитов провайдера.
+Содержимое кешируется отдельно; DTO не содержит реквизитов провайдера.
 
 ```typescript
 export interface Attachment {
@@ -54,6 +54,7 @@ export interface Attachment {
     mimeType?: string;
     size?: number;
     downloadable?: boolean;
+    hasPreview?: boolean;
 }
 ```
 
@@ -70,6 +71,7 @@ export interface AttachmentRequest {
     conversationId: EntityId;
     messageId: EntityId;
     attachmentId: EntityId;
+    variant?: 'preview';
 }
 ```
 
@@ -239,10 +241,10 @@ const LIMITS = { conversations: 1000, pageMessages: 10, syncMessages: 100, cache
 
 Ограничивает память запроса и объём приватного кеша медиа.
 
-Медиа не скачиваются фоновым синхронизатором истории.
+Отдельная фоновая подготовка ограничена пятью днями, текстовая история не усечена.
 
 ```typescript
-const MEDIA_LIMITS = { fileBytes: 32 * 1024 * 1024, cacheBytes: 256 * 1024 * 1024, parallel: 2, cacheFiles: 256, timeoutMs: 60000 } as const
+const MEDIA_LIMITS = { fileBytes: 32 * 1024 * 1024, cacheBytes: 512 * 1024 * 1024, parallel: 2, cacheFiles: 2048, timeoutMs: 60000, previewBytes: 512 * 1024, preloadDays: 5 } as const
 ```
 
 <a id="symbol-Message"></a>

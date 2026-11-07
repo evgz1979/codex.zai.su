@@ -5,6 +5,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const printer = ts.createPrinter({ removeComments: true, newLine: ts.NewLineKind.LineFeed });
 const purposes = {
+  'backend/core/media-preload.ts': 'Автоматическая подготовка вложений и миниатюр выбранных чатов за последние пять дней с продолжением после рестарта.',
+  'frontend/src/AttachmentPreview.tsx': 'Ленивая миниатюра в ленте, фиксированные размеры и открытие оригинала.',
+  'frontend/src/previews.ts': 'Последовательная очередь и ограниченный оперативный кеш миниатюр без хранилища браузера.',
   'backend/core/attachments.ts': 'Защищённая потоковая загрузка вложений и ограниченный приватный кеш байтов.',
   'backend/connectors/telegram/media.ts': 'Безопасные общие метаданные фото и документов Telegram без native references.',
   'frontend/src/AttachmentViewer.tsx': 'Модальный просмотр медиа по явному запросу, скачивание и отзыв Blob URL.',

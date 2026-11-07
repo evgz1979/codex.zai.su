@@ -16,6 +16,9 @@
 - [test/attachments.test.ts](../../test/attachments.test.ts): вложения: приватный кеш повторно открывается без Telegram, выбранность проверяется до кеша
 - [test/attachments.test.ts](../../test/attachments.test.ts): вложения: старое обозначение unsupported уточняется без повторной загрузки истории
 - [test/attachments.test.ts](../../test/attachments.test.ts): вложения: чужой маршрут, удаление и отзыв веб-сессии не читают источник или готовый кеш
+- [test/attachments.test.ts](../../test/attachments.test.ts): миниатюры: отдельный кеш не заменяет оригинал и не уменьшает его метаданные
+- [test/attachments.test.ts](../../test/attachments.test.ts): миниатюры: отсутствие запоминается, а предел размера не зависит от оригинала
+- [test/attachments.test.ts](../../test/attachments.test.ts): открытие: сигнатура PDF восстанавливает просмотр старого кеша, HTML остаётся файлом
 - [test/auto-sync.test.ts](../../test/auto-sync.test.ts): автокеш: FloodWait метаданных сохраняет паузу при перезапуске
 - [test/auto-sync.test.ts](../../test/auto-sync.test.ts): автокеш: FloodWait не продвигает курсор и не создаёт цикл повторов
 - [test/auto-sync.test.ts](../../test/auto-sync.test.ts): автокеш: вся история больше 40 сохраняется, открытие и прокрутка не вызывают источник
@@ -29,7 +32,8 @@
 - [test/browser/admin.spec.ts](../../test/browser/admin.spec.ts): админка: папки отдельными закладками, общий выбор, поиск и клавиатура
 - [test/browser/admin.spec.ts](../../test/browser/admin.spec.ts): админка: причина отказа получения кода видна после очистки секретных полей
 - [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: исключение диалога закрывает уже открытое изображение
-- [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: только по нажатию, фото/аудио/видео, скачивание, Escape и мобильные границы
+- [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: миниатюры в ленте, оригинал по нажатию, открытие PDF, скачивание и мобильные границы
+- [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: системное меню вызывается только явным нажатием, без скачивания
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): единая лента, выбор адресата, отправка, непрочитанные, выход и мобильные границы
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): открытый чат скрывает исключённые диалоги без синхронизации истории
 - [test/browser/paging.spec.ts](../../test/browser/paging.spec.ts): автокеш: прокрутка без кнопок, обновления и удаления, быстрый переход
@@ -52,6 +56,12 @@
 - [test/documentation.test.mjs](../../test/documentation.test.mjs): документация: приватные и сторонние вложенные каталоги не обходятся
 - [test/documentation.test.mjs](../../test/documentation.test.mjs): документация: у каждого исходника отдельная страница, включая stop.mjs и stop.sh
 - [test/http.test.ts](../../test/http.test.ts): HTTP: вход, CSRF, Origin/Host, приватные API, безопасные ошибки и выход
+- [test/media-preload.test.ts](../../test/media-preload.test.ts): предзагрузка: FloodWait останавливает все медиазадания и сохраняется после рестарта
+- [test/media-preload.test.ts](../../test/media-preload.test.ts): предзагрузка: временный отказ откладывает повтор и не создаёт цикл
+- [test/media-preload.test.ts](../../test/media-preload.test.ts): предзагрузка: интерактивное открытие прерывает фон и освобождает слот
+- [test/media-preload.test.ts](../../test/media-preload.test.ts): предзагрузка: перезапуск не повторяет готовое, новое вложение готовится автоматически
+- [test/media-preload.test.ts](../../test/media-preload.test.ts): предзагрузка: старые вложения остаются по нажатию, текстовый архив не усечён
+- [test/media-preload.test.ts](../../test/media-preload.test.ts): предзагрузка: только выбранные вложения за пять дней, миниатюра и оригинал, без прочитанных
 - [test/paging.test.ts](../../test/paging.test.ts): Telegram-страницы: offsetId, сервисные записи, конец и курсор чужого диалога
 - [test/paging.test.ts](../../test/paging.test.ts): общая хронология: все страницы SQLite, границы курсора и исключённый архив
 - [test/paging.test.ts](../../test/paging.test.ts): страницы кеша: чужой курсор и исключённый диалог отклоняются без Telegram
@@ -68,5 +78,6 @@
 - [test/telegram-folders.test.ts](../../test/telegram-folders.test.ts): Telegram-папки: прочитанные, архив, глобальный mute, упоминания и явное включение
 - [test/telegram-media.test.ts](../../test/telegram-media.test.ts): Telegram-вложения: один message ID нужного peer, поток и AbortSignal; чужой peer отклоняется
 - [test/telegram-media.test.ts](../../test/telegram-media.test.ts): Telegram-вложения: фото, видео, голосовое и файлы без native secrets в DTO
+- [test/telegram-media.test.ts](../../test/telegram-media.test.ts): Telegram-миниатюры: готовый размер, локальные байты, TTL и предел без оригинала
 - [test/telegram.test.ts](../../test/telegram.test.ts): Telegram-события: выбор до преобразования, правки, области ID удалений и снятие подписки
 - [test/telegram.test.ts](../../test/telegram.test.ts): Telegram: DTO, фильтр broadcast, уникальность message ID и буквальная отправка

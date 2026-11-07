@@ -16,6 +16,18 @@
 class AttachmentService
 ```
 
+<a id="symbol-AttachmentService.canPreload"></a>
+
+## AttachmentService.canPreload
+
+Разрешает один фоновый файл только вне интерактивной загрузки.
+
+Оставляет слот для открытия пользователем и даёт приоритет запросам из ленты.
+
+```typescript
+canPreload()
+```
+
 <a id="symbol-AttachmentService.constructor"></a>
 
 ## AttachmentService.constructor
@@ -42,7 +54,7 @@ constructor(private core: MessengerService, directory: string, private limits: {
 Освобождение слота обязательно после HTTP-ответа; частичный файл не становится готовым.
 
 ```typescript
-async open(input: AttachmentRequest, signal: AbortSignal, authorize: () => void)
+async open(input: AttachmentRequest, signal: AbortSignal, authorize: () => void, background = false)
 ```
 
 <a id="symbol-AttachmentService.open.assertAllowed"></a>

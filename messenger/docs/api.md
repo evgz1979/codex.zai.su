@@ -32,7 +32,7 @@ session и login не требуют сессии, login требует Origin. 
 | POST | open | `{conversationId}` → ConversationPageResult с последними 10 сообщениями этого адресата |
 | POST | older | `{conversationId,before}` → ConversationPageResult с предыдущими 10 |
 | POST | read | `{conversationId}` → явная отметка прочитанного |
-| POST | attachment | `{conversationId,messageId,attachmentId}` → двоичное содержимое до 32 МиБ |
+| POST | attachment | `{conversationId,messageId,attachmentId,variant?:'preview'}` → оригинал до 32 МиБ или миниатюра до 512 КиБ |
 | POST | send | `{destination,text,requestId}` → отправленный Message |
 
 Destination содержит sourceId, conversationId, recipientId. Текст 1–4096 UTF-16
@@ -65,6 +65,12 @@ CSRF; admin-cookie не даёт доступа. GET этого метода н�
 превышение размера, 415 — неподдерживаемый объект Telegram, 408 — прерывание.
 Старое unsupported-вложение уточняется одним запросом конкретного сообщения;
 история остальных сообщений для этого не загружается. Публичных файловых GET URL нет.
+
+При variant=preview адаптер выбирает готовый малый размер Telegram либо встроенные
+байты миниатюры; большой оригинал не скачивается. Для небольшого изображения без
+миниатюры допустим оригинал до 512 КиБ. Отсутствие превью возвращает 415 и запоминается
+для этой версии сообщения. Параметр с другим значением возвращает 400. Права и CSRF
+идентичны оригиналу; метаданные миниатюры не подменяют метаданные полного файла.
 
 ## Админка
 

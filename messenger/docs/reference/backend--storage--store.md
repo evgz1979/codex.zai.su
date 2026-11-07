@@ -100,6 +100,18 @@ conversation(id: string): Conversation | undefined
 deleteSourceKeys(keys: string[], allowed: string[])
 ```
 
+<a id="symbol-Store.finishMediaJob"></a>
+
+## Store.finishMediaJob
+
+Сохраняет результат фонового задания или время следующей попытки.
+
+Нулевое значение означает завершение; исключение чата не меняет архив сообщений.
+
+```typescript
+finishMediaJob(input: AttachmentRequest, message: Message, nextAttempt = 0)
+```
+
 <a id="symbol-Store.get"></a>
 
 ## Store.get
@@ -122,6 +134,18 @@ get(key: string): string | undefined
 
 ```typescript
 loadCache(ids: string[] = this.selected()): Snapshot
+```
+
+<a id="symbol-Store.mediaJobs"></a>
+
+## Store.mediaJobs
+
+Выбирает ближайшую неподготовленную миниатюру либо оригинал за заданное окно.
+
+JSON разворачивается только для выбранных диалогов; выполненные задания не повторяются после рестарта.
+
+```typescript
+mediaJobs(since: string, now: number, preview: boolean)
 ```
 
 <a id="symbol-Store.message"></a>
@@ -158,6 +182,18 @@ messagePage(id: string, before?: string): MessagePage
 
 ```typescript
 progress(id: string): SyncProgress
+```
+
+<a id="symbol-Store.pruneMediaJobs"></a>
+
+## Store.pruneMediaJobs
+
+Удаляет устаревшие служебные отметки за пределами окна предзагрузки.
+
+Сообщения и уже скачанные файлы этим действием не удаляются.
+
+```typescript
+pruneMediaJobs(since: string)
 ```
 
 <a id="symbol-Store.remove"></a>

@@ -10,7 +10,7 @@
 
 Открывает локальный Blob фотографии, видео или аудио после защищённой загрузки.
 
-Остальные файлы только скачиваются; закрытие отменяет запрос и отзывает object URL.
+PDF открывается браузером, текст выводится безопасно; закрытие отзывает object URL.
 
 ```typescript
 AttachmentViewer({ request, onClose, onUnauthorized }: {
@@ -18,4 +18,16 @@ AttachmentViewer({ request, onClose, onUnauthorized }: {
     onClose(): void;
     onUnauthorized(error: ApiError): void;
 })
+```
+
+<a id="symbol-AttachmentViewer.share"></a>
+
+## AttachmentViewer.share
+
+Открывает только штатное системное меню передачи файла по нажатию владельца.
+
+Отмена не является ошибкой; приложение не выбирает внешнего адресата автоматически.
+
+```typescript
+async share()
 ```
