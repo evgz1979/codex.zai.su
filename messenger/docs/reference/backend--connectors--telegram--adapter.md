@@ -1,6 +1,6 @@
 # backend/connectors/telegram/adapter.ts
 
-Преобразование Telegram dialogs/messages в общие DTO и проверка назначения.
+Каталог диалогов/папок Telegram, преобразование сообщений в общие DTO и проверка назначения.
 
 [Исходный модуль](../../backend/connectors/telegram/adapter.ts) · [Индекс](README.md)
 

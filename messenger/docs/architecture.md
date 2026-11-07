@@ -29,6 +29,19 @@
 | ConversationSelectionService | Постоянный выбор и серверный контроль доступа |
 | UnifiedInboxService | Финальная фильтрация всех ответов ленты |
 
+## Каталог папок
+
+Необязательный SourceAdapter.listConversationCatalog возвращает общий каталог
+с ConversationFolder. Для источника без этой возможности админка использует
+listConversations и пустой массив папок. TelegramAdapter читает собственные
+dialog filters и преобразует их в общие ID; native peer и access_hash остаются
+на сервере. Обычный refresh общей ленты не запрашивает правила папок.
+
+ConversationPicker живёт только внутри AdminApp: локальная закладка и поисковая
+строка фильтруют таблицу, а selected содержит общий выбор. После нажатия
+«Сохранить выбор» AdminService проверяет ID всего каталога и обновляет SQLite.
+Папка не становится отдельным разрешением или отдельной перепиской.
+
 Сейчас рабочий коннектор только Telegram. Будущие WhatsApp, Codex и Email
 добавляются адаптерами и административными настройками; пустых реализаций нет.
 Код существующего Codex-клиента вне messenger не используется и не переносится.
@@ -45,3 +58,4 @@ Refresh читает по 20 последних сообщений каждог�
 Развёртывание — [deployment.md](deployment.md), маршруты — [api.md](api.md),
 данные — [storage.md](storage.md), решения — [ADR-0001](adr/0001-unified-sources.md)
 и [ADR-0002](adr/0002-admin-selection.md).
+Решение о закладках — [ADR-0003](adr/0003-folder-tabs.md).

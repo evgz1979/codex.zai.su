@@ -1,6 +1,6 @@
 # backend/cli.ts
 
-Локальные команды setup, telegram и clear без вывода секретов.
+Команды setup, bootstrap и clear без вывода секретов; Telegram подключается через админку.
 
 [Исходный модуль](../../backend/cli.ts) · [Индекс](README.md)
 

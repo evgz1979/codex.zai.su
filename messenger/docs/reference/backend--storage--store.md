@@ -1,6 +1,6 @@
 # backend/storage/store.ts
 
-SQLite settings: хеш пароля и ограниченный JSON-кеш.
+SQLite: настройки ролей, выбранные диалоги и ограниченный кеш с сохранением исключённого архива.
 
 [Исходный модуль](../../backend/storage/store.ts) · [Индекс](README.md)
 

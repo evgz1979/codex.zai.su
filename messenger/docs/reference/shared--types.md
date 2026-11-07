@@ -1,6 +1,6 @@
 # shared/types.ts
 
-Общие DTO, статусы, лимиты, ID и Destination без зависимости от Telegram.
+Общие DTO ленты и каталога, статусы веб-авторизации, лимиты, ID и Destination.
 
 [Исходный модуль](../../shared/types.ts) · [Индекс](README.md)
 

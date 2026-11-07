@@ -1,6 +1,6 @@
 # frontend/src/styles.css
 
-Layout ленты и мобильной панели, safe-area, состояния и короткий viewport.
+Вёрстка ленты, мобильной панели и админки с закладками; safe-area и короткий viewport.
 
 [Исходный модуль](../../frontend/src/styles.css) · [Индекс](README.md)
 
