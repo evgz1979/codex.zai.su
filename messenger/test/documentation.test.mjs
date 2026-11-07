@@ -2,13 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, rmSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildReference, checkLinks, declarations, sourcePaths, synchronize } from '../scripts/build-documentation.mjs';
 const moduleRoot = fileURLToPath(new URL('../', import.meta.url));
 
 function fixture(t) {
-  const root = mkdtempSync(join(tmpdir(), 'zai-messenger-docs-'));
+  const parent = mkdtempSync(join(tmpdir(), 'zai-messenger-docs-'));
+  const root = join(parent,'messenger');
+  mkdirSync(root);
+  mkdirSync(join(parent,'deploy/messenger'),{recursive:true});
+  writeFileSync(join(parent,'deploy/messenger/README.md'),readFileSync(resolve(moduleRoot,'../deploy/messenger/README.md')));
   for (const path of sourcePaths(moduleRoot)) {
     mkdirSync(dirname(join(root,path)), { recursive:true });
     writeFileSync(join(root,path), readFileSync(join(moduleRoot,path)));
@@ -17,7 +21,7 @@ function fixture(t) {
   cpSync(join(moduleRoot,'docs'),join(root,'docs'),{recursive:true});
   cpSync(join(moduleRoot,'test'),join(root,'test'),{recursive:true});
   for (const name of ['README.md','AGENTS.md','VERIFICATION.md','package.json']) writeFileSync(join(root,name),readFileSync(join(moduleRoot,name)));
-  t.after(() => rmSync(root,{recursive:true,force:true}));
+  t.after(() => rmSync(parent,{recursive:true,force:true}));
   return root;
 }
 
