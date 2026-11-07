@@ -4,6 +4,10 @@
 backend на Node.js + TypeScript без runtime-зависимостей. Самостоятельный проект,
 не связан с Actu и lighnode.
 
+Документация репозитория: [оглавление](docs/README.md).
+Отдельный модуль Z AI Messenger: [запуск](messenger/README.md),
+[документация](messenger/docs/README.md). Далее описан существующий Codex-клиент.
+
 ## Быстрый запуск
 
 Нужны Node.js **22.16+ (ветка 22)**, npm и установленный Codex с активным входом:
