@@ -1,0 +1,18 @@
+
+# Z AI Messenger: explicit 8443, HTTP-01 only; TCP 443 belongs to Xray.
+http://msg.zai.su:8080 {
+    bind 127.0.0.1
+    respond "Not found" 404
+}
+
+https://msg.zai.su:8443 {
+    tls {
+        issuer acme {
+            dir https://acme-v02.api.letsencrypt.org/directory
+            disable_tlsalpn_challenge
+            alt_http_port 8080
+        }
+    }
+    header -Server
+    reverse_proxy 127.0.0.1:4318
+}

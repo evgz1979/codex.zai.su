@@ -1,69 +1,49 @@
-# Данные и SQLite
+# Данные
 
-## Общие модели
+## Расположение
 
-Источник истины переписки — Telegram. SQLite хранит настройки и ограниченный
-снимок; весь архив не импортируется. Формат задаётся в [shared/types.ts](../shared/types.ts).
+Production: `/var/lib/zai-messenger`, отдельный от кода `/opt/zai-messenger/releases`.
+Путь задаётся MESSENGER_DATA_DIR; отсутствие внешнего абсолютного пути блокирует
+production. Обновление/откат кода не копирует и не заменяет этот каталог.
 
-| Модель | Назначение и ключевые поля |
+| Файл | Данные |
 | --- | --- |
-| Source | ID экземпляра источника, kind, name, connected |
-| Recipient | ID адресата/отправителя, name, необязательный isSelf |
-| Conversation | id, sourceId, title, kind, recipient, unreadCount, updatedAt, preview, canSend |
-| Message | id, sourceId, conversationId, sender, date, text, outgoing, status, attachments |
-| Destination | Точная тройка sourceId, conversationId, recipientId |
-| Attachment | id, kind, name; необязательные mimeType и size; скачивания в MVP нет |
-| DeliveryStatus | pending, received, sent, delivered, read, failed, unknown; TelegramAdapter сейчас возвращает только received/sent |
-| Snapshot | sources, conversations, messages, refreshedAt, stale |
+| messenger.sqlite | Настройки, хеши ролей, выбор диалогов, ограниченный кеш |
+| telegram.enc | AES-256-GCM: apiId, apiHash, StringSession, accountId |
+| vault.key | Локальный ключ шифрования |
+| server.pid | PID обычного backend |
 
-Все ID строятся как `encodeURIComponent(sourceId):encodeURIComponent(kind):encodeURIComponent(nativeId)`.
-У Telegram `sourceId = telegram-personal`. Native message ID дополнительно
-включает ID диалога. Sender и recipient имеют разные типы ID и не подменяют друг друга.
-Даты — ISO 8601, нормализация времени выполняется при преобразовании Telegram DTO.
+[DDL из исходников](reference/sqlite-schema.md) строится без чтения рабочей БД.
 
-## Локальные файлы
-
-Путь вычисляется от расположения модуля, не от текущего shell-каталога.
-И исходный, и скомпилированный сервер используют `messenger/.local/`.
-
-| Файл | Содержимое | Сохраняется после выхода |
-| --- | --- | --- |
-| messenger.sqlite | settings: password и cache | Да |
-| telegram.enc | Зашифрованные apiId, apiHash, StringSession | Да |
-| vault.key | Локальный ключ AES-256-GCM | Да |
-| server.pid | PID обычного собранного сервера для stop.sh | До штатной остановки |
-
-Директория `0700`, файлы `0600`. Ни один из этих файлов не входит в Git.
-Шифрование и его пределы описаны в [безопасности](security.md).
-
-## Таблица settings
-
-[DDL из исходников](reference/sqlite-schema.md), без открытия рабочей БД:
-
-| Ключ | value |
+| Таблица | Назначение |
 | --- | --- |
-| password | `salt:hexHash`: scrypt, случайная соль 32 байта, результат 64 байта |
-| cache | JSON Snapshot, максимум 400 сообщений; без зашифрованной Telegram-сессии |
+| settings | `auth.admin`, `auth.chat`, время последнего снимка |
+| selected_conversations | Разрешённые ID; пустая по умолчанию |
+| conversation_cache | DTO ранее синхронизированных диалогов |
+| message_cache | Message DTO с conversation_id и датой |
 
-Отдельных таблиц сообщений, пользователей, источников и миграционного реестра нет.
-Используются `journal_mode=DELETE`, `secure_delete=ON` и подготовленные SQL-запросы.
-`clearCache` удаляет только ключ cache и выполняет VACUUM; пароль не удаляется.
-Очистка SQL не обещает удаления копий из бэкапов или снимков файловой системы.
+Запросы параметризованы. Выбор меняется атомарно. Активный кеш ограничен 40
+сообщениями диалога, лента — 400 сообщениями. Исключение не удаляет архив:
+обновления и чтение UI больше не обращаются к этому conversation_id. Явная
+cache:clear удаляет кеш, но не пароли, выбор и Telegram-сессию. При начальной
+миграции старый локальный JSON-кеш переносится без автоматического разрешения ID.
 
-Кеш с возрастом более суток удаляется при `loadCache`, вызываемом созданием
-MessengerService. Периодического таймера удаления нет. На серверном старте
-загруженный снимок получает `stale: true`. Ручное обновление заменяет снимок.
+## Идентификаторы и DTO
 
-## Только в памяти
+Модели: [shared/types.ts](../shared/types.ts). Message содержит id, sourceId,
+conversationId, sender, date, text, outgoing, status, attachments. Conversation
+имеет kind direct/group/channel, recipient, unreadCount и canSend. Destination
+фиксирует sourceId + conversationId + recipientId и проверяется сервером.
 
-- Сервер: cookie-токены в виде SHA-256 digest, CSRF, сроки веб-сессий, попытки
-  входа, активные адаптеры, снимок и Promise отправок для дедупликации.
-- Браузер: CSRF, снимок, выбранный диалог, черновики по conversationId, строка поиска.
-  localStorage, IndexedDB и service worker не используются.
-- Повтор того же request ID защищён только в рамках процесса. Перезапуск очищает
-  эту память; он не доказывает, что неудачная отправка не дошла до Telegram.
+ID строится из экранированных компонентов источника, типа и native ID. После
+веб-авторизации Telegram sourceId имеет вид `telegram-<accountId>`. Message ID
+дополнительно включает диалог. Аккаунты, источники и типы сущностей не пересекаются.
+Текущий TelegramAdapter устанавливает только received/sent; типы delivered/read
+в общем контракте не означают подтверждение чтения Telegram.
 
-При потере кеша его можно получить повторно ограниченным чтением Telegram.
-При потере пароля — запустить setup и перезапустить сервер. При потере vault.key
-или telegram.enc — повторить авторизацию. Копирование только одного из этих двух
-файлов не восстанавливает сессию. Бэкап секретов выполняет только владелец аккаунта.
+## Память
+
+Сервер: сессии и CSRF ролей, rate limit, временный процесс Telegram-входа, каталог
+метаданных, Promise refresh/send. Клиент: снимок, адресат, раздельные черновики,
+состояние форм. Код и 2FA не являются постоянными настройками. Дедупликация
+request ID действует 15 минут одного процесса и не переживает рестарт.

@@ -11,7 +11,12 @@
   получателей изолировать. Не передавать сообщения Telegram в ИИ.
 - Существующий Codex-клиент вне этого модуля не изменять.
 - Секреты, сессии, БД, кеш, логи и скриншоты тестов не коммитить.
-- Сервер только на `127.0.0.1`. VPS, DNS, VPN/Xray, Caddy и HTTPS не менять.
+- Backend только на `127.0.0.1`. Развёртывание Messenger разрешено заданием
+  от 2026-11-07 через deploy/messenger/deploy.sh на msg.zai.su:8443.
+  VPN/Xray/x-ui, 443, firewall/sysctl и Codex-site не менять; до/после сравнивать VPN snapshot.
+- Настройки источников только в /admin; разные роли/cookie/API admin и chat.
+  Невыбранные диалоги не читать, не отправлять и не отдавать через API.
+  После исключения архив не удалять. Секреты production только вне каталога кода.
 - Проверки из корня: `bash messenger/scripts/npm.sh test`,
   `bash messenger/scripts/npm.sh run build`,
   `bash messenger/scripts/npm.sh run test:browser`.

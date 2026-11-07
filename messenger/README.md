@@ -4,26 +4,25 @@
 teleproto, SQLite. Рабочий источник MVP — личный Telegram. Лента и поле ввода
 общие; источники подключаются через `SourceAdapter`.
 
-Версия приложения: `0.1.0`. [Оглавление документации](docs/README.md).
+Версия приложения: `0.2.0`. [Оглавление документации](docs/README.md).
 
-## Локальный запуск
+## Рабочие адреса и обновление
 
-Из корня checkout `/Users/evgz/Documents/zai.su`:
+- Чат: **https://msg.zai.su:8443/** — отдельный пароль chat.
+- Админка: **https://msg.zai.su:8443/admin** — отдельный пароль admin.
+
+Реквизиты первого входа: `~/Library/Application Support/Z AI Messenger/deploy/initial-credentials.txt`
+на MacBook, вне Git. Подключение Telegram и выбор диалогов — только в админке;
+по умолчанию ничего не выбрано. Секреты не нужно присылать в чат.
+
+После изменения кода выполнить тематический коммит и:
 
 ```bash
-bash messenger/scripts/npm.sh ci
-bash messenger/scripts/npm.sh run build
-bash messenger/scripts/npm.sh run setup
-bash messenger/scripts/npm.sh run telegram:login
-bash messenger/scripts/npm.sh start
+bash deploy/messenger/deploy.sh
 ```
 
-Адрес: **http://127.0.0.1:4318**. Команды `setup` и `telegram:login` выполняются
-в интерактивном терминале при остановленном сервере. Все поля вводятся скрыто.
-Остановка: `Ctrl+C` либо `bash messenger/scripts/stop.sh`.
-
-Порядок получения `api_id`/`api_hash`, входа с кодом и 2FA, повторной авторизации
-и отзыва сессии — в [инструкции Telegram](docs/telegram.md).
+Скрипт автоматически проверяет сборку/тесты, делает push и развёртывание с HTTPS
+проверкой и откатом. Пользовательское тестирование выполняется на сервере.
 
 ## Документация
 
@@ -34,6 +33,7 @@ bash messenger/scripts/npm.sh start
 | [Сценарии](docs/flows.md) | Авторизация, обновление, выбор адресата, отправка, выход |
 | [HTTP API](docs/api.md) | Методы, поля запросов, ответы и ошибки |
 | [Данные](docs/storage.md) | SQLite, DTO, файлы и восстановление после рестарта |
+| [Развёртывание](docs/deployment.md) | SSH, systemd, Caddy, проверки и откат |
 | [Безопасность](docs/security.md) | Секреты, вход, CSRF, ограничения локального доступа |
 | [Разработка](docs/development.md) | TypeScript, React, Node.js, SQLite и поддержка справочника |
 | [Справочник](docs/reference/README.md) | Модули, объявления и устойчивые ссылки на определения |
@@ -47,6 +47,6 @@ bash messenger/scripts/npm.sh start
 корневых `frontend/`, `backend/`, `shared/`. Корневой remote —
 `https://github.com/evgz1979/codex.zai.su`; переименовывать checkout не требуется.
 
-Сервер слушает только `127.0.0.1:4318`. `msg.zai.su` пока не развёрнут.
-Доступ с физического iPhone по сети не настроен. Telegram-секреты вводятся только
-в терминале; `.local/`, БД, кеш и логи исключены из Git. Сообщения в ИИ не передаются.
+Backend слушает только `127.0.0.1:4318`. Публичный вход идёт через существующий
+Caddy на 8443. Код и данные разделены; настройки находятся в /var/lib/zai-messenger.
+VPS/VPN ограничения и процедура установки — в [развёртывании](docs/deployment.md).
