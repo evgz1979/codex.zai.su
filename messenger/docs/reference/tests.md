@@ -55,7 +55,9 @@
 - [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: 503 использует сохранённое чтение, 401 очищает его
 - [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: кеши владельца и личной ссылки изолированы, выход гостя не очищает владельца
 - [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: локальный выход очищает сообщения, повторный запуск не восстанавливает старую cookie
+- [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: опрос неизменённой ревизии не перезаписывает сохранённые сообщения
 - [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: отзыв сессии очищает локальные данные при возвращении связи
+- [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: поздний ответ исключённого чата не возвращает сообщения в кеш
 - [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: просмотренные чаты и расшифровки доступны после закрытия окна, без отправок
 - [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: просроченный кеш не открывает переписку, недоступное хранилище не мешает входу
 - [test/browser/paging.spec.ts](../../test/browser/paging.spec.ts): автокеш: прокрутка без кнопок, обновления и удаления, быстрый переход

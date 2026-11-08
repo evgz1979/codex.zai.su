@@ -53,11 +53,26 @@ test('offline: просроченный кеш не открывает пере�
   await context.setOffline(true);await page.reload();await expect(page.getByText('Нет связи. Откройте приложение с интернетом, чтобы сохранить сообщения.',{exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'Чаты',exact:true})).toHaveCount(0);await context.setOffline(false);await expect(page.getByRole('heading',{name:'Чаты',exact:true})).toBeVisible();await page.getByRole('button',{name:'Выйти',exact:true}).click();await expect(page.getByLabel('Пароль',{exact:true})).toBeVisible();
   await page.addInitScript(()=>{Object.defineProperty(indexedDB,'open',{value:()=>{throw new Error('Synthetic storage denied');}});});await page.reload();await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();await expect(page.getByRole('heading',{name:'Чаты',exact:true})).toBeVisible();
 });
+test('offline: опрос неизменённой ревизии не перезаписывает сохранённые сообщения',async({page})=>{
+  await login(page);await page.waitForTimeout(2300);const before=JSON.parse(await stored(page))[0] as {savedAt:number;accessRevision:number};expect(typeof before.accessRevision).toBe('number');
+  await page.waitForTimeout(2400);const after=JSON.parse(await stored(page))[0] as {savedAt:number;accessRevision:number};expect(after.accessRevision).toBe(before.accessRevision);expect(after.savedAt).toBe(before.savedAt);
+});
 test.describe('отказ сервера',()=>{
   test.use({serviceWorkers:'block'});
   test('offline: 503 использует сохранённое чтение, 401 очищает его',async({page})=>{
     await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();await page.getByRole('button',{name:/Анна Смирнова/}).click();await expect(page.getByRole('article')).not.toHaveCount(0);
     await page.route('**/api/chat/**',route=>route.fulfill({status:503,contentType:'text/html',body:'Synthetic server unavailable'}));await page.reload();await expect(page.getByRole('heading',{name:'Чаты',exact:true})).toBeVisible();await expect(page.locator('.list-header')).toContainText('Без сети');await page.getByRole('button',{name:/Анна Смирнова/}).click();await expect(page.getByRole('article')).not.toHaveCount(0);
     await page.unroute('**/api/chat/**');await page.route('**/api/chat/**',route=>route.fulfill({status:401,json:{error:'Войдите в приложение.'}}));await page.reload();await expect(page.getByLabel('Пароль',{exact:true})).toBeVisible();await expect(page.getByRole('article')).toHaveCount(0);expect(await stored(page)).not.toContain('Синтетическая расшифровка');
+  });
+  test('offline: поздний ответ исключённого чата не возвращает сообщения в кеш',async({page})=>{
+    await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();await page.getByRole('button',{name:/Анна Смирнова/}).click();await expect(page.getByRole('article')).not.toHaveCount(0);await page.getByRole('button',{name:'Назад к чатам'}).click();
+    const initial=JSON.parse(await stored(page))[0] as {snapshot:{conversations:{id:string;title:string}[]};accessRevision:number};const excluded=initial.snapshot.conversations.find(c=>c.title==='Анна Смирнова')!.id;
+    let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});let started!:()=>void;const ready=new Promise<void>(resolve=>{started=resolve;});
+    await page.route('**/api/chat/open',async route=>{const response=await route.fetch();started();await gate;await route.fulfill({response});});
+    await page.getByRole('button',{name:/Анна Смирнова/}).click();await ready;
+    for(const path of ['inbox','snapshot'])await page.route(`**/api/chat/${path}`,async route=>{const response=await route.fetch();const result=await response.json();const snapshot=result.snapshot||result;snapshot.conversations=snapshot.conversations.filter((c:{id:string})=>c.id!==excluded);snapshot.messages=snapshot.messages.filter((m:{conversationId:string})=>m.conversationId!==excluded);if(result.page)result.page.messages=result.page.messages.filter((m:{conversationId:string})=>m.conversationId!==excluded);await route.fulfill({response,json:result});});
+    await page.route('**/api/chat/access?*',route=>route.fulfill({json:{ids:initial.snapshot.conversations.filter(c=>c.id!==excluded).map(c=>c.id),revision:(initial.accessRevision||Date.now())+1}}));
+    await expect(page.getByRole('button',{name:/Анна Смирнова/})).toHaveCount(0);release();await page.waitForTimeout(300);
+    const cached=JSON.parse(await stored(page))[0] as {snapshot:{conversations:{id:string}[]};messages:{conversationId:string}[]};expect(cached.snapshot.conversations.some(c=>c.id===excluded)).toBe(false);expect(cached.messages.some(m=>m.conversationId===excluded)).toBe(false);
   });
 });

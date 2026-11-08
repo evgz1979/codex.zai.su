@@ -50,7 +50,7 @@ async function network<T>(role:'admin'|'chat',path:string,input?:unknown,signal?
     headers: input === undefined ? {} : { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
     ...(input === undefined ? {} : { body: JSON.stringify(input) }),
     signal:controller.signal,
-  });}catch(error){if(signal?.aborted)throw error;if(role==='chat')connection(true);throw new ApiError(0,'Нет связи. Доступны сохранённые сообщения.');}
+  });}catch(error){if(signal?.aborted)throw error;if(role==='chat')connection(true);throw new ApiError(0,role==='chat'?'Нет связи. Доступны сохранённые сообщения.':'Нет связи с сервером.');}
   finally{clearTimeout(timer);signal?.removeEventListener('abort',abort);}
   if(role==='chat'&&read&&res.status>=500){connection(true);throw new ApiError(0,'Сервер недоступен. Доступны сохранённые сообщения.');}
   if(role==='chat')connection(false);
@@ -80,6 +80,7 @@ export async function api<T>(path:string,input?:unknown,signal?:AbortSignal):Pro
     await clearOffline(true);try{const result=await network<T>('chat',path,input,signal);await cache.clear();return result;}catch(error){if(error instanceof ApiError)return {ok:true} as T;throw error;}
   }
   const generation=cache.generation;
+  const cacheRevision=cache.dataRevision;
   try{
     if(offline&&navigator.onLine!==false&&!['session','login'].includes(path))await reconnect();
     const result=await network<T>('chat',path,input,signal);
@@ -92,7 +93,7 @@ export async function api<T>(path:string,input?:unknown,signal?:AbortSignal):Pro
         await cache.clear();return {authenticated:false,setupRequired:false,account:info.account} as T;
       }
       if(info.authenticated){setCsrf(info.csrfToken||'');await cache.authorize(info);}else await clearOffline();
-    }else await cache.remember(path,input,result,generation);
+    }else await cache.remember(path,input,result,generation,cacheRevision);
     return result;
   }catch(error){
     if(signal?.aborted)throw error;

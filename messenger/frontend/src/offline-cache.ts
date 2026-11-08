@@ -1,7 +1,7 @@
 import {compareConversations,LIMITS,type AccountInfo,type ConversationPageResult,type Message,type SessionInfo,type Snapshot} from '../../shared/types';
 //: Описывает сохранённые данные одного личного адреса без реквизитов входа.
 //: Срок чтения ограничен веб-сессией; logoutPending содержит только факт локального выхода.
-interface SavedAccount {account?:AccountInfo;expiresAt:number;savedAt:number;snapshot:Snapshot;messages:Message[];logoutPending?:boolean}
+interface SavedAccount {account?:AccountInfo;expiresAt:number;savedAt:number;snapshot:Snapshot;messages:Message[];logoutPending?:boolean;accessRevision?:number;allowedIds?:string[]}
 //: Создаёт пустой снимок без имитации подключения к источнику.
 //: Используется только для локального кеша ранее полученных данных.
 function emptySnapshot():Snapshot{return {sources:[],conversations:[],messages:[],refreshedAt:null,stale:true};}
@@ -13,6 +13,7 @@ export class OfflineCache {
   private loaded=false;
   private queue:Promise<unknown>=Promise.resolve();
   generation=0;
+  dataRevision=0;
   //: Привязывает кеш к API-префиксу конкретного личного адреса.
   //: Короткий и прежний путь аккаунта используют один ключ; чужие адреса не смешиваются.
   constructor(private scope:string){}
@@ -34,10 +35,10 @@ export class OfflineCache {
   }
   //: Последовательно применяет локальные изменения и фиксирует транзакцию целиком.
   //: Новая генерация после выхода запрещает поздним ответам повторно заполнить кеш.
-  private change(update:(value:SavedAccount|undefined)=>SavedAccount|undefined,generation=this.generation):Promise<void>{
+  private change(update:(value:SavedAccount|undefined)=>SavedAccount|undefined|false,generation=this.generation):Promise<void>{
     const operation=this.queue.then(async()=>{
       if(generation!==this.generation)return;await this.load();if(generation!==this.generation)return;
-      this.value=update(this.value);const value=this.value;const db=await this.db();
+      const next=update(this.value);if(next===false)return;this.value=next;const value=this.value;const db=await this.db();
       await new Promise<void>((resolve,reject)=>{const transaction=db.transaction('accounts','readwrite');const store=transaction.objectStore('accounts');if(value)store.put(value,this.scope);else store.delete(this.scope);transaction.oncomplete=()=>resolve();transaction.onerror=()=>reject(transaction.error);transaction.onabort=()=>reject(transaction.error);});
     });this.queue=operation.catch(()=>{});return operation.catch(()=>{});
   }
@@ -68,15 +69,22 @@ export class OfflineCache {
   }
   //: Запоминает только разрешённые ответы чтения и успешные изменения сообщений.
   //: Снятие выбора, удаления и reset немедленно удаляют соответствующую локальную историю.
-  remember(path:string,input:unknown,result:unknown,generation:number){return this.change(value=>{
+  remember(path:string,input:unknown,result:unknown,generation:number,revisionAtRequest:number){
+    if(!path.startsWith('access?')&&!['snapshot','inbox','open','older','read','refresh','send','transcribe'].includes(path))return Promise.resolve();
+    return this.change(value=>{
     if(!value||value.logoutPending||value.expiresAt<=Date.now())return value;
-    const data=result as Snapshot&Partial<ConversationPageResult>&{ids?:string[];deletedIds?:string[];reset?:boolean};
+    const data=result as Snapshot&Partial<ConversationPageResult>&{ids?:string[];deletedIds?:string[];reset?:boolean;revision?:number};
     if(path.startsWith('access?')){
+      if(typeof data.revision==='number'&&value.accessRevision===data.revision&&!data.reset&&!data.deletedIds?.length)return false;
+      value.accessRevision=data.revision;
       const ids=new Set(data.ids||[]);const deleted=new Set(data.deletedIds||[]);
+      if(deleted.size||data.reset||value.allowedIds&&(value.allowedIds.length!==ids.size||value.allowedIds.some(id=>!ids.has(id))))this.dataRevision++;
+      value.allowedIds=[...ids];
       value.snapshot.conversations=value.snapshot.conversations.filter(c=>ids.has(c.id));value.messages=data.reset?[]:value.messages.filter(m=>ids.has(m.conversationId)&&!deleted.has(m.id));
     }else{
+      if(revisionAtRequest!==this.dataRevision)return false;
       const snapshot=data.snapshot||(['snapshot','read','refresh'].includes(path)?data:undefined);
-      if(snapshot?.conversations){value.snapshot={...structuredClone(snapshot),messages:[]};}
+      if(snapshot?.conversations){value.snapshot={...structuredClone(snapshot),messages:[]};if(value.allowedIds){const ids=new Set(value.allowedIds);value.snapshot.conversations=value.snapshot.conversations.filter(c=>ids.has(c.id));}}
       const messages=[...(snapshot?.messages||[]),...(data.page?.messages||[]),...(path==='send'?[result as Message]:[])];
       const merged=new Map(value.messages.map(m=>[m.id,m]));for(const message of messages)merged.set(message.id,structuredClone(message));value.messages=[...merged.values()];
       if(path==='transcribe'){const message=value.messages.find(m=>m.id===(input as {messageId?:string})?.messageId);if(message)message.voiceTranscription=result as Message['voiceTranscription'];}

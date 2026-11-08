@@ -61,7 +61,7 @@ private bound(value: SavedAccount)
 Новая генерация после выхода запрещает поздним ответам повторно заполнить кеш.
 
 ```typescript
-private change(update: (value: SavedAccount | undefined) => SavedAccount | undefined, generation = this.generation): Promise<void>
+private change(update: (value: SavedAccount | undefined) => SavedAccount | undefined | false, generation = this.generation): Promise<void>
 ```
 
 <a id="symbol-OfflineCache.clear"></a>
@@ -157,7 +157,7 @@ async read(path: string, input?: unknown): Promise<unknown>
 Снятие выбора, удаления и reset немедленно удаляют соответствующую локальную историю.
 
 ```typescript
-remember(path: string, input: unknown, result: unknown, generation: number)
+remember(path: string, input: unknown, result: unknown, generation: number, revisionAtRequest: number)
 ```
 
 <a id="symbol-SavedAccount"></a>
@@ -176,5 +176,7 @@ interface SavedAccount {
     snapshot: Snapshot;
     messages: Message[];
     logoutPending?: boolean;
+    accessRevision?: number;
+    allowedIds?: string[];
 }
 ```

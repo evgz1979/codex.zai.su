@@ -124,7 +124,7 @@ export function App() {
         const ids=new Set(result.ids);const previous=access.current.ids;
         if(previous&&(previous.size!==ids.size||[...previous].some(id=>!ids.has(id)))){clearPreviews();access.current.revision++;cancelView();}
         access.current.ids=ids;
-        const deleted=new Set(result.deletedIds||[]);if(deleted.size||result.reset)clearPreviews();
+        const deleted=new Set(result.deletedIds||[]);if(deleted.size||result.reset){clearPreviews();access.current.revision++;cancelView();}
         setAttachmentTarget(old=>old&&ids.has(old.conversationId)&&!deleted.has(old.messageId)&&!result.reset?old:undefined);
         setSnapshot(old=>old?{...old,conversations:old.conversations.filter(c=>ids.has(c.id)),messages:old.messages.filter(m=>ids.has(m.conversationId)&&!deleted.has(m.id))}:old);
         setPage(old=>old&&(old.conversationId==='inbox'||ids.has(old.conversationId))&&!result.reset?{...old,messages:old.messages.filter(m=>ids.has(m.conversationId)&&!deleted.has(m.id))}:undefined);
