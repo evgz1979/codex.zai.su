@@ -167,7 +167,7 @@ export class WhatsAppBrowser {
   //: Из browser context выходят только ID, имя, тип, дата и unread; максимум 1000 чатов.
   private async catalog():Promise<Conversation[]>{
     const rows=await this.client!.pupPage!.evaluate(()=>{
-      const api=(window as any).Store;return api.Chat.getModelsArray().slice(0,1000).map((chat:any)=>({jid:chat.id?._serialized,name:chat.formattedTitle||chat.name||chat.id?.user||'',group:!!chat.isGroup,readOnly:!!chat.isReadOnly,unread:Math.max(0,chat.unreadCount||0),timestamp:chat.t||0}));
+      const chats=(window as any).require('WAWebCollections').Chat;return chats.getModelsArray().slice(0,1000).map((chat:any)=>({jid:chat.id?._serialized,name:chat.formattedTitle||chat.name||chat.id?.user||'',group:!!chat.isGroup,readOnly:!!chat.isReadOnly,unread:Math.max(0,chat.unreadCount||0),timestamp:Number.isFinite(chat.t)?chat.t:0}));
     });
     return rows.filter((row:any)=>typeof row.jid==='string'&&/^[0-9-]{1,64}@(c\.us|g\.us|lid)$/.test(row.jid)).map((row:any)=>({id:entityId('whatsapp','conversation',row.jid),sourceId:'whatsapp',title:String(row.name).slice(0,512),kind:row.group||row.jid.endsWith('@g.us')?'group':'direct',recipient:{id:entityId('whatsapp','recipient',row.jid),name:String(row.name).slice(0,512),isSelf:row.jid===this.client!.info?.wid?._serialized},unreadCount:row.unread,updatedAt:new Date(row.timestamp*1000).toISOString(),preview:'',canSend:!row.readOnly}));
   }

@@ -165,6 +165,7 @@
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: готовый Stream восстанавливает пропущенную инициализацию без подмены ready
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: закрытый протокол отклоняет RPC, путь профиля и невыбранного получателя
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: история недоступного Telegram не задерживает синхронизацию WhatsApp
+- [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: каталог использует WAWebCollections без window.Store и не читает сообщения
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: неотсканированный QR завершается через три минуты
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: отсутствие Telegram-входа не блокирует метаданные подключённого WhatsApp
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: принятый QR получает время на синхронизацию, доступ к чатам только после ready

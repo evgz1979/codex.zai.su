@@ -203,6 +203,18 @@ test('WhatsApp: worker запускается через symlink релиза и
  }finally{child.kill('SIGTERM');await exited;}
 });
 
+test('WhatsApp: каталог использует WAWebCollections без window.Store и не читает сообщения',async t=>{
+ const root=mkdtempSync(join(tmpdir(),'wa-catalog-'));const account='a'.repeat(64);
+ const chat={id:{_serialized:jid,user:'79990000001'},formattedTitle:'Тест каталога',isGroup:false,isReadOnly:false,unreadCount:2,get msgs(){throw Error('unselected messages accessed');},get lastMessage(){throw Error('unselected preview accessed');},get serialize(){throw Error('full chat serializer accessed');}};
+ const group={id:{_serialized:'9999-1@g.us'},name:'Группа',isGroup:true,isReadOnly:true,unreadCount:0,t:1794153600};
+ const w={require:(name:string)=>{assert.equal(name,'WAWebCollections');return {Chat:{getModelsArray:()=>[chat,group]}};},WWebJS:{getChats(){throw Error('full serializer accessed');}}};
+ const client=Object.assign(new EventEmitter(),{pupBrowser:{async close(){}},pupPage:{async evaluate(fn:()=>unknown){return runInNewContext(`(${fn.toString()})()`,{window:w});}},async initialize(){},async destroy(){}});
+ const browser=new WhatsAppBrowser(root,'/trusted/chrome',()=>client as never);t.after(async()=>{await browser.stop();rmSync(root,{recursive:true,force:true});});
+ await browser.handle({account,action:'start',interactive:true});client.emit('ready');const catalog=(await browser.handle({account,action:'catalog'})).conversations!;
+ assert.equal(catalog.length,2);assert.equal(catalog[0].title,'Тест каталога');assert.equal(catalog[0].unreadCount,2);assert.equal(catalog[0].preview,'');assert.equal(catalog[0].updatedAt,'1970-01-01T00:00:00.000Z');
+ assert.equal(catalog[1].kind,'group');assert.equal(catalog[1].canSend,false);
+});
+
 test('WhatsApp: выбранная read-only группа доступна для чтения, отправка в неё запрещена',async t=>{
  const root=mkdtempSync(join(tmpdir(),'wa-readonly-'));t.after(()=>rmSync(root,{recursive:true,force:true}));
  const jid='99999-1@g.us';const conversationId=entityId('whatsapp','conversation',jid);const account='a'.repeat(64);let sends=0;
