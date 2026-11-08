@@ -163,6 +163,18 @@ async handle(request: BrowserRequest): Promise<BrowserResult>
 private async page(jid: string, before?: string): Promise<BrowserResult>
 ```
 
+<a id="symbol-WhatsAppBrowser.page.key"></a>
+
+## WhatsAppBrowser.page.key
+
+Нормализует MsgKey текущих сборок, где строка доступна через toString или serialize.
+
+Не сериализует весь чат; запасной путь касается только выбранного сообщения.
+
+```typescript
+key(m: any): string | undefined
+```
+
 <a id="symbol-WhatsAppBrowser.start"></a>
 
 ## WhatsAppBrowser.start

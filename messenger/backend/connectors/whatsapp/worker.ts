@@ -13,12 +13,13 @@ export function createBrowserWorker(browser:Pick<WhatsAppBrowser,'handle'|'stop'
     socket.on('data',chunk=>{size+=chunk.length;if(size>300000)socket.destroy();else chunks.push(chunk);});
     socket.on('end',()=>{
       queue=queue.then(async()=>{
-        if(socket.destroyed)return;let result:BrowserResult;
+        if(socket.destroyed)return;let result:BrowserResult;let action='invalid';
         try{
           const request=browserRequest(JSON.parse(Buffer.concat(chunks).toString()));
+          action=request.action;
           const timer=setTimeout(()=>{process.stderr.write(`WhatsApp worker: command_timeout:${request.action}\n`);process.exit(1);},30000);timer.unref();
           try{result=await browser.handle(request);}finally{clearTimeout(timer);}
-        }catch(error){const code=error instanceof Error?error.message:'';result={error:['invalid_request','not_selected','invalid_destination','invalid_cursor','browser_busy','browser_not_ready','message_destination_mismatch'].includes(code)?code:'browser_operation_failed'};}
+        }catch(error){const code=error instanceof Error?error.message:'';const known=['invalid_request','not_selected','invalid_destination','invalid_cursor','browser_busy','browser_not_ready','message_destination_mismatch','history_pending','history_timeout'];const shape=/^history_shape:(\d{1,8}):(\d{1,8}):(\d{1,8})$/.exec(code);if(shape){process.stderr.write(`WhatsApp worker: history_shape:models=${shape[1]}:keys=${shape[2]}:dates=${shape[3]}\n`);}else if(!known.includes(code)){const type=error instanceof Error&&['Error','TypeError','ReferenceError','RangeError','TimeoutError','ProtocolError'].includes(error.name)?error.name:'unknown';const field=/reading ['"]([a-zA-Z]+)['"]/.exec(code)?.[1];const safeField=field&&['id','msgs','serialize','getModelsArray','fromMe','remote','getChat','getChatModel'].includes(field)?field:'unknown';process.stderr.write(`WhatsApp worker: operation_failed:${action}:${type}:${safeField}\n`);}result={error:shape?'history_pending':known.includes(code)?code:'browser_operation_failed'};}
         const bytes=JSON.stringify(result);socket.end(bytes.length<=2*1024*1024?bytes:JSON.stringify({error:'browser_response_limit'}));
       }).catch(()=>{socket.destroy();});
     });

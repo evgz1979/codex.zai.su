@@ -212,10 +212,10 @@ test('WhatsApp: worker запускается через symlink релиза и
 
 test('WhatsApp: выбранная история читает кеш и одну старую порцию без сериализатора чата',async t=>{
  const root=mkdtempSync(join(tmpdir(),'wa-history-'));const account='a'.repeat(64);let calls=0;
- const model=(n:number)=>({id:{_serialized:`false_${jid}_${n}`,remote:{_serialized:jid},fromMe:false},from:{_serialized:jid},to:{_serialized:'self'},t:1794153600+n,body:`Синтетическое ${n}`,type:'chat',ack:1});
+ const model=(n:number)=>({id:{toString:()=>`false_${jid}_${n}`,remote:{_serialized:jid},fromMe:false},from:{_serialized:jid},to:{_serialized:'self'},t:String(1794153600+n),body:`Синтетическое ${n}`,type:'chat',ack:1});
  let current=[model(1),model(2),model(3)];let earlier=[model(0)];const chat={id:{_serialized:jid},name:'Тест',msgs:{getModelsArray:()=>current}};
  const w={WWebJS:{async getChat(actual:string,options:any){assert.equal(actual,jid);assert.equal(options.getAsModel,false);return chat;}},require:(name:string)=>{assert.equal(name,'WAWebChatLoadMessages');return {async loadEarlierMsgs(){calls++;const batch=earlier;earlier=[];return batch;}};}};
- const client=Object.assign(new EventEmitter(),{pupBrowser:{async close(){}},pupPage:{async evaluate(fn:Function,arg:any){return runInNewContext(`(${fn.toString()})(input)`,{window:w,input:arg,setTimeout,clearTimeout});}},async initialize(){},async destroy(){},async getChatById(){throw Error('full chat serializer accessed');}});
+ const client=Object.assign(new EventEmitter(),{pupBrowser:{async close(){}},pupPage:{async evaluate(fn:Function,arg:any){return runInNewContext(`(${fn.toString()})(input)`,{window:w,input:arg,setTimeout,clearTimeout,__name:(fn:Function)=>fn});}},async initialize(){},async destroy(){},async getChatById(){throw Error('full chat serializer accessed');}});
  const browser=new WhatsAppBrowser(root,'/trusted/chrome',()=>client as never);t.after(async()=>{await browser.stop();rmSync(root,{recursive:true,force:true});});
  await browser.handle({account,action:'start',interactive:true});client.emit('ready');
  const head=await browser.handle({account,action:'messages',conversationId:id,allowed:[id]});assert.equal(head.messages?.length,3);assert.equal(calls,0);assert.ok(head.nextCursor);
@@ -226,7 +226,7 @@ test('WhatsApp: выбранная история читает кеш и одн�
 test('WhatsApp: пустая зависшая догрузка ограничена сроком и не выдаётся за полный архив',async t=>{
  t.mock.timers.enable({apis:['setTimeout']});const root=mkdtempSync(join(tmpdir(),'wa-history-timeout-'));const account='a'.repeat(64);let calls=0;
  const w={WWebJS:{async getChat(){return {id:{_serialized:jid},msgs:{getModelsArray:()=>[]}};}},require:()=>({loadEarlierMsgs(){calls++;return new Promise(()=>{});}})};
- const client=Object.assign(new EventEmitter(),{pupBrowser:{async close(){}},pupPage:{async evaluate(fn:Function,arg:any){return runInNewContext(`(${fn.toString()})(input)`,{window:w,input:arg,setTimeout,clearTimeout});}},async initialize(){},async destroy(){}});
+ const client=Object.assign(new EventEmitter(),{pupBrowser:{async close(){}},pupPage:{async evaluate(fn:Function,arg:any){return runInNewContext(`(${fn.toString()})(input)`,{window:w,input:arg,setTimeout,clearTimeout,__name:(fn:Function)=>fn});}},async initialize(){},async destroy(){}});
  const browser=new WhatsAppBrowser(root,'/trusted/chrome',()=>client as never);t.after(async()=>{await browser.stop();rmSync(root,{recursive:true,force:true});});await browser.handle({account,action:'start',interactive:true});client.emit('ready');
  const pending=browser.handle({account,action:'messages',conversationId:id,allowed:[id]});const rejected=assert.rejects(pending,/history_timeout/);await flush();t.mock.timers.tick(8001);await rejected;assert.equal(calls,1);assert.equal(browser.status(account).connected,true);
 });

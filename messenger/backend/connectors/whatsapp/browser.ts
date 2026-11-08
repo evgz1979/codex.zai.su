@@ -180,21 +180,26 @@ export class WhatsAppBrowser {
     if(before){const prefix='whatsapp:message:';if(!before.startsWith(prefix))throw new Error('invalid_cursor');cursor=decodeURIComponent(before.slice(prefix.length));}
     const result=await this.client!.pupPage!.evaluate(async({jid,cursor})=>{
       const w=window as any;const chat=await w.WWebJS.getChat(jid,{getAsModel:false});if(!chat||chat.id?._serialized!==jid)throw new Error('invalid_destination');
+      //: Нормализует MsgKey текущих сборок, где строка доступна через toString или serialize.
+      //: Не сериализует весь чат; запасной путь касается только выбранного сообщения.
+      const key=(m:any):string|undefined=>{const id=m.id;let value=typeof id==='string'?id:id?._serialized||id?.toString?.();if(typeof value!=='string'||!/^(true|false)_/.test(value)){const saved=m.serialize?.().id;value=typeof saved==='string'?saved:saved?._serialized||saved?.toString?.();if((typeof value!=='string'||!/^(true|false)_/.test(value))&&saved&&typeof saved.id==='string'&&typeof saved.fromMe==='boolean'){const remote=typeof saved.remote==='string'?saved.remote:saved.remote?._serialized;const participant=typeof saved.participant==='string'?saved.participant:saved.participant?._serialized;if(remote)value=`${saved.fromMe}_${remote}_${saved.id}${participant?'_'+participant:''}`;}}return typeof value==='string'&&/^(true|false)_/.test(value)?value:undefined;};
       const anchors:Map<string,any>=w.__zaiHistoryAnchors??=new Map();const loads:Map<string,Promise<any[]>>=w.__zaiHistoryLoads??=new Map();
-      let list=chat.msgs.getModelsArray().filter((m:any)=>!m.isNotification&&m.id?._serialized&&Number.isFinite(m.t));
-      const anchor=anchors.get(jid);if(cursor&&anchor?.id._serialized===cursor&&!list.some((m:any)=>m.id._serialized===cursor))list=[anchor,...list];
-      let end=cursor?list.findIndex((m:any)=>m.id._serialized===cursor):list.length;let exhausted=false;
+      const cached=chat.msgs.getModelsArray().filter((m:any)=>!m.isNotification);
+      let list=cached.filter((m:any)=>key(m)&&Number.isFinite(Number(m.t))&&Number(m.t)>0);
+      if(cached.length&&!list.length)throw new Error(`history_shape:${cached.length}:${cached.filter((m:any)=>key(m)).length}:${cached.filter((m:any)=>Number.isFinite(Number(m.t))&&Number(m.t)>0).length}`);
+      const anchor=anchors.get(jid);if(cursor&&anchor&&key(anchor)===cursor&&!list.some((m:any)=>key(m)===cursor))list=[anchor,...list];
+      let end=cursor?list.findIndex((m:any)=>key(m)===cursor):list.length;let exhausted=false;
       if(end<=0){
         let load=loads.get(jid);if(!load){if(loads.size>=4)throw new Error('history_pending');load=Promise.resolve(w.require('WAWebChatLoadMessages').loadEarlierMsgs({chat}));loads.set(jid,load);void load.finally(()=>{if(loads.get(jid)===load)loads.delete(jid);}).catch(()=>{});}
         let timer:ReturnType<typeof setTimeout>;let earlier:any[];
         try{earlier=await Promise.race([load,new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(new Error('history_timeout')),8000);})]);}finally{clearTimeout(timer!);}
-        exhausted=!earlier?.length;const unique=new Map([...earlier||[],...list].filter((m:any)=>!m.isNotification&&m.id?._serialized&&Number.isFinite(m.t)).map((m:any)=>[m.id._serialized,m]));
-        list=[...unique.values()].sort((a:any,b:any)=>a.t-b.t||a.id._serialized.localeCompare(b.id._serialized));end=cursor?list.findIndex((m:any)=>m.id._serialized===cursor):list.length;
+        exhausted=!earlier?.length;const unique=new Map([...earlier||[],...list].filter((m:any)=>!m.isNotification&&key(m)&&Number.isFinite(Number(m.t))&&Number(m.t)>0).map((m:any)=>[key(m),m]));
+        list=[...unique.values()].sort((a:any,b:any)=>Number(a.t)-Number(b.t)||key(a)!.localeCompare(key(b)!));end=cursor?list.findIndex((m:any)=>key(m)===cursor):list.length;
       }
       if(end<0)throw new Error('invalid_cursor');
       const slice=list.slice(Math.max(0,end-100),end);if(!slice.length&&!exhausted)throw new Error('history_pending');
-      if(slice.length){const oldest=slice[0];if(!anchor||oldest.t<=anchor.t){if(!anchors.has(jid)&&anchors.size>=1000)anchors.delete(anchors.keys().next().value!);anchors.set(jid,oldest);}}
-      const messages=slice.map((m:any)=>({id:{_serialized:m.id._serialized,remote:m.id.remote?._serialized},from:m.from?._serialized||m.from,to:m.to?._serialized||m.to,author:m.author?._serialized||m.author,fromMe:!!m.id.fromMe,timestamp:m.t,body:String(m.body||'').slice(0,4096),type:m.type,ack:m.ack,hasMedia:!!m.isMedia}));
+      if(slice.length){const oldest=slice[0];if(!anchor||Number(oldest.t)<=Number(anchor.t)){if(!anchors.has(jid)&&anchors.size>=1000)anchors.delete(anchors.keys().next().value!);anchors.set(jid,oldest);}}
+      const messages=slice.map((m:any)=>({id:{_serialized:key(m)!,remote:key(m)!.split('_')[1]},from:m.from?._serialized||m.from,to:m.to?._serialized||m.to,author:m.author?._serialized||m.author,fromMe:typeof m.id?.fromMe==='boolean'?m.id.fromMe:key(m)!.startsWith('true_'),timestamp:Number(m.t),body:String(m.body||'').slice(0,4096),type:m.type,ack:m.ack,hasMedia:!!m.isMedia}));
       return {messages,more:!exhausted||end>100,title:String(chat.formattedTitle||chat.name||'')};
     },{jid,cursor});
     const messages=result.messages.map((value:WebMessage)=>webMessage(value,jid,result.title||jid));

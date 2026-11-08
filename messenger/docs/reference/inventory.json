@@ -137,6 +137,7 @@
   {"path":"backend/connectors/whatsapp/browser.ts","name":"WhatsAppBrowser.fail","anchor":"symbol-WhatsAppBrowser.fail"},
   {"path":"backend/connectors/whatsapp/browser.ts","name":"WhatsAppBrowser.handle","anchor":"symbol-WhatsAppBrowser.handle"},
   {"path":"backend/connectors/whatsapp/browser.ts","name":"WhatsAppBrowser.page","anchor":"symbol-WhatsAppBrowser.page"},
+  {"path":"backend/connectors/whatsapp/browser.ts","name":"WhatsAppBrowser.page.key","anchor":"symbol-WhatsAppBrowser.page.key"},
   {"path":"backend/connectors/whatsapp/browser.ts","name":"WhatsAppBrowser.start","anchor":"symbol-WhatsAppBrowser.start"},
   {"path":"backend/connectors/whatsapp/browser.ts","name":"WhatsAppBrowser.status","anchor":"symbol-WhatsAppBrowser.status"},
   {"path":"backend/connectors/whatsapp/browser.ts","name":"WhatsAppBrowser.stop","anchor":"symbol-WhatsAppBrowser.stop"},
