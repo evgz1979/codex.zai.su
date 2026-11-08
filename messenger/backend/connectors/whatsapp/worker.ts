@@ -16,7 +16,7 @@ export function createBrowserWorker(browser:Pick<WhatsAppBrowser,'handle'|'stop'
         if(socket.destroyed)return;let result:BrowserResult;
         try{
           const request=browserRequest(JSON.parse(Buffer.concat(chunks).toString()));
-          const timer=setTimeout(()=>process.exit(1),30000);timer.unref();
+          const timer=setTimeout(()=>{process.stderr.write(`WhatsApp worker: command_timeout:${request.action}\n`);process.exit(1);},30000);timer.unref();
           try{result=await browser.handle(request);}finally{clearTimeout(timer);}
         }catch(error){const code=error instanceof Error?error.message:'';result={error:['invalid_request','not_selected','invalid_destination','invalid_cursor','browser_busy','browser_not_ready','message_destination_mismatch'].includes(code)?code:'browser_operation_failed'};}
         const bytes=JSON.stringify(result);socket.end(bytes.length<=2*1024*1024?bytes:JSON.stringify({error:'browser_response_limit'}));
@@ -27,7 +27,11 @@ export function createBrowserWorker(browser:Pick<WhatsAppBrowser,'handle'|'stop'
 //: Запускает непривилегированный браузерный worker без TCP-listener.
 //: Сессии находятся вне релизов; SIGTERM закрывает браузер и приватный socket.
 function main(){
-  process.umask(0o077);process.on('uncaughtException',()=>process.exit(1));process.on('unhandledRejection',()=>process.exit(1));
+  process.umask(0o077);
+  //: Записывает только тип фатальной ошибки без сообщения, стека, QR или аргументов.
+  //: Закрытый список различает сбой библиотеки и watchdog, сохраняя приватность аккаунта.
+  const fatal=(kind:string,error:unknown)=>{const name=error instanceof Error&&['Error','TypeError','ReferenceError','TimeoutError','ProtocolError','TargetCloseError','RangeError','SyntaxError'].includes(error.name)?error.name:'unknown';process.stderr.write(`WhatsApp worker: ${kind}:${name}\n`);process.exit(1);};
+  process.on('uncaughtException',error=>fatal('uncaught_exception',error));process.on('unhandledRejection',error=>fatal('unhandled_rejection',error));
   const socket=process.env.WHATSAPP_BROWSER_SOCKET||'/run/zai-whatsapp/control.sock';
   const browser=new WhatsAppBrowser(process.env.WHATSAPP_BROWSER_DATA||'/var/lib/zai-whatsapp',process.env.WHATSAPP_CHROME_PATH||'/opt/google/chrome/chrome');
   if(existsSync(socket))unlinkSync(socket);const server=createBrowserWorker(browser);server.listen(socket,()=>chmodSync(socket,0o660));

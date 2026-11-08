@@ -4,7 +4,7 @@ import WA from 'whatsapp-web.js';
 import QRCode from 'qrcode';
 import {entityId,LIMITS,type Conversation,type Message,type WhatsAppStatus} from '../../../shared/types.js';
 import {privateDirectory,writePrivate} from '../../storage/private-files.js';
-import type {BrowserRequest,BrowserResult} from './protocol.js';
+import type {BrowserRequest,BrowserResult,BrowserStartup} from './protocol.js';
 //: Использует WhatsApp Web без автоматической передачи всех входящих текстов в Node.
 //: История извлекается только явной командой выбранного диалога; состояние проверяется отдельно.
 class PollingClient extends WA.Client {
@@ -44,6 +44,9 @@ export class WhatsAppBrowser {
   private stopping?:Promise<void>;
   private qrVersion=0;
   private initializing?:Promise<void>;
+  private startup?:BrowserStartup;
+  private authObserved=false;
+  private recoveryRequested=false;
   //: Задаёт корень профилей и доверенный путь браузера из конфигурации сервиса.
   //: HTTP-запросы не могут менять executablePath, root или фабрику клиента.
   constructor(private root:string,private executablePath:string,private factory=(options:WA.ClientOptions)=>new PollingClient(options)){privateDirectory(root);}
@@ -59,7 +62,7 @@ export class WhatsAppBrowser {
   async handle(request:BrowserRequest):Promise<BrowserResult>{
     const {account,action}=request;if(action==='status'){
       if(this.owner===account&&this.client&&this.state.connected){const client=this.client;try{if(await client.getState()!=='CONNECTED')await this.fail(client,'Соединение WhatsApp потеряно. Повторите подключение.');}catch{await this.fail(client);}}
-      return {status:this.status(account)};
+      return {status:this.status(account),...(this.owner===account&&this.startup?{startup:this.startup}:{})};
     }
     if(action==='start')return {status:await this.start(account,request.interactive===true)};
     if(action==='stop'){if(this.owner===account)await this.stop();return {status:{stage:'idle',connected:false}};}
@@ -86,15 +89,15 @@ export class WhatsAppBrowser {
     if(this.client)return this.status(account);
     if(this.stopping)await this.stopping;
     const directory=join(this.root,account);if(!interactive&&!existsSync(join(directory,'linked')))return {stage:'idle',connected:false};
-    privateDirectory(directory);this.owner=account;this.state={stage:'starting',connected:false};
+    privateDirectory(directory);this.owner=account;this.state={stage:'starting',connected:false};this.authObserved=false;this.recoveryRequested=false;
     const client=this.factory({authStrategy:new WA.LocalAuth({dataPath:directory}),webVersionCache:{type:'none'},
       puppeteer:{headless:true,executablePath:this.executablePath,pipe:true,args:['--disable-dev-shm-usage','--disable-gpu','--renderer-process-limit=2','--js-flags=--max-old-space-size=160']},
       deviceName:'Z AI Messenger',authTimeoutMs:120000,qrMaxRetries:6,takeoverOnConflict:false});
     this.client=client;
     client.on('qr',qr=>{if(this.client!==client||this.state.connected)return;if(!interactive){rmSync(join(directory,'linked'),{force:true});void this.fail(client,'Сессия WhatsApp истекла. Нажмите «Подключить WhatsApp» для нового QR.');return;}if(this.state.stage==='syncing')this.waitForScan(client);const version=++this.qrVersion;void QRCode.toDataURL(qr,{width:320,margin:2,errorCorrectionLevel:'M'}).then(qrDataUrl=>{if(this.client===client&&version===this.qrVersion)this.state={stage:'qr',connected:false,qrDataUrl,expiresAt:Date.now()+45000};}).catch(()=>this.fail(client));});
-    client.on('authenticated',()=>this.beginSync(client));
+    client.on('authenticated',()=>{if(this.client===client)this.authObserved=true;this.beginSync(client);});
     client.on('loading_screen',percent=>this.beginSync(client,percent));
-    client.on('ready',()=>{if(this.client!==client)return;clearTimeout(this.loginTimer);clearTimeout(this.stateTimer);this.qrVersion++;writePrivate(join(directory,'linked'),'1');this.state={stage:'connected',connected:true};});
+    client.on('ready',()=>{if(this.client!==client)return;clearTimeout(this.loginTimer);clearTimeout(this.stateTimer);this.qrVersion++;this.startup=undefined;writePrivate(join(directory,'linked'),'1');this.state={stage:'connected',connected:true};});
     client.on('auth_failure',()=>{rmSync(join(directory,'linked'),{force:true});void this.fail(client);});
     client.on('disconnected',()=>{rmSync(join(directory,'linked'),{force:true});void this.fail(client);});
     this.waitForScan(client);this.watchStartup(client);
@@ -126,7 +129,25 @@ export class WhatsAppBrowser {
   private watchStartup(client:InstanceType<typeof WA.Client>){
     this.stateTimer=setTimeout(async()=>{
       if(this.client!==client||this.state.connected)return;
-      try{if(await client.getState()==='CONNECTED')this.beginSync(client);}catch{/* Во время загрузки AuthStore может ещё отсутствовать. */}
+      try{
+        if(await client.getState()==='CONNECTED')this.beginSync(client);
+        if(client.pupPage){
+          const flags=await client.pupPage.evaluate(()=>{
+            const w=window as any;const socket=w.require('WAWebSocketModel').Socket;let streamReady=false;
+            try{const {Stream,StreamMode,StreamInfo}=w.require('WAWebStreamModel');let display=Stream.displayInfo;try{display=w.require('WAWebStreamGetters')?.getDisplayInfo?.(Stream)??display;}catch{/* Старые сборки хранят displayInfo в модели. */}streamReady=!!StreamMode&&!!StreamInfo&&Stream.mode===StreamMode.MAIN&&display===StreamInfo.NORMAL;}catch{/* Пока модель загружается, готовность не подтверждена. */}
+            return {socketConnected:socket.state==='CONNECTED',hasSynced:socket.hasSynced===true,streamReady,helpersReady:typeof w.WWebJS?.getChat==='function',callbackAvailable:typeof w.onAppStateHasSyncedEvent==='function'};
+          });
+          if(this.client!==client||this.state.connected)return;
+          this.startup={...flags,authenticated:this.authObserved,recoveryRequested:this.recoveryRequested};
+          if(flags.socketConnected&&(flags.hasSynced||flags.streamReady)&&flags.callbackAvailable&&!this.authObserved&&!this.recoveryRequested){
+            this.recoveryRequested=true;this.startup.recoveryRequested=true;
+            //: Повторяет штатную инициализацию при пропущенном событии уже готового WhatsApp Web.
+            //: Самостоятельно ready не эмитируется; библиотека должна загрузить helpers и ClientInfo.
+            try{await client.pupPage.evaluate(()=>(window as any).onAppStateHasSyncedEvent());}
+            catch{await this.fail(client,'Не удалось завершить инициализацию WhatsApp Web. Повторите подключение.');}
+          }
+        }
+      }catch{/* Во время загрузки AuthStore может ещё отсутствовать. */}
       if(this.client===client&&!this.state.connected)this.watchStartup(client);
     },2000);this.stateTimer.unref();
   }
@@ -139,7 +160,7 @@ export class WhatsAppBrowser {
   //: Только logout удаляет профиль; остановка аккаунта и релиз его не стирают.
   async stop(){
     if(this.stopping)return this.stopping;clearTimeout(this.loginTimer);clearTimeout(this.stateTimer);this.qrVersion++;
-    const client=this.client;const initializing=this.initializing;this.client=undefined;this.initializing=undefined;this.state={stage:'idle',connected:false};
+    const client=this.client;const initializing=this.initializing;this.client=undefined;this.initializing=undefined;this.startup=undefined;this.state={stage:'idle',connected:false};
     this.stopping=(async()=>{try{if(client&&!client.pupBrowser)await initializing;await client?.pupBrowser?.close?.();await client?.destroy();}catch{/* Процесс может быть уже завершён cgroup. */}finally{this.owner=undefined;this.stopping=undefined;}})();return this.stopping;
   }
   //: Выдаёт административный каталог метаданных без body и lastMessage.

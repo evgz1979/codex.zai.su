@@ -28,6 +28,18 @@ createBrowserWorker(browser: Pick<WhatsAppBrowser, 'handle' | 'stop'>)
 main()
 ```
 
+<a id="symbol-main.fatal"></a>
+
+## main.fatal
+
+Записывает только тип фатальной ошибки без сообщения, стека, QR или аргументов.
+
+Закрытый список различает сбой библиотеки и watchdog, сохраняя приватность аккаунта.
+
+```typescript
+fatal(kind: string, error: unknown)
+```
+
 <a id="symbol-main.stop"></a>
 
 ## main.stop

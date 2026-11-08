@@ -7,6 +7,7 @@ import {fileURLToPath} from 'node:url';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {setImmediate as flush} from 'node:timers/promises';
+import {runInNewContext} from 'node:vm';
 import {request as httpRequest} from 'node:http';
 import {browserRequest,type BrowserRequest,type BrowserResult} from '../backend/connectors/whatsapp/protocol.js';
 import {WhatsAppBrowser,webMessage,type WebMessage} from '../backend/connectors/whatsapp/browser.js';
@@ -79,6 +80,19 @@ test('WhatsApp: принятый QR получает время на синхр�
  await assert.rejects(browser.handle({account,action:'catalog'}),/browser_not_ready/);
  client.emit('ready');assert.equal(browser.status(account).connected,true);assert.equal(browser.status(account).progress,undefined);assert.ok(existsSync(join(root,account,'linked')));
  t.mock.timers.tick(900001);await flush();assert.equal(closed,0);assert.equal(browser.status(account).stage,'connected');
+});
+
+test('WhatsApp: готовый Stream восстанавливает пропущенную инициализацию без подмены ready',async t=>{
+ t.mock.timers.enable({apis:['setTimeout']});const root=mkdtempSync(join(tmpdir(),'wa-ready-race-'));let callbacks=0;
+ const socket={state:'CONNECTED',hasSynced:false};const stream={mode:2};const modes={MAIN:1,SYNCING:2};let display=8;
+ const w={require:(name:string)=>name==='WAWebSocketModel'?{Socket:socket}:name==='WAWebStreamModel'?{Stream:stream,StreamMode:modes,StreamInfo:{NORMAL:7}}:{getDisplayInfo:()=>display},onAppStateHasSyncedEvent:()=>{callbacks++;client.emit('authenticated');}};
+ const client=Object.assign(new EventEmitter(),{pupBrowser:{async close(){}},pupPage:{async evaluate(fn:()=>unknown){return runInNewContext(`(${fn.toString()})()`,{window:w});}},async initialize(){},async destroy(){},async getState(){return socket.state;}});
+ const browser=new WhatsAppBrowser(root,'/trusted/chrome',()=>client as never);t.after(async()=>{await browser.stop();rmSync(root,{recursive:true,force:true});});
+ const account='a'.repeat(64);await browser.handle({account,action:'start',interactive:true});t.mock.timers.tick(2000);await flush();assert.equal(callbacks,0);
+ assert.equal(browser.status(account).connected,false);stream.mode=modes.MAIN;t.mock.timers.tick(2000);await flush();assert.equal(callbacks,0);
+ display=7;t.mock.timers.tick(2000);await flush();assert.equal(callbacks,1);assert.equal(browser.status(account).connected,false);
+ const health=await browser.handle({account,action:'status'});assert.equal(health.startup?.streamReady,true);assert.equal((await browser.handle({account:'b'.repeat(64),action:'status'})).startup,undefined);
+ t.mock.timers.tick(2000);await flush();assert.equal(callbacks,1);client.emit('ready');assert.equal(browser.status(account).connected,true);
 });
 
 test('WhatsApp: события прогресса не продлевают предел первичной синхронизации бесконечно',async t=>{

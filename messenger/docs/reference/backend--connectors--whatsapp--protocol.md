@@ -60,10 +60,31 @@ export interface BrowserRequest {
 ```typescript
 export interface BrowserResult {
     status?: WhatsAppStatus;
+    startup?: BrowserStartup;
     conversations?: Conversation[];
     messages?: Message[];
     nextCursor?: string | null;
     message?: Message;
     error?: string;
+}
+```
+
+<a id="symbol-BrowserStartup"></a>
+
+## BrowserStartup
+
+Описывает только булевы признаки первичной готовности браузера.
+
+Доступен приватному worker-клиенту владельца, без текстов, адресов, профиля или QR.
+
+```typescript
+export interface BrowserStartup {
+    socketConnected: boolean;
+    hasSynced: boolean;
+    streamReady: boolean;
+    helpersReady: boolean;
+    callbackAvailable: boolean;
+    authenticated: boolean;
+    recoveryRequested: boolean;
 }
 ```

@@ -7,7 +7,10 @@ export type BrowserAction='status'|'start'|'stop'|'logout'|'catalog'|'messages'|
 export interface BrowserRequest {account:string;action:BrowserAction;interactive?:boolean;allowed?:string[];conversationId?:string;recipientId?:string;before?:string;text?:string}
 //: Возвращает только ограниченные DTO и временный административный QR.
 //: Файлы профиля, cookie и нативные объекты Chromium не покидают worker.
-export interface BrowserResult {status?:WhatsAppStatus;conversations?:Conversation[];messages?:Message[];nextCursor?:string|null;message?:Message;error?:string}
+export interface BrowserResult {status?:WhatsAppStatus;startup?:BrowserStartup;conversations?:Conversation[];messages?:Message[];nextCursor?:string|null;message?:Message;error?:string}
+//: Описывает только булевы признаки первичной готовности браузера.
+//: Доступен приватному worker-клиенту владельца, без текстов, адресов, профиля или QR.
+export interface BrowserStartup {socketConnected:boolean;hasSynced:boolean;streamReady:boolean;helpersReady:boolean;callbackAvailable:boolean;authenticated:boolean;recoveryRequested:boolean}
 //: Проверяет закрытый набор команд до доступа к профилю или браузеру.
 //: Невалидный запрос не создаёт каталог и не запускает процесс.
 export function browserRequest(value:unknown):BrowserRequest {
