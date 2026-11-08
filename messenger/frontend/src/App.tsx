@@ -8,6 +8,7 @@ import { api, ApiError, setCsrf } from './api';
 import Notifications,{notificationEndpoint,unsubscribeNotifications} from './Notifications';
 import {useVisibleReads} from './useVisibleReads';
 import {useAppBadge} from './useAppBadge';
+import {useConversationArrival} from './useConversationArrival';
 
 //: Форматирует время сообщения для интерфейса.
 //: Использует локаль ru-RU и часовой пояс браузера.
@@ -49,7 +50,9 @@ export function App() {
   const scrollPlan=useRef<{mode:'bottom'|'preserve';height?:number;top?:number;anchor?:{id:string;offset:number}}|undefined>(undefined);
   const target = snapshot?.conversations.find(c => c.id === targetId);
   const messages=page?.conversationId===(target?.id||'inbox')?page.messages:target?[]:snapshot?.messages||[];
-  const pending=busy||loading;
+  const arrival=useConversationArrival({authenticated:!!session?.authenticated,busy:busy||loading||uncertain,blocked:!!drafts[targetId||'']||!!attachmentTarget,navigate:openArrival,fail});
+  const pending=busy||loading||arrival.opening;
+  const arrivalOpening=useRef(arrival.opening);arrivalOpening.current=arrival.opening;
   const sentinel=useRef<HTMLDivElement>(null);
   const live=useRef<{targetId?:string;pending:boolean;revision:number;uncertain:boolean}>({pending:false,revision:0,uncertain:false});
   live.current={targetId,pending,revision:cacheRevision,uncertain};
@@ -75,16 +78,13 @@ export function App() {
   }
   useEffect(() => { api<SessionInfo>('session').then(acceptSession).catch(fail); }, []);
   useEffect(() => {
-    if (session?.authenticated) api<ConversationPageResult>('inbox',{}).then(result=>{scrollPlan.current={mode:'bottom'};setSnapshot(result.snapshot);setPage(result.page);}).catch(fail);
-  }, [session?.authenticated]);
-  useEffect(() => {
     if (!session?.authenticated) return;
     let disposed = false;
     let checking=false;
     //: Получает разрешения и ревизию SQLite без запросов к Telegram.
     //: Изменения и удаления автоматически применяются только к разрешённой ленте.
     async function checkAccess() {
-      if(checking||document.hidden)return;checking=true;
+      if(checking||document.hidden||arrivalOpening.current)return;checking=true;
       try {
         const result=await api<{ids:string[];revision?:number;deletedIds?:string[];reset?:boolean;sync?:SyncStatus}>(`access?since=${seenRevision.current}`);
         if(disposed)return;
@@ -129,6 +129,20 @@ export function App() {
     const observer=new IntersectionObserver(entries=>{if(!entries.some(e=>e.isIntersecting)||live.current.pending)return;const key=`${c?.id||'inbox'}/${cursor}/${live.current.revision}`;if(olderAttempt.current===key)return;olderAttempt.current=key;void loadView(c,true);},{root:feed.current,rootMargin:'0px'});
     observer.observe(element);return()=>observer.disconnect();
   },[targetId,page?.nextCursor,cacheRevision,loading]);
+  //: Выбирает точный разрешённый диалог уведомления либо самый свежий непрочитанный.
+  //: Общая лента не показывается до выбора; исключённый ID не передаётся в open API.
+  async function openArrival(intent:{conversationId?:string},signal:AbortSignal){
+    const generation=request.current.id;
+    const inbox=await api<ConversationPageResult>('inbox',{},signal);
+    const conversation=(intent.conversationId&&inbox.snapshot.conversations.find(c=>c.id===intent.conversationId))||[...inbox.snapshot.conversations].filter(c=>c.unreadCount>0).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt)||a.id.localeCompare(b.id))[0];
+    const result=conversation?await api<ConversationPageResult>('open',{conversationId:conversation.id},signal):inbox;
+    if(signal.aborted||generation!==request.current.id)return;
+    request.current.controller?.abort();request.current.id++;
+    live.current.targetId=conversation?.id;setTargetId(conversation?.id);olderAttempt.current='';
+    setAttachmentTarget(undefined);setDrawer(false);scrollPlan.current={mode:'bottom'};
+    setSnapshot(result.snapshot);setPage(result.page);setError('');
+    if(new URLSearchParams(location.hash.slice(1)).has('conversation'))history.replaceState(null,'',location.pathname+location.search);
+  }
   //: Автоматически перечитывает изменившийся кеш без ожидания MTProto.
   //: Сохраняет старые страницы и не прерывает явный выбор или прокрутку.
   async function updateFromCache(revision:number){
@@ -186,6 +200,7 @@ export function App() {
   //: Сохраняет раздельные черновики, закрывает мобильную панель.
   async function choose(c: Conversation) {
     if (busy) return;
+    arrival.cancel();
     live.current.targetId=c.id;olderAttempt.current='';setTargetId(c.id);setPage(undefined);setDrawer(false);await loadView(c);
   }
   //: Фиксирует текст и Destination, затем создаёт уникальный request ID.
@@ -215,7 +230,7 @@ export function App() {
   //: Отзывает текущую веб-сессию и очищает состояние переписки UI.
   //: Не завершает Telegram-авторизацию на сервере.
   async function logout() {
-    clearPreviews();setAttachmentTarget(undefined);cancelView();setBusy(true);
+    arrival.cancel();clearPreviews();setAttachmentTarget(undefined);cancelView();setBusy(true);
     try {
       await api('logout', {pushEndpoint:await notificationEndpoint()});void unsubscribeNotifications().catch(()=>{});acceptSession({ authenticated: false, setupRequired: false });
       setSnapshot(undefined);setPage(undefined);setDrafts({});setTargetId(undefined);setError('');setUncertain(false);seenRevision.current=0;appliedRevision.current=0;access.current={revision:0};
@@ -241,7 +256,7 @@ export function App() {
       <div className="sidebar-brand"><Brand /><button className="icon-button mobile-only" aria-label="Закрыть диалоги" onClick={() => setDrawer(false)}><Icon name="close" /></button></div>
       <div className="sidebar-heading"><h2>Диалоги</h2><span className="count">{snapshot?.conversations.length || 0}</span></div>
       <label className="search"><Icon name="search" /><input aria-label="Поиск диалогов" placeholder="Найти разговор" value={query} onChange={e => setQuery(e.target.value)} /></label>
-      <button className={`all-row ${!target ? 'active' : ''}`} disabled={busy} onClick={() => { cancelView();live.current.targetId=undefined;setTargetId(undefined);setPage(undefined);scrollPlan.current={mode:'bottom'};setDrawer(false);void loadView(); }}><span className="all-symbol">≋</span><span>Общая лента</span>{unread > 0 && <b className="badge" aria-label={`${unread} непрочитанных`}>{unread}</b>}</button>
+      <button className={`all-row ${!target ? 'active' : ''}`} disabled={busy} onClick={() => { arrival.cancel();cancelView();live.current.targetId=undefined;setTargetId(undefined);setPage(undefined);scrollPlan.current={mode:'bottom'};setDrawer(false);void loadView(); }}><span className="all-symbol">≋</span><span>Общая лента</span>{unread > 0 && <b className="badge" aria-label={`${unread} непрочитанных`}>{unread}</b>}</button>
       <nav className="conversation-list" aria-label="Получатели">
         {snapshot?.conversations.filter(c => c.title.toLocaleLowerCase().includes(query.toLocaleLowerCase())).sort(compareConversations).map((c,i) => <button key={c.id} className={`conversation ${target?.id === c.id ? 'selected' : ''}`} disabled={busy} onClick={() => choose(c)} aria-pressed={target?.id === c.id}>
           <span className={`avatar tone-${i % 4}`}>{c.title.slice(0,1).toUpperCase()}</span>

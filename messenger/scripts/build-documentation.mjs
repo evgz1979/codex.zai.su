@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const printer = ts.createPrinter({ removeComments: true, newLine: ts.NewLineKind.LineFeed });
 const purposes = {
+  'frontend/src/useConversationArrival.ts': 'Отменяемое открытие свежего непрочитанного при запуске и возврате, точного диалога по уведомлению.',
   'frontend/src/useVisibleReads.ts': 'Подтверждение просмотра реально видимых сообщений после остановки прокрутки в активной ленте.',
   'frontend/src/useAppBadge.ts': 'Согласование значка приложения и уведомлений при чтении, возврате фокуса и позднем push.',
   'scripts/app-icon.svg': 'Квадратная иконка установки с непрозрачным фоном до краёв; маску применяет ОС.',

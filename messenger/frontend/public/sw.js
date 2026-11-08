@@ -15,6 +15,7 @@ self.addEventListener('push',event=>{
     await self.registration.showNotification('Z AI Messenger',{
       body:payload.kind==='test'?'Уведомления включены':'Новое сообщение',
       icon:'/icon-192.png',badge:'/icon-192.png',tag:payload.kind==='test'?'messenger-test':'messenger-incoming',
+      data:{conversationId:typeof payload.conversationId==='string'&&payload.conversationId.length<=2048?payload.conversationId:undefined},
     });
     const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
     const visible=windows.filter(client=>client.visibilityState==='visible'&&new URL(client.url).pathname==='/');
@@ -29,6 +30,9 @@ self.addEventListener('notificationclick',event=>{
   event.waitUntil((async()=>{
     const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
     const chat=windows.find(client=>{const url=new URL(client.url);return url.origin===self.location.origin&&url.pathname==='/';});
-    if(chat)await chat.focus();else await self.clients.openWindow('/');
+    const id=event.notification.data?.conversationId;
+    const conversationId=typeof id==='string'&&id.length>0&&id.length<=2048?id:undefined;
+    if(chat){chat.postMessage(conversationId?{type:'messenger:open-conversation',conversationId}:{type:'messenger:open-latest'});await chat.focus();}
+    else await self.clients.openWindow(conversationId?`/#conversation=${encodeURIComponent(conversationId)}`:'/');
   })());
 });

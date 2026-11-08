@@ -48,8 +48,8 @@ test('push: новые входящие доставляются один раз
   core.ingest({type:'message',message:original});core.ingest({type:'message',message:original});
   core.ingest({type:'message',message:{...original,text:'PRIVATE_EDIT',editedAt:new Date(now).toISOString()},edited:true});
   await push.flush();assert.equal(deliveries.length,1);
-  assert.deepEqual(Object.keys(JSON.parse(deliveries[0].payload)).sort(),['badge','body','title']);
-  assert.ok(!deliveries[0].payload.includes('PRIVATE'));assert.ok(!deliveries[0].payload.includes(original.conversationId));
+  assert.deepEqual(Object.keys(JSON.parse(deliveries[0].payload)).sort(),['badge','body','conversationId','title']);
+  assert.ok(!deliveries[0].payload.includes('PRIVATE'));assert.equal(JSON.parse(deliveries[0].payload).conversationId,original.conversationId);
   assert.equal(deliveries[0].options.TTL,300);
   core.ingest({type:'message',message:original});await push.flush();assert.equal(deliveries.length,1);
 });
@@ -62,6 +62,13 @@ test('push: снятие выбора, удаление и отзыв подпи
   core.ingest({type:'message',message:{...incoming,id:'deleted',sourceKey:'synthetic:key'}});
   store.deleteSourceKeys(['synthetic:key'],core.selection.ids());await push.flush();assert.equal(deliveries.length,0);
   core.ingest({type:'message',message:{...incoming,id:'removed-device'}});push.remove(sub.endpoint);await push.flush();assert.equal(deliveries.length,0);
+});
+
+test('push: объединённое уведомление открывает самый свежий разрешённый диалог',async t=>{
+  const {adapter,core,push,deliveries,now}=await context(t);core.selection.replace(adapter.conversations.map(c=>c.id),adapter.conversations);await core.refresh();push.subscribe(subscription());
+  core.ingest({type:'message',message:{...adapter.messages[1],id:'newest',date:new Date(now+1000).toISOString()}});
+  core.ingest({type:'message',message:{...adapter.messages[0],id:'older-arrived-later',date:new Date(now).toISOString()}});
+  await push.flush();assert.equal(deliveries.length,1);assert.equal(JSON.parse(deliveries[0].payload).conversationId,adapter.conversations[1].id);
 });
 
 test('push: пропущенная свежая голова уведомляет, история и сообщения до подписки молчат',async t=>{
@@ -139,4 +146,14 @@ test('push worker: поздний push при закрытом чате не в�
   runInNewContext(readFileSync(new URL('../frontend/public/sw.js',import.meta.url),'utf8'),{self,navigator:{clearAppBadge:async()=>{counts.push(0);},setAppBadge:async(value:number)=>{counts.push(value);}},AbortController,setTimeout,clearTimeout,fetch:async(path:string,options:{credentials:string;cache:string})=>{requests.push(path);assert.equal(options.credentials,'same-origin');assert.equal(options.cache,'no-store');return {ok:true,json:async()=>({count:0})};}});
   let pending=Promise.resolve();listeners.get('push')!({data:{json:()=>({badge:3})},waitUntil:(promise:Promise<void>)=>{pending=promise;}});await pending;
   assert.deepEqual(requests,['/api/chat/badge']);assert.deepEqual(counts,[0]);assert.equal(closed,1);assert.equal(shown,1);
+});
+
+test('push worker: клик передаёт общий ID открытому чату или в безопасный hash нового окна',async()=>{
+  const listeners=new Map<string,(event:any)=>void>();const commands:unknown[]=[];const opened:string[]=[];let focused=0;let existing=true;
+  const self={location:{origin:'https://msg.zai.su:8443'},addEventListener:(name:string,callback:(event:any)=>void)=>listeners.set(name,callback),clients:{matchAll:async()=>existing?[{url:'https://msg.zai.su:8443/',postMessage:(value:unknown)=>{commands.push(value);},focus:async()=>{focused++;}}]:[],openWindow:async(url:string)=>{opened.push(url);}}};
+  runInNewContext(readFileSync(new URL('../frontend/public/sw.js',import.meta.url),'utf8'),{self,URL});
+  let pending=Promise.resolve();const id='telegram-47:conversation:51';
+  const event={notification:{data:{conversationId:id},close:()=>{}},waitUntil:(promise:Promise<void>)=>{pending=promise;}};
+  listeners.get('notificationclick')!(event);await pending;assert.deepEqual(JSON.parse(JSON.stringify(commands)),[{type:'messenger:open-conversation',conversationId:id}]);assert.equal(focused,1);
+  existing=false;listeners.get('notificationclick')!(event);await pending;assert.deepEqual(opened,[`/#conversation=${encodeURIComponent(id)}`]);
 });

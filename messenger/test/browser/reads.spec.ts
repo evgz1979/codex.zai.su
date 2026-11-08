@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 
-test('просмотр: видимая активная лента снимает счётчик, скрытые сообщения ждут просмотра',async({page})=>{
+test('просмотр: видимая активная лента снимает счётчик, скрытые сообщения ждут просмотра',async({page,isMobile})=>{
   await page.addInitScript(()=>{
     const state=window as unknown as {readsActive:boolean;badgeValues:number[];closedNotifications:number};state.readsActive=false;state.badgeValues=[];state.closedNotifications=0;
     Object.defineProperty(document,'hasFocus',{value:()=>state.readsActive});
@@ -14,9 +14,11 @@ test('просмотр: видимая активная лента снимае�
   const snapshot={conversations,messages,sources:[{id:'fixture-a',kind:'test',name:'Telegram',connected:true}],refreshedAt:null,stale:false};let revision=1;
   const reads:{conversationId:string;messageId:string}[]=[];
   await page.route('**/api/chat/inbox',route=>route.fulfill({json:{snapshot,page:{conversationId:'inbox',messages,nextCursor:null,cached:true,historyComplete:true}}}));
+  await page.route('**/api/chat/open',route=>{const id=route.request().postDataJSON().conversationId;return route.fulfill({json:{snapshot,page:{conversationId:id,messages:messages.filter(m=>m.conversationId===id),nextCursor:null,cached:true,historyComplete:true}}});});
   await page.route('**/api/chat/access?since=*',route=>route.fulfill({json:{ids:conversations.map(c=>c.id),revision}}));
   await page.route('**/api/chat/read',route=>{const input=route.request().postDataJSON();reads.push(input);const conversation=conversations.find(c=>c.id===input.conversationId)!;conversation.unreadCount=0;return route.fulfill({json:snapshot});});
-  await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();await expect(page.locator('.bubble')).toHaveCount(10);
+  await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();await expect(page.getByRole('heading',{name:'Свежий непрочитанный',exact:true})).toBeVisible();
+  if(isMobile)await page.getByRole('button',{name:'Открыть диалоги'}).click();await page.locator('.all-row').click();await expect(page.locator('.bubble')).toHaveCount(10);
   await expect(page.locator('.conversation-name')).toHaveText(['Свежий непрочитанный','Старый непрочитанный','Свежий прочитанный']);
   await page.waitForTimeout(800);expect(reads).toHaveLength(0);
   await page.evaluate(()=>{(window as unknown as {readsActive:boolean}).readsActive=true;window.dispatchEvent(new Event('focus'));});

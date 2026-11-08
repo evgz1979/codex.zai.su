@@ -124,6 +124,20 @@ async login(e: FormEvent)
 async logout()
 ```
 
+<a id="symbol-App.openArrival"></a>
+
+## App.openArrival
+
+Выбирает точный разрешённый диалог уведомления либо самый свежий непрочитанный.
+
+Общая лента не показывается до выбора; исключённый ID не передаётся в open API.
+
+```typescript
+async openArrival(intent: {
+    conversationId?: string;
+}, signal: AbortSignal)
+```
+
 <a id="symbol-App.read"></a>
 
 ## App.read
