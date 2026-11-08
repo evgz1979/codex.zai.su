@@ -2,7 +2,7 @@
 
 ## Серверный WhatsApp Web 0.16.0 · 8 ноября 2026
 
-На MacBook прошли TypeScript/production build, 113 серверных тестов,
+На MacBook прошли TypeScript/production build, 115 серверных тестов,
 124 браузерных сценария (5 штатных пропусков), 9 тестов документации,
 3 Messenger/Caddy guard и 6 HTTPS guard. Проверки корневого Codex-клиента:
 4 теста и production build. QR в тестах интерфейса синтетический; реальную
@@ -14,6 +14,8 @@ CSRF и сохранение выбора/архива другого источ
 WhatsApp работает независимо от наличия Telegram-входа; прежние FloodWait
 сценарии Telegram сохранены. Автоматическая передача всех message-событий
 из WhatsApp Web отключена, используется чтение выбранных страниц.
+Проверены запуск worker через symlink релиза с настоящим Unix socket,
+синхронизация при недоступном втором источнике и ручной выбор новых WhatsApp-чатов.
 
 Puppeteer закреплён на 25.16.0 поверх зависимости whatsapp-web.js 1.34.7;
 проверка npm audit production-зависимостей не выявила high/critical.

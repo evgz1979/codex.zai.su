@@ -71,6 +71,19 @@ activated=1
 systemctl daemon-reload
 systemctl enable --now zai-whatsapp.service
 systemctl restart zai-whatsapp.service
+# Check an actual fixed-protocol response, not only a short-lived active state.
+for attempt in $(seq 1 20); do
+ if test -S /run/zai-whatsapp/control.sock; then break; fi
+ sleep 1
+done
+/usr/local/bin/node --input-type=module <<'JS'
+import {createConnection} from 'node:net';
+const socket=createConnection('/run/zai-whatsapp/control.sock');let data='';
+const timer=setTimeout(()=>process.exit(1),5000);
+socket.on('connect',()=>socket.end(JSON.stringify({account:'0'.repeat(64),action:'status'})+'\n'));
+socket.on('data',part=>data+=part);socket.on('error',()=>process.exit(1));
+socket.on('end',()=>{clearTimeout(timer);try{const result=JSON.parse(data);process.exit(result.status&&typeof result.status.connected==='boolean'?0:1);}catch{process.exit(1);}});
+JS
 systemctl enable --now zai-messenger.service
 systemctl restart zai-messenger.service
 for attempt in $(seq 1 20); do
@@ -105,7 +118,7 @@ install -m 0644 "$stage_dir/messenger.conf" /etc/systemd/system/codex-zai-https.
 install -m 0644 "$caddy_dir/Caddyfile.messenger-candidate" "$caddy_dir/Caddyfile"
 systemctl daemon-reload
 systemctl restart codex-zai-https.service
-systemctl is-active --quiet codex-zai-https.service zai-messenger.service
+systemctl is-active --quiet codex-zai-https.service zai-messenger.service zai-whatsapp.service
 python3 /opt/codex-zai-https/vpn_snapshot.py > "$stage_dir/vpn-after.json"
 python3 - "$stage_dir" <<'PY'
 import json,sys

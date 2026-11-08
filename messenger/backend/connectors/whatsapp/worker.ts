@@ -1,6 +1,5 @@
 import {createServer} from 'node:net';
-import {chmodSync,existsSync,unlinkSync} from 'node:fs';
-import {resolve} from 'node:path';
+import {chmodSync,existsSync,unlinkSync,realpathSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
 import {browserRequest,type BrowserResult} from './protocol.js';
 import {WhatsAppBrowser} from './browser.js';
@@ -36,4 +35,4 @@ function main(){
   //: Профили сохраняются, чужие сервисы и сетевые настройки не меняются.
   const stop=()=>{server.close();void browser.stop().finally(()=>process.exit(0));};process.on('SIGTERM',stop);process.on('SIGINT',stop);
 }
-if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href)main();
+if(process.argv[1]&&import.meta.url===pathToFileURL(realpathSync(process.argv[1])).href)main();

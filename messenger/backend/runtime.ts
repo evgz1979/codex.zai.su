@@ -33,7 +33,7 @@ export function createAccountRuntime(directory:string,origin:string):AccountRunt
   return {store,service,admin,push,attachments,auth:new Auth(store),
     //: Запускает синхронизацию и подготовку медиа личного аккаунта.
     //: Сервис уже создан; повторный внешний порт не открывается.
-    start(){sync.start();media.start();},
+    start(){void whatsapp.connect();sync.start();media.start();},
     //: Завершает личные фоновые задачи и закрывает SQLite.
     //: Авторизация Telegram отменяется перед отключением источника.
     async stop(){await media.stop();await sync.stop();await push.stop();await admin.close();await service.disconnect();store.close();},

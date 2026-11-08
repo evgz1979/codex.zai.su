@@ -55,7 +55,7 @@ if test "$external_failed" -eq 0; then
  cmp -s "$audit/codex-before.html" "$audit/codex-after.html" || external_failed=1
 fi
 if test "$external_failed" -ne 0; then echo 'HTTPS validation failed; rolled back' >&2; exit 1; fi
-ssh "${ssh_options[@]}" "$vps" "set -e; python3 /opt/codex-zai-https/vpn_snapshot.py > '$stage/vpn-final.json'; systemctl is-enabled zai-messenger.service; systemctl is-active zai-messenger.service; rm -f '$stage/bootstrap.json'"
+ssh "${ssh_options[@]}" "$vps" "set -e; python3 /opt/codex-zai-https/vpn_snapshot.py > '$stage/vpn-final.json'; systemctl is-enabled zai-messenger.service zai-whatsapp.service; systemctl is-active zai-messenger.service zai-whatsapp.service; rm -f '$stage/bootstrap.json'"
 scp "${ssh_options[@]}" "$vps:$stage/vpn-final.json" "$audit/vpn-final.json"
 python3 - "$audit" <<'PY'
 import json,sys

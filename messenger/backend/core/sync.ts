@@ -40,7 +40,7 @@ export class AutoSyncService {
     if(now>=this.metadataAt){await this.core.refresh();if(this.stopped)return;this.metadataAt=now+30000;
       for(const adapter of this.core.registry.adapters)if(adapter.subscribe&&!this.subscriptions.has(adapter))this.subscriptions.set(adapter,adapter.subscribe(event=>{try{this.core.ingest(event);}catch{this.metadataAt=0;}},id=>this.core.selection.allows(id),conversation=>this.core.discoverContact(conversation)));
     }
-    const ids=this.core.selection.ids().filter(id=>!!this.store.conversation(id));if(!ids.length)return;
+    const ids=this.core.selection.ids().filter(id=>{const conversation=this.store.conversation(id);return !!conversation&&this.core.registry.get(conversation.sourceId).source.connected;});if(!ids.length)return;
     for(const id of ids)if(!this.validated.has(id)){const state=this.store.progress(id);if(state.checkpointIds?.length&&!this.store.checkpointExists(state.checkpointIds)){this.store.saveProgress(id,{initialized:false,historyCursor:null,historyComplete:false,headKeys:[],newerCursor:null,pendingHeadKeys:[],nextHeadAt:0,checkpointIds:[]});}this.validated.add(id);}
     const entries=ids.map(id=>({id,state:this.store.progress(id)}));
     let item=entries.find(e=>!e.state.initialized&&this.priority.has(e.id))||entries.find(e=>!e.state.initialized);

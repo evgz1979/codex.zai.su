@@ -1,15 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {EventEmitter} from 'node:events';
-import {mkdtempSync,rmSync} from 'node:fs';
+import {mkdtempSync,rmSync,symlinkSync,existsSync} from 'node:fs';
+import {spawn} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {request as httpRequest} from 'node:http';
 import {browserRequest,type BrowserRequest,type BrowserResult} from '../backend/connectors/whatsapp/protocol.js';
 import {WhatsAppBrowser,webMessage,type WebMessage} from '../backend/connectors/whatsapp/browser.js';
 import {WhatsAppAdapter} from '../backend/connectors/whatsapp/adapter.js';
+import {browserCall} from '../backend/connectors/whatsapp/bridge.js';
 import {Store} from '../backend/storage/store.js';
 import {MessengerService} from '../backend/core/service.js';
+import {AutoSyncService} from '../backend/core/sync.js';
 import {AdminService} from '../backend/admin/service.js';
 import {SecretVault} from '../backend/storage/private-files.js';
 import type {TelegramAdapter} from '../backend/connectors/telegram/adapter.js';
@@ -59,6 +63,7 @@ test('WhatsApp: адаптер проверяет текущий выбор и �
  const call=async(request:BrowserRequest):Promise<BrowserResult>=>{requests.push(request);if(request.action==='catalog')return {conversations:[conversation]};if(request.action==='messages')return {messages:[webMessage(native,jid,'Тест')],nextCursor:null};return {status:{stage:'connected',connected:true,qrDataUrl:'synthetic-sensitive-qr'}};};
  const adapter=new WhatsAppAdapter(root,store,call);await adapter.connect();assert.equal(requests.length,0);
  await adapter.begin();assert.equal(adapter.status().qrDataUrl,undefined);assert.equal((await adapter.authStatus()).qrDataUrl,'synthetic-sensitive-qr');
+ assert.equal(adapter.canDiscoverContacts(),false);
  await assert.rejects(adapter.recentMessages(id,10),/не разрешён/);assert.ok(!requests.some(r=>r.action==='messages'));
  store.select([id]);assert.equal((await adapter.recentMessages(id,10))[0].text,native.body);
  assert.deepEqual(requests.at(-1)?.allowed,[id]);
@@ -101,4 +106,26 @@ test('WhatsApp: отсутствие Telegram-входа не блокирует
  const whatsapp=new WhatsAppAdapter(root,store,async request=>request.action==='catalog'?{conversations:[conversation]}:{status:{stage:'connected',connected:true}});
  await whatsapp.begin();store.select([id]);const core=new MessengerService([telegram,whatsapp],store);const result=await core.refresh();
  assert.ok(result.conversations.some(c=>c.id===id));assert.equal(result.sources.find(s=>s.id==='whatsapp')?.connected,true);
+});
+
+test('WhatsApp: история недоступного Telegram не задерживает синхронизацию WhatsApp',async t=>{
+ const root=mkdtempSync(join(tmpdir(),'wa-sync-'));const store=new Store(root);t.after(()=>{store.close();rmSync(root,{recursive:true,force:true});});
+ const telegram=new TestAdapter();telegram.connect=async()=>{throw new Error('source offline');};
+ const whatsapp=new WhatsAppAdapter(root,store,async request=>request.action==='catalog'?{conversations:[conversation]}:request.action==='messages'?{messages:[webMessage(native,jid,'Тест')],nextCursor:null}:{status:{stage:'connected',connected:true}});
+ await whatsapp.begin();store.select([telegram.conversations[0].id,id]);store.saveCache({sources:[],conversations:[telegram.conversations[0],conversation],messages:[],refreshedAt:null,stale:true});
+ const core=new MessengerService([telegram,whatsapp],store);const sync=new AutoSyncService(core,store);await sync.tick();await sync.stop();
+ assert.equal(store.progress(id).initialized,true);assert.equal(store.messagePage(id).messages[0].text,native.body);assert.equal(telegram.calls.length,0);
+});
+
+test('WhatsApp: worker запускается через symlink релиза и отвечает через приватный socket',async t=>{
+ const root=mkdtempSync(join(tmpdir(),'wa-entry-'));t.after(()=>rmSync(root,{recursive:true,force:true}));
+ const entry=join(root,'worker.ts');const socket=join(root,'control.sock');
+ symlinkSync(fileURLToPath(new URL('../backend/connectors/whatsapp/worker.ts',import.meta.url)),entry);
+ const child=spawn(process.execPath,['--import','tsx',entry],{env:{...process.env,WHATSAPP_BROWSER_SOCKET:socket,WHATSAPP_BROWSER_DATA:join(root,'profiles'),WHATSAPP_CHROME_PATH:'/unused/chrome'},stdio:'ignore'});
+ const exited=new Promise<void>(resolve=>child.once('exit',()=>resolve()));
+ try{
+  for(let i=0;i<100&&!existsSync(socket)&&child.exitCode===null;i++)await new Promise(r=>setTimeout(r,50));
+  assert.equal(child.exitCode,null);assert.equal(existsSync(socket),true);
+  assert.equal((await browserCall({account:'a'.repeat(64),action:'status'},socket)).status?.stage,'idle');
+ }finally{child.kill('SIGTERM');await exited;}
 });

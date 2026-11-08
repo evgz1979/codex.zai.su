@@ -35,9 +35,9 @@ export class WhatsAppAdapter implements SourceAdapter {
   //: Поднимает только ранее разрешённую сохранённую сессию.
   //: При отсутствии связанного профиля QR создаётся исключительно по кнопке администратора.
   async connect(){if(!this.enabled())return;try{const result=await this.request('start',{interactive:false});this.state=result.status!;this.source.connected=this.state.connected;}catch{this.source.connected=false;}}
-  //: Позволяет фоновую сверку метаданных настроенного WhatsApp.
-  //: Пустой фактический каталог до ready не становится исходной политикой контактов.
-  canDiscoverContacts(){return this.enabled();}
+  //: Оставляет новые WhatsApp-диалоги под явным выбором администратора.
+  //: Каталог доступен без истории; автоматическое добавление контактов Telegram не меняется.
+  canDiscoverContacts(){return false;}
   //: Возвращает только метаданные каталога или прежний выбранный кеш при сбое.
   //: Не запрашивает историю и не изменяет отметки прочтения.
   async listConversations():Promise<Conversation[]>{
