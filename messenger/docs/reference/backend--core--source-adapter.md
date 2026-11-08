@@ -39,6 +39,7 @@ export interface SourceAdapter {
     historyPage?(conversationId: string, before?: string, limit?: number): Promise<HistoryPage>;
     canDiscoverContacts?(): boolean;
     subscribe?(listener: (event: SourceEvent) => void, allows: (conversationId: string) => boolean, discover?: (conversation: Conversation) => boolean): () => void;
+    openAvatar?(conversationId: string, signal: AbortSignal): Promise<AsyncIterable<Uint8Array>>;
     openAttachment?(request: AttachmentRequest, signal: AbortSignal): Promise<AttachmentContent>;
     sendText(destination: Destination, text: string): Promise<Message>;
     markRead(conversationId: string, messageId: string): Promise<void>;

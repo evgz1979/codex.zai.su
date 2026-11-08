@@ -256,6 +256,18 @@ Peer, message и attachment сверяются; свежие file references о�
 async openAttachment(input: AttachmentRequest, signal: AbortSignal): Promise<AttachmentContent>
 ```
 
+<a id="symbol-TelegramAdapter.openAvatar"></a>
+
+## TelegramAdapter.openAvatar
+
+Читает маленькое фото только известного диалога через серверный peer.
+
+Не передаёт native location браузеру; размер и доступ повторно проверяются ядром.
+
+```typescript
+async openAvatar(conversationId: string, signal: AbortSignal): Promise<AsyncIterable<Uint8Array>>
+```
+
 <a id="symbol-TelegramAdapter.recentMessages"></a>
 
 ## TelegramAdapter.recentMessages

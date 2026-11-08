@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 test('вложения: миниатюры в ленте, оригинал по нажатию, открытие PDF, скачивание и мобильные границы',async({page},testInfo)=>{
  const requests:{attachmentId:string;variant?:string}[]=[];page.on('request',request=>{if(request.url().endsWith('/api/chat/attachment'))requests.push(request.postDataJSON());});
- await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();
+ await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();await page.getByRole('button',{name:'Общая лента',exact:true}).click();
  const photoButton=page.getByRole('button',{name:'Открыть вложение: Тестовое фото.png'});await expect(photoButton).toBeVisible();await photoButton.scrollIntoViewIfNeeded();await expect(photoButton).toBeInViewport();await expect(page.getByRole('img',{name:'Миниатюра: Тестовое фото.png'})).toBeVisible();expect(requests.filter(r=>!r.variant)).toHaveLength(0);
  await page.screenshot({path:`test-results/previews-${testInfo.project.name}.png`});
  await page.getByRole('button',{name:'Открыть вложение: Тестовое фото.png'}).click();const viewer=page.getByRole('dialog');await expect(viewer).toBeVisible();await expect(viewer.getByRole('img')).toBeVisible();await expect(viewer.getByRole('img')).toHaveJSProperty('naturalWidth',1);expect(requests.filter(r=>!r.variant)).toHaveLength(1);
@@ -16,12 +16,12 @@ test('вложения: миниатюры в ленте, оригинал по 
 });
 
 test('вложения: исключение диалога закрывает уже открытое изображение',async({page},testInfo)=>{
- test.skip(testInfo.project.name!=='desktop-chromium');await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();await page.getByRole('button',{name:'Открыть вложение: Тестовое фото.png'}).click();await expect(page.getByRole('dialog').getByRole('img')).toBeVisible();
+ test.skip(testInfo.project.name!=='desktop-chromium');await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();await page.getByRole('button',{name:'Общая лента',exact:true}).click();await page.getByRole('button',{name:'Открыть вложение: Тестовое фото.png'}).click();await expect(page.getByRole('dialog').getByRole('img')).toBeVisible();
  await page.route('**/api/chat/access?since=*',route=>route.fulfill({json:{ids:[]}}));await expect(page.getByRole('dialog')).toHaveCount(0,{timeout:7000});
 });
 
 test('вложения: системное меню вызывается только явным нажатием, без скачивания',async({page})=>{
  await page.addInitScript(()=>{Object.defineProperty(navigator,'canShare',{value:()=>true});Object.defineProperty(navigator,'share',{value:async(data:ShareData)=>{(window as unknown as {shared?:{name:string;type:string}[]}).shared=data.files?.map(file=>({name:file.name,type:file.type}));}});});
- let downloads=0;page.on('download',()=>downloads++);await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();await page.getByRole('button',{name:'Открыть вложение: Тестовое фото.png'}).click();const viewer=page.getByRole('dialog');await expect(viewer.getByRole('button',{name:'Поделиться…'})).toBeVisible();expect(await page.evaluate(()=>(window as unknown as {shared?:unknown}).shared)).toBeUndefined();
+ let downloads=0;page.on('download',()=>downloads++);await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();await page.getByRole('button',{name:'Общая лента',exact:true}).click();await page.getByRole('button',{name:'Открыть вложение: Тестовое фото.png'}).click();const viewer=page.getByRole('dialog');await expect(viewer.getByRole('button',{name:'Поделиться…'})).toBeVisible();expect(await page.evaluate(()=>(window as unknown as {shared?:unknown}).shared)).toBeUndefined();
  await viewer.getByRole('button',{name:'Поделиться…'}).click();expect(await page.evaluate(()=>(window as unknown as {shared?:unknown}).shared)).toEqual([{name:'Тестовое фото.png',type:'image/png'}]);expect(downloads).toBe(0);await page.getByRole('button',{name:'Закрыть вложение'}).click();
 });

@@ -1,7 +1,7 @@
 import {telegramAuthIssue} from '../auth/telegram-issue.js';
 import type { SourceAdapter, SourceEvent } from './source-adapter.js';
 import type { Store } from '../storage/store.js';
-import { destinationFor,comparePosition,compareConversations, LIMITS, type AttachmentRequest,type Conversation, type ConversationPageResult, type Message, type SendRequest, type Snapshot } from '../../shared/types.js';
+import { destinationFor,comparePosition,compareConversations, LIMITS, MEDIA_LIMITS, type AttachmentRequest,type Conversation, type ConversationPageResult, type Message, type SendRequest, type Snapshot } from '../../shared/types.js';
 import { AppError } from './errors.js';
 import { ConnectorRegistry } from './registry.js';
 import { ConversationSelectionService } from './selection.js';
@@ -16,6 +16,7 @@ export class MessengerService {
   readonly inbox: UnifiedInboxService;
   private pendingRefresh?: Promise<Snapshot>;
   private sends = new Map<string, { signature: string; result: Promise<Message>; created: number }>();
+  private avatars=new Map<string,{version:string;bytes:Buffer;mimeType:string}>();
   private latestSeen=new Map<string,string>();
   private incoming=new Set<(message:Message)=>void>();
   private readRevision=0;
@@ -120,6 +121,22 @@ export class MessengerService {
       this.store.upsertMessages([m],!event.edited);this.state.stale=false;
       if(fresh&&this.store.message(m.id))this.publishIncoming(m);
     }else{this.adapter(event.sourceId);const keys=event.keys.filter(key=>key.startsWith(encodeURIComponent(event.sourceId)+':'));this.store.deleteSourceKeys(keys,this.selection.ids());}
+  }
+  //: Загружает ограниченное фото разрешённого диалога с приватным кешем в памяти.
+  //: Проверяет выбор и версию после каждого чанка; кеш ограничен 64 фото по 512 КиБ.
+  async avatar(id:string,signal:AbortSignal){
+    if(typeof id!=='string'||!id||id.length>2048)throw new AppError(400,'Выберите диалог.');
+    const c=this.conversation(id);const version=c.avatarVersion;const adapter=this.adapter(c.sourceId);
+    if(!version||!adapter.openAvatar)throw new AppError(404,'Фото отсутствует.');
+    //: Повторно сверяет выбранность и версию фото во время загрузки.
+    //: Отменённый или исключённый запрос не возвращает даже готовый кеш.
+    const check=()=>{signal.throwIfAborted();if(this.conversation(id).avatarVersion!==version)throw new AppError(409,'Фото изменилось.');};
+    check();const cached=this.avatars.get(id);if(cached?.version===version){this.avatars.delete(id);this.avatars.set(id,cached);return cached;}
+    const parts:Buffer[]=[];let size=0;
+    for await(const chunk of await adapter.openAvatar(id,signal)){check();size+=chunk.byteLength;if(size>MEDIA_LIMITS.previewBytes)throw new AppError(413,'Фото слишком большое.');parts.push(Buffer.from(chunk));}
+    check();const bytes=Buffer.concat(parts);const mimeType=bytes[0]===255&&bytes[1]===216&&bytes[2]===255?'image/jpeg':bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))?'image/png':bytes.toString('ascii',0,4)==='RIFF'&&bytes.toString('ascii',8,12)==='WEBP'?'image/webp':undefined;
+    if(!mimeType)throw new AppError(415,'Формат фото недоступен.');
+    const result={version,bytes,mimeType};this.avatars.delete(id);this.avatars.set(id,result);while(this.avatars.size>64)this.avatars.delete(this.avatars.keys().next().value!);return result;
   }
   //: Проверяет точный маршрут сохранённого вложения перед каждым чтением.
   //: Чужой message ID, исключённый диалог и удалённая запись не открывают источник.

@@ -5,9 +5,9 @@ import {ApiError} from './api';
 //: Общий ID проверяется по актуальному серверному списку перед запросом диалога.
 export interface ArrivalIntent {conversationId?:string;explicit:boolean}
 //: Связывает состояние чата с очередью переходов при открытии приложения.
-//: Автоматический переход не меняет черновик и окно вложения, явный клик сохраняет черновики.
+//: Обычное возвращение сохраняет текущую переписку, явный клик сохраняет черновики.
 interface Options {authenticated:boolean;busy:boolean;blocked:boolean;navigate(intent:ArrivalIntent,signal:AbortSignal):Promise<void>;fail(error:unknown):void}
-//: Открывает свежий непрочитанный при запуске и возврате, точный диалог по клику push.
+//: Открывает список при запуске, сохраняет переписку при возврате и принимает клик push.
 //: Ручной выбор отменяет поздний переход; новые сообщения в активном окне не переключают адресата.
 export function useConversationArrival(options:Options){
   const [opening,setOpening]=useState(true);const current=useRef(options);current.current=options;

@@ -24,7 +24,7 @@ type TelegramPort = Pick<TelegramClient, 'connected' | 'connect' | 'checkAuthori
 export class TelegramAdapter implements SourceAdapter {
   readonly source: Source = { id: TELEGRAM_SOURCE, kind: 'telegram', name: 'Telegram', connected: false };
   private client?: TelegramPort;
-  private dialogs = new Map<string, Pick<Dialog, 'id' | 'inputEntity'>>();
+  private dialogs = new Map<string, Pick<Dialog, 'id' | 'inputEntity'> & {photo?:Api.UserProfilePhoto|Api.ChatPhoto}>();
   private connecting?: Promise<void>;
   private subscribers=new Set<{listener:(event:SourceEvent)=>void;allows:(id:string)=>boolean;discover?:(conversation:Conversation)=>boolean}>();
   private listenedClient?:TelegramPort;
@@ -95,7 +95,8 @@ export class TelegramAdapter implements SourceAdapter {
       const e = d.entity;
       if (e instanceof Api.Chat && (e.deactivated || e.migratedTo)) continue;
       if (e instanceof Api.User && e.deleted) continue;
-      this.dialogs.set(conversationId, { id:d.id, inputEntity:d.inputEntity });
+      const photo='photo' in e&&(e.photo instanceof Api.UserProfilePhoto||e.photo instanceof Api.ChatPhoto)?e.photo:undefined;
+      this.dialogs.set(conversationId, { id:d.id, inputEntity:d.inputEntity,photo });
       const banned = (e instanceof Api.Channel || e instanceof Api.Chat) && (e.left || (!(e.creator || e.adminRights) && e.defaultBannedRights?.sendMessages));
       const userBanned = e instanceof Api.Channel && e.bannedRights?.sendMessages;
       const broadcast = e instanceof Api.Channel && e.broadcast && !(e.creator || e.adminRights?.postMessages);
@@ -106,6 +107,7 @@ export class TelegramAdapter implements SourceAdapter {
         kind: d.isUser ? 'direct' : d.isGroup ? 'group' : 'channel', recipient: { id: entityId(this.source.id, 'recipient', native), name: d.title || d.name || 'Без названия',...(e instanceof Api.User&&e.self?{isSelf:true}:{}) },
         unreadCount: d.unreadCount, updatedAt: new Date((d.date || 0) * 1000).toISOString(),
         preview: '',
+        ...(photo?{avatarVersion:photo.photoId.toString()}:{}),
         canSend: !banned && !userBanned && !forum && !paid && !broadcast,
         ...(e instanceof Api.User&&e.bot?{isBot:true}:{}),
       });
@@ -177,6 +179,13 @@ export class TelegramAdapter implements SourceAdapter {
     const oldest=messages.at(-1)?.id;
     return {conversationId,messages:messages.filter((m): m is Api.Message => m instanceof Api.Message).map(m => this.mapMessage(m, conversationId)).reverse(),cursors:messages.map(m=>entityId(this.source.id,'message',`${conversationId}/${m.id}`)),nextCursor:messages.length===count&&oldest&&(!offsetId||oldest<offsetId)?entityId(this.source.id,'message',`${conversationId}/${oldest}`):null};
   }
+  //: Читает маленькое фото только известного диалога через серверный peer.
+  //: Не передаёт native location браузеру; размер и доступ повторно проверяются ядром.
+  async openAvatar(conversationId:string,signal:AbortSignal):Promise<AsyncIterable<Uint8Array>>{
+    const dialog=await this.dialog(conversationId);signal.throwIfAborted();
+    if(!dialog.photo)throw new AppError(404,'Фото отсутствует.');
+    return this.client!.iterDownload(new Api.InputPeerPhotoFileLocation({peer:dialog.inputEntity,photoId:dialog.photo.photoId,big:false}),{signal,dcId:dialog.photo.dcId,limit:MEDIA_LIMITS.previewBytes+1,requestSize:64*1024});
+  }
   //: Получает точное сообщение и создаёт ограниченный поток его медиа.
   //: Peer, message и attachment сверяются; свежие file references остаются на сервере.
   async openAttachment(input:AttachmentRequest,signal:AbortSignal):Promise<AttachmentContent>{
@@ -210,9 +219,9 @@ export class TelegramAdapter implements SourceAdapter {
             const entity=m.sender instanceof Api.User?m.sender:await event.getChat();
             if(this.client!==client||this.source.id!==sourceId||!this.subscribers.has(sub)||!(entity instanceof Api.User)||entity.deleted||entity.bot||entity.self||entity.id.toString()!==m.peerId.userId.toString())continue;
             const peer=utils.getInputPeer(entity);const title=utils.getDisplayName(entity)||'Новый контакт';
-            const conversation:Conversation={id,sourceId,title,kind:'direct',recipient:{id:entityId(sourceId,'recipient',native),name:title},unreadCount:0,updatedAt:new Date(m.date*1000).toISOString(),preview:'',canSend:BigInt(entity.sendPaidMessagesStars?.toString()||'0')===0n};
+            const conversation:Conversation={id,sourceId,title,kind:'direct',recipient:{id:entityId(sourceId,'recipient',native),name:title},unreadCount:0,updatedAt:new Date(m.date*1000).toISOString(),preview:'',...(entity.photo instanceof Api.UserProfilePhoto?{avatarVersion:entity.photo.photoId.toString()}:{}),canSend:BigInt(entity.sendPaidMessagesStars?.toString()||'0')===0n};
             if(!sub.discover(conversation)||!sub.allows(id))continue;
-            this.dialogs.set(id,{id:entity.id,inputEntity:peer});
+            this.dialogs.set(id,{id:entity.id,inputEntity:peer,photo:entity.photo instanceof Api.UserProfilePhoto?entity.photo:undefined});
           }catch{continue;}
         }
         if(this.client===client&&this.source.id===sourceId&&sub.allows(id))sub.listener({type:'message',message:this.mapMessage(m,id),edited:!!m.editDate});

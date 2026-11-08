@@ -21,6 +21,7 @@
 | POST | `/api/admin/users/create` |
 | GET | `/api/chat/access` |
 | POST | `/api/chat/attachment` |
+| POST | `/api/chat/avatar` |
 | GET | `/api/chat/badge` |
 | POST | `/api/chat/inbox` |
 | POST | `/api/chat/login` |

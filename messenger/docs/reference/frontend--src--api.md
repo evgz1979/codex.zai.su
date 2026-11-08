@@ -79,6 +79,18 @@ async attachmentData(input: AttachmentRequest, signal: AbortSignal): Promise<{
 }>
 ```
 
+<a id="symbol-avatarData"></a>
+
+## avatarData
+
+Получает фото только выбранного диалога через same-origin chat API.
+
+Не принимает внешний URL; 404 оставляет инициалы вместо фотографии.
+
+```typescript
+async avatarData(conversationId: string, signal: AbortSignal): Promise<Blob>
+```
+
 <a id="symbol-setCsrf"></a>
 
 ## setCsrf

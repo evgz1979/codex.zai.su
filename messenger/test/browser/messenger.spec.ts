@@ -12,11 +12,14 @@ test('единая лента, выбор адресата, отправка, н
   await page.goto('/');
   await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');
   await page.getByRole('button',{name:'Войти в Messenger'}).click();
-  await expect(page.getByRole('heading',{name:'Общая лента'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Чаты',exact:true})).toBeVisible();
+  await expect(page.locator('.chat')).toBeHidden();
+  await expect(page.getByRole('img',{name:'Фото: Анна Смирнова'})).toBeVisible();
+  await page.getByRole('button',{name:'Общая лента',exact:true}).click();
   await expect(page.locator('.bubble').getByText('Это синтетическое сообщение из другого источника.')).toBeVisible();
   await expect(page.getByLabel('Сообщение',{exact:true})).toBeDisabled();
   const mobile = testInfo.project.name !== 'desktop-chromium';
-  if (mobile) await page.getByRole('button',{name:'Открыть диалоги'}).click();
+  await page.getByRole('button',{name:'Назад к чатам'}).click();
   await page.getByRole('button',{name:/Анна Смирнова/}).click();
   await expect(page.locator('.destination')).toContainText('Анна Смирнова');
   await expect(page.locator('.destination')).toContainText('Telegram');
@@ -24,10 +27,10 @@ test('единая лента, выбор адресата, отправка, н
   const draftText = `Черновик для Анны · ${testInfo.project.name}`;
   await page.getByLabel('Сообщение',{exact:true}).fill(draftText);
   // Выбор другого адресата не переносит чужой черновик.
-  if (mobile) await page.getByRole('button',{name:'Открыть диалоги'}).click();
+  await page.getByRole('button',{name:'Назад к чатам'}).click();
   await page.getByRole('button',{name:/Команда проекта/}).click();
   await expect(page.getByLabel('Сообщение',{exact:true})).toHaveValue('');
-  if (mobile) await page.getByRole('button',{name:'Открыть диалоги'}).click();
+  await page.getByRole('button',{name:'Назад к чатам'}).click();
   await page.getByRole('button',{name:/Анна Смирнова/}).click();
   await expect(page.getByLabel('Сообщение',{exact:true})).toHaveValue(draftText);
   const sendRequest = page.waitForRequest(req => req.url().endsWith('/api/chat/send'));
@@ -53,8 +56,9 @@ test('единая лента, выбор адресата, отправка, н
     await page.setViewportSize({width:page.viewportSize()!.width,height:420});
     await page.getByLabel('Сообщение',{exact:true}).focus();
     const box = await page.locator('.composer').boundingBox(); expect(box!.y + box!.height).toBeLessThanOrEqual(420);
-    await page.getByRole('button',{name:'Открыть диалоги'}).click();
+    await page.getByRole('button',{name:'Назад к чатам'}).click();
   }
+  if (!mobile) await page.getByRole('button',{name:'Назад к чатам'}).click();
   await page.getByRole('button',{name:'Выйти',exact:true}).click();
   await expect(page.getByLabel('Пароль',{exact:true})).toBeVisible();
   await expect(page.getByText(draftText,{exact:true})).not.toBeVisible();
@@ -64,8 +68,24 @@ test('единая лента, выбор адресата, отправка, н
 test('открытый чат скрывает исключённые диалоги без синхронизации истории',async({page},testInfo)=>{
   test.skip(testInfo.project.name !== 'desktop-chromium');
   await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();
+  await page.getByRole('button',{name:'Общая лента',exact:true}).click();
   await expect(page.locator('.bubble').getByText('Это синтетическое сообщение из другого источника.')).toBeVisible();
   await page.route('**/api/chat/access?since=*',route=>route.fulfill({json:{ids:[]}}));
   await expect(page.locator('.bubble')).toHaveCount(0,{timeout:7000});
   await expect(page.getByRole('heading',{name:'Нет загруженных сообщений'})).toBeVisible();
+});
+
+
+test('список чатов: поиск, фильтр, возврат браузером и отдельные черновики',async({page},testInfo)=>{
+  const opens:string[]=[];const reads:string[]=[];
+  page.on('request',request=>{if(request.url().endsWith('/api/chat/open'))opens.push(request.postDataJSON().conversationId);if(request.url().endsWith('/api/chat/read'))reads.push(request.url());});
+  await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();
+  await expect(page.getByRole('heading',{name:'Чаты',exact:true})).toBeVisible();await expect(page.locator('.conversation')).toHaveCount(4);await page.waitForTimeout(800);expect(opens).toEqual([]);expect(reads).toEqual([]);
+  await page.screenshot({path:`test-results/chat-list-${testInfo.project.name}.png`});
+  await page.getByRole('button',{name:'Непрочитанные',exact:true}).click();await expect(page.getByText('Нет непрочитанных чатов',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Все',exact:true}).click();
+  const search=page.getByRole('textbox',{name:'Поиск диалогов'});await search.fill('Анна');await expect(page.locator('.conversation')).toHaveCount(1);await page.getByRole('button',{name:/Анна Смирнова/}).click();await expect(page.locator('.sidebar')).toBeHidden();await page.getByLabel('Сообщение',{exact:true}).fill('Остался у Анны');
+  await page.goBack();await expect(search).toBeVisible();await expect(search).toHaveValue('Анна');await expect(page.locator('.conversation')).toContainText('Черновик: Остался у Анны');await search.fill('несуществующий чат');await expect(page.getByText('Чаты не найдены',{exact:true})).toBeVisible();await search.fill('');
+  await page.getByRole('button',{name:/Команда проекта/}).click();await expect(page.getByLabel('Сообщение',{exact:true})).toHaveValue('');await page.getByRole('button',{name:'Назад к чатам'}).click();await page.getByRole('button',{name:/Анна Смирнова/}).click();await expect(page.getByLabel('Сообщение',{exact:true})).toHaveValue('Остался у Анны');
+  await page.reload();await expect(page.getByRole('heading',{name:'Чаты',exact:true})).toBeVisible();await expect(page.locator('.chat')).toBeHidden();
+  await page.getByRole('button',{name:/Анна Смирнова/}).click();await page.getByRole('button',{name:'Назад к чатам'}).click();await expect(page.getByRole('heading',{name:'Чаты',exact:true})).toBeVisible();await page.goForward();await expect(page.getByRole('heading',{name:'Анна Смирнова',exact:true})).toBeVisible();
 });

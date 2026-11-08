@@ -3,7 +3,7 @@ import {test,expect} from '@playwright/test';
 test('уведомления: iPhone получает инструкцию установки на экран Домой',async({page,isMobile})=>{
   test.skip(!isMobile,'Инструкция относится к iPhone.');
   await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();
-  await page.getByRole('button',{name:'Открыть диалоги'}).click();await page.locator('.notification-settings summary').click();
+  await page.locator('.notification-settings summary').click();
   await expect(page.locator('.notification-settings')).toContainText('На экран Домой');
   await expect(page.locator('.notification-settings')).toContainText('iOS 16.4');
   await expect(page.locator('.notification-settings').getByRole('button',{name:'Включить',exact:true})).toHaveCount(0);
@@ -27,7 +27,7 @@ test('уведомления: явное включение, проверка и
     await route.fulfill({json:{ok:true}});
   });
   await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();
-  if(isMobile)await page.getByRole('button',{name:'Открыть диалоги'}).click();
+
   await page.locator('.notification-settings summary').click();
   expect(await page.evaluate(()=>(window as unknown as {permissionRequests:number}).permissionRequests||0)).toBe(0);
   await page.getByRole('button',{name:'Включить',exact:true}).click();await expect(page.locator('.notification-settings summary')).toHaveText('Уведомления: включены');

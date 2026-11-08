@@ -64,6 +64,30 @@ attachmentMessage(input: AttachmentRequest)
 attachmentMetadata(input: AttachmentRequest, original: Message, attachment: Message['attachments'][number])
 ```
 
+<a id="symbol-MessengerService.avatar"></a>
+
+## MessengerService.avatar
+
+Загружает ограниченное фото разрешённого диалога с приватным кешем в памяти.
+
+Проверяет выбор и версию после каждого чанка; кеш ограничен 64 фото по 512 КиБ.
+
+```typescript
+async avatar(id: string, signal: AbortSignal)
+```
+
+<a id="symbol-MessengerService.avatar.check"></a>
+
+## MessengerService.avatar.check
+
+Повторно сверяет выбранность и версию фото во время загрузки.
+
+Отменённый или исключённый запрос не возвращает даже готовый кеш.
+
+```typescript
+check()
+```
+
 <a id="symbol-MessengerService.cacheMessages"></a>
 
 ## MessengerService.cacheMessages

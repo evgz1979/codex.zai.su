@@ -8,7 +8,7 @@
 
 ## App
 
-Отображает вход, единую ленту и поле ввода с явным адресатом.
+Отображает вход, список чатов и отдельную переписку с явным адресатом.
 
 Держит снимок и черновики в памяти React, без хранилища браузера.
 
@@ -26,6 +26,30 @@ App()
 
 ```typescript
 acceptSession(info: SessionInfo)
+```
+
+<a id="symbol-App.back"></a>
+
+## App.back
+
+Восстанавливает список либо разрешённый чат кнопками браузера.
+
+История содержит только ID; переходы не переносят черновики между адресатами.
+
+```typescript
+back(event: PopStateEvent)
+```
+
+<a id="symbol-App.backToList"></a>
+
+## App.backToList
+
+Обрабатывает кнопку назад без выхода со страницы Messenger.
+
+У открытого уведомлением чата также есть собственная запись истории.
+
+```typescript
+backToList()
 ```
 
 <a id="symbol-App.cancelView"></a>
@@ -58,10 +82,34 @@ async checkAccess()
 
 Выбирает адресата и подгружает его последние сообщения.
 
-Сохраняет раздельные черновики, закрывает мобильную панель.
+Сохраняет раздельные черновики и открывает отдельный экран переписки.
 
 ```typescript
-async choose(c: Conversation)
+async choose(c: Conversation, push = true)
+```
+
+<a id="symbol-App.enterChat"></a>
+
+## App.enterChat
+
+Открывает экран переписки с отдельной записью истории браузера.
+
+Переключение адресата заменяет текущую запись, кнопка назад ведёт к списку.
+
+```typescript
+enterChat(id: string, push = true)
+```
+
+<a id="symbol-App.escape"></a>
+
+## App.escape
+
+Возвращает из переписки в список по Escape без закрытия вложения.
+
+Модальное окно обрабатывает собственный Escape самостоятельно.
+
+```typescript
+escape(event: KeyboardEvent)
 ```
 
 <a id="symbol-App.fail"></a>
@@ -74,18 +122,6 @@ async choose(c: Conversation)
 
 ```typescript
 fail(e: unknown)
-```
-
-<a id="symbol-App.listener"></a>
-
-## App.listener
-
-Закрывает мобильный список по Escape.
-
-Listener снимается cleanup-функцией эффекта.
-
-```typescript
-listener(e: KeyboardEvent)
 ```
 
 <a id="symbol-App.loadView"></a>
@@ -128,14 +164,27 @@ async logout()
 
 ## App.openArrival
 
-Выбирает точный разрешённый диалог уведомления либо самый свежий непрочитанный.
+Открывает список при обычном входе и точный разрешённый диалог по push.
 
-Общая лента не показывается до выбора; исключённый ID не передаётся в open API.
+Возврат из фона сохраняет текущую переписку; ID уведомления проверяется до open.
 
 ```typescript
 async openArrival(intent: {
     conversationId?: string;
+    explicit: boolean;
 }, signal: AbortSignal)
+```
+
+<a id="symbol-App.openInbox"></a>
+
+## App.openInbox
+
+Открывает общую ленту отдельным действием из списка чатов.
+
+Общее поле ввода остаётся заблокированным до выбора точного адресата.
+
+```typescript
+async openInbox(push = true)
 ```
 
 <a id="symbol-App.read"></a>
@@ -162,6 +211,18 @@ async read()
 async send(e: FormEvent)
 ```
 
+<a id="symbol-App.showList"></a>
+
+## App.showList
+
+Возвращает к списку, отменяя поздние переходы и чтение скрытой ленты.
+
+Черновики, поисковая строка и прокрутка списка сохраняются в памяти.
+
+```typescript
+showList()
+```
+
 <a id="symbol-App.updateFromCache"></a>
 
 ## App.updateFromCache
@@ -186,6 +247,18 @@ async updateFromCache(revision: number)
 Brand()
 ```
 
+<a id="symbol-conversationTime"></a>
+
+## conversationTime
+
+Форматирует дату последнего сообщения в списке чатов.
+
+Сегодня показывает время, за последнюю неделю — день, дальше — календарную дату.
+
+```typescript
+conversationTime(date: string)
+```
+
 <a id="symbol-day"></a>
 
 ## day
@@ -208,7 +281,7 @@ day(date: string)
 
 ```typescript
 Icon({ name }: {
-    name: 'send' | 'menu' | 'close' | 'search' | 'logout';
+    name: 'send' | 'back' | 'inbox' | 'search' | 'logout';
 })
 ```
 

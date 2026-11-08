@@ -19,8 +19,8 @@ test('автокеш: прокрутка без кнопок, обновлени
   try{await route.fulfill({json:{snapshot,page:{conversationId:c.id,messages,nextCursor:start>0?messages[0].id:null,oldestCursor:messages[0]?.id,historyComplete:true,cached:true}}});}catch{if(!hold)throw new Error('Unexpected route failure');}finally{if(hold)settled();}
  });
  await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();
- const mobile=testInfo.project.name!=='desktop-chromium';if(mobile)await page.getByRole('button',{name:'Открыть диалоги'}).click();
- await page.getByRole('button',{name:/Анна/}).click();if(mobile)await page.getByRole('button',{name:'Открыть диалоги'}).click();await page.getByRole('button',{name:/Команда/}).click();await expect(page.locator('.bubble')).toHaveCount(10);await expect(page.getByRole('heading',{name:'Команда',exact:true})).toBeVisible();
+
+ await page.getByRole('button',{name:/Анна/}).click();await page.getByRole('button',{name:'Назад к чатам'}).click();await page.getByRole('button',{name:/Команда/}).click();await expect(page.locator('.bubble')).toHaveCount(10);await expect(page.getByRole('heading',{name:'Команда',exact:true})).toBeVisible();
  release();await firstSettled;await expect(page.locator('.bubble').getByText('Анна 25',{exact:true})).toHaveCount(0);
  const anchorTop=await page.locator('.feed').evaluate(element=>{element.scrollTop=0;return element.querySelector('.bubble')!.getBoundingClientRect().top;});
  await expect(page.locator('.bubble')).toHaveCount(20);
@@ -33,8 +33,8 @@ test('автокеш: прокрутка без кнопок, обновлени
  await expect(page.locator('.bubble')).toHaveCount(26,{timeout:7000});await expect(page.locator('.bubble').getByText('Новое автоматически',{exact:true})).toHaveCount(1);
  deletedIds=[all[0].id];all.shift();revision++;
  await expect(page.locator('.bubble').getByText('Команда 1',{exact:true})).toHaveCount(0,{timeout:7000});await expect(page.locator('.bubble')).toHaveCount(25);
- if(mobile)await page.getByRole('button',{name:'Открыть диалоги'}).click();await page.getByRole('button',{name:/Анна/}).click();await expect(page.locator('.bubble')).toHaveCount(10);await expect(page.locator('.bubble').getByText('Анна 25',{exact:true})).toBeVisible();await expect(page.locator('.bubble').getByText('Команда 25',{exact:true})).toHaveCount(0);
+ await page.getByRole('button',{name:'Назад к чатам'}).click();await page.getByRole('button',{name:/Анна/}).click();await expect(page.locator('.bubble')).toHaveCount(10);await expect(page.locator('.bubble').getByText('Анна 25',{exact:true})).toBeVisible();await expect(page.locator('.bubble').getByText('Команда 25',{exact:true})).toHaveCount(0);
  expect(opens.filter(id=>id===conversations[0].id)).toHaveLength(2);expect(opens.at(-1)).toBe(conversations[0].id);
- if(mobile)await page.getByRole('button',{name:'Открыть диалоги'}).click();await page.getByRole('button',{name:/Общая лента/}).click();await expect(page.locator('.bubble')).toHaveCount(10);await page.locator('.feed').evaluate(element=>{element.scrollTop=0;});await expect(page.locator('.bubble')).toHaveCount(20);
+ await page.getByRole('button',{name:'Назад к чатам'}).click();await page.getByRole('button',{name:/Общая лента/}).click();await expect(page.locator('.bubble')).toHaveCount(10);await page.locator('.feed').evaluate(element=>{element.scrollTop=0;});await expect(page.locator('.bubble')).toHaveCount(20);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);await page.screenshot({path:`test-results/paging-${testInfo.project.name}.png`});
 });

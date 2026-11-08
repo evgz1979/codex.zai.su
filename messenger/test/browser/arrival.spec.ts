@@ -26,18 +26,16 @@ async function context(page:Page,unread=true){
   return {conversations,messages,snapshot,opened,control,login,resume};
 }
 
-test('открытие: свежайший непрочитанный выбран раньше общей ленты, количество не определяет адресата',async({page})=>{
-  const {login,opened,conversations}=await context(page);await login();await expect(page.getByRole('heading',{name:'Последнее уведомление',exact:true})).toBeVisible();
-  expect(opened[0]).toBe(conversations[1].id);await expect(page.locator('.destination')).toContainText('Последнее уведомление');await expect(page.locator('.bubble')).toHaveCount(1);
-});
-
-test('открытие: без непрочитанных остаётся общая лента',async({page})=>{
-  const {login,opened}=await context(page,false);await login();await expect(page.getByRole('heading',{name:'Общая лента',exact:true})).toBeVisible();await expect(page.locator('.bubble')).toHaveCount(3);expect(opened).toEqual([]);
+for(const unread of [true,false])test(`открытие: список чатов ${unread?'с непрочитанными':'без непрочитанных'} не открывает переписку`,async({page})=>{
+  const {login,opened,conversations,resume}=await context(page,unread);await login();await expect(page.getByRole('heading',{name:'Чаты',exact:true})).toBeVisible();await expect(page.locator('.conversation')).toHaveCount(3);await expect(page.locator('.chat')).toBeHidden();expect(opened).toEqual([]);
+  await resume();await expect(page.getByRole('heading',{name:'Чаты',exact:true})).toBeVisible();expect(opened).toEqual([]);
+  if(unread){await page.getByRole('button',{name:/Непрочитанные/}).click();await expect(page.locator('.conversation')).toHaveCount(2);await expect(page.locator('.conversation-name')).toHaveText([conversations[1].title,conversations[0].title]);}
 });
 
 for(const valid of [true,false])test(`уведомление: ${valid?'точный диалог':'исключённый ID'} проверяется после входа`,async({page})=>{
   const {login,opened,conversations}=await context(page);const id=valid?conversations[0].id:'excluded:conversation:private';
   await login(`#conversation=${encodeURIComponent(id)}`);await expect(page.getByRole('heading',{name:valid?'Раннее уведомление':'Последнее уведомление',exact:true})).toBeVisible();expect(opened[0]).toBe(valid?conversations[0].id:conversations[1].id);expect(await page.evaluate(()=>location.hash)).toBe('');
+  await page.getByRole('button',{name:'Назад к чатам'}).click();await expect(page.getByRole('heading',{name:'Чаты',exact:true})).toBeVisible();
 });
 
 test('уведомление: открытое окно входа сохраняет выбранный в push диалог',async({page})=>{
@@ -46,23 +44,23 @@ test('уведомление: открытое окно входа сохран�
   await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();await expect(page.getByRole('heading',{name:'Раннее уведомление',exact:true})).toBeVisible();expect(opened[0]).toBe(conversations[0].id);
 });
 
-test('возврат: сохраняет черновик, открывает новое после возврата и принимает явный клик уведомления',async({page,isMobile})=>{
-  const {login,resume,conversations,control}=await context(page,false);await login();await expect(page.locator('.bubble')).toHaveCount(3);
-  if(isMobile)await page.getByRole('button',{name:'Открыть диалоги'}).click();await page.getByRole('button',{name:/Раннее уведомление/}).click();await page.getByLabel('Сообщение',{exact:true}).fill('Мой черновик');
+test('возврат: сохраняет выбранный чат с черновиком и без него, явный push меняет адресата',async({page})=>{
+  const {login,resume,conversations,control}=await context(page,false);await login();await expect(page.getByRole('heading',{name:'Чаты',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:/Раннее уведомление/}).click();await page.getByLabel('Сообщение',{exact:true}).fill('Мой черновик');
   conversations[1].unreadCount=1;await resume();await page.waitForTimeout(700);await expect(page.getByRole('heading',{name:'Раннее уведомление',exact:true})).toBeVisible();await expect(page.getByLabel('Сообщение',{exact:true})).toHaveValue('Мой черновик');
-  await page.getByLabel('Сообщение',{exact:true}).fill('');await resume();await expect(page.getByRole('heading',{name:'Последнее уведомление',exact:true})).toBeVisible();
-  await page.getByLabel('Сообщение',{exact:true}).fill('Черновик второго диалога');
-  await page.evaluate(id=>navigator.serviceWorker.dispatchEvent(new MessageEvent('message',{data:{type:'messenger:open-conversation',conversationId:id}})),conversations[0].id);await expect(page.getByRole('heading',{name:'Раннее уведомление',exact:true})).toBeVisible();
-  if(isMobile)await page.getByRole('button',{name:'Открыть диалоги'}).click();await page.getByRole('button',{name:/Последнее уведомление/}).click();await expect(page.getByLabel('Сообщение',{exact:true})).toHaveValue('Черновик второго диалога');
+  await page.getByLabel('Сообщение',{exact:true}).fill('');await resume();await page.waitForTimeout(700);await expect(page.getByRole('heading',{name:'Раннее уведомление',exact:true})).toBeVisible();
+  await page.getByLabel('Сообщение',{exact:true}).fill('Черновик первого диалога');
+  await page.evaluate(id=>navigator.serviceWorker.dispatchEvent(new MessageEvent('message',{data:{type:'messenger:open-conversation',conversationId:id}})),conversations[1].id);await expect(page.getByRole('heading',{name:'Последнее уведомление',exact:true})).toBeVisible();
   conversations[0].updatedAt='2026-11-08T14:00:00.000Z';conversations[0].unreadCount=1;conversations[0].preview='Новое в активном приложении';control.revision++;
-  await expect(page.locator('.conversation').filter({hasText:'Раннее уведомление'})).toContainText('Новое в активном приложении',{timeout:7000});await expect(page.getByRole('heading',{name:'Последнее уведомление',exact:true})).toBeVisible();
+  await expect(page.locator('.conversation').filter({hasText:'Раннее уведомление'})).toContainText('Черновик первого диалога',{timeout:7000});await expect(page.getByRole('heading',{name:'Последнее уведомление',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Назад к чатам'}).click();await page.getByRole('button',{name:/Раннее уведомление/}).click();await expect(page.getByLabel('Сообщение',{exact:true})).toHaveValue('Черновик первого диалога');
 });
 
-test('возврат: ручной выбор отменяет запоздалое автоматическое открытие',async({page,isMobile})=>{
-  const {login,resume,conversations,control}=await context(page,false);await login();await expect(page.locator('.bubble')).toHaveCount(3);
+test('возврат: ручной выбор отменяет запоздалое обновление списка',async({page})=>{
+  const {login,resume,conversations,control}=await context(page,false);await login();await expect(page.locator('.conversation')).toHaveCount(3);
   let release:()=>void=()=>{};const gate=new Promise<void>(resolve=>{release=resolve;});let started:()=>void=()=>{};const ready=new Promise<void>(resolve=>{started=resolve;});
   conversations[1].unreadCount=1;control.beforeInbox=async()=>{started();await gate;};await resume();await ready;
-  try{if(isMobile)await page.getByRole('button',{name:'Открыть диалоги'}).click();await page.getByRole('button',{name:/Раннее уведомление/}).click();await expect(page.getByRole('heading',{name:'Раннее уведомление',exact:true})).toBeVisible();}
+  try{await page.getByRole('button',{name:/Раннее уведомление/}).click();await expect(page.getByRole('heading',{name:'Раннее уведомление',exact:true})).toBeVisible();}
   finally{control.beforeInbox=undefined;release();}
   await page.waitForTimeout(700);await expect(page.getByRole('heading',{name:'Раннее уведомление',exact:true})).toBeVisible();await expect(page.getByLabel('Сообщение',{exact:true})).toBeEnabled();
 });

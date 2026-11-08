@@ -149,6 +149,7 @@ export interface Conversation {
     preview: string;
     canSend: boolean;
     isBot?: boolean;
+    avatarVersion?: string;
 }
 ```
 

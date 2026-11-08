@@ -11,6 +11,8 @@ export class TestAdapter implements SourceAdapter {
   calls: number[] = [];
   fail = false;
   attachmentCalls=0;
+  avatarCalls=0;
+  avatars=new Map<string,Buffer>();
   previews=new Map<string,{attachment:Message['attachments'][number];bytes:Buffer}>();
   media=new Map<string,{attachment:Message['attachments'][number];bytes:Buffer}>();
   listener?:(event:SourceEvent)=>void;
@@ -29,6 +31,9 @@ export class TestAdapter implements SourceAdapter {
       text: c.preview, outgoing: false, status: 'received', attachments: [],
     }));
   }
+  //: Возвращает синтетическое фото для проверки выбранности и границ HTTP.
+  //: Внешняя сеть не используется; счётчик отличает повторный запрос от кеша.
+  async openAvatar(id:string,signal:AbortSignal){this.avatarCalls++;signal.throwIfAborted();const bytes=this.avatars.get(id);if(!bytes)throw new AppError(404,'Фото отсутствует.');return (async function*(){yield bytes;})();}
   async connect() { if (this.fail) throw new Error('PRIVATE_PROVIDER_ERROR'); this.source.connected = true; }
   async disconnect() { this.source.connected = false; }
   async listConversations() { return structuredClone(this.conversations); }

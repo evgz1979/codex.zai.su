@@ -17,8 +17,8 @@ test('просмотр: видимая активная лента снимае�
   await page.route('**/api/chat/open',route=>{const id=route.request().postDataJSON().conversationId;return route.fulfill({json:{snapshot,page:{conversationId:id,messages:messages.filter(m=>m.conversationId===id),nextCursor:null,cached:true,historyComplete:true}}});});
   await page.route('**/api/chat/access?since=*',route=>route.fulfill({json:{ids:conversations.map(c=>c.id),revision}}));
   await page.route('**/api/chat/read',route=>{const input=route.request().postDataJSON();reads.push(input);const conversation=conversations.find(c=>c.id===input.conversationId)!;conversation.unreadCount=0;return route.fulfill({json:snapshot});});
-  await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();await expect(page.getByRole('heading',{name:'Свежий непрочитанный',exact:true})).toBeVisible();
-  if(isMobile)await page.getByRole('button',{name:'Открыть диалоги'}).click();await page.locator('.all-row').click();await expect(page.locator('.bubble')).toHaveCount(10);
+  await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();await expect(page.getByRole('heading',{name:'Чаты',exact:true})).toBeVisible();
+  await page.waitForTimeout(800);expect(reads).toHaveLength(0);await page.getByRole('button',{name:'Общая лента',exact:true}).click();await expect(page.locator('.bubble')).toHaveCount(10);
   await expect(page.locator('.conversation-name')).toHaveText(['Свежий непрочитанный','Старый непрочитанный','Свежий прочитанный']);
   await page.waitForTimeout(800);expect(reads).toHaveLength(0);
   await page.evaluate(()=>{(window as unknown as {readsActive:boolean}).readsActive=true;window.dispatchEvent(new Event('focus'));});

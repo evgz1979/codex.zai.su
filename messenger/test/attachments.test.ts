@@ -111,3 +111,17 @@ test('миниатюры: отсутствие запоминается, а пр
 test('открытие: сигнатура PDF восстанавливает просмотр старого кеша, HTML остаётся файлом',()=>{
  const file={id:'test:file',kind:'file' as const,name:'Документ.pdf',mimeType:'application/octet-stream'};assert.equal(safeAttachmentType(file,Buffer.from('%PDF-1.4\n')).mimeType,'application/pdf');assert.equal(safeAttachmentType({...file,mimeType:'application/pdf'},Buffer.from('<html>')).mimeType,'application/octet-stream');assert.equal(safeAttachmentType({...file,name:'text.txt'},Buffer.from('<script>alert(1)')).mimeType,'text/plain');
 });
+
+test('аватары: версия обновляет кеш, неизвестные и исключённые диалоги не читают фото',async t=>{
+ const {adapter,core,input}=await context(t);const c=adapter.conversations[0];c.avatarVersion='photo-1';adapter.avatars.set(c.id,png);await core.refresh();const signal=new AbortController().signal;
+ assert.deepEqual((await core.avatar(c.id,signal)).bytes,png);assert.equal((await core.avatar(c.id,signal)).mimeType,'image/png');assert.equal(adapter.avatarCalls,1);
+ c.avatarVersion='photo-2';await core.refresh();await core.avatar(c.id,signal);assert.equal(adapter.avatarCalls,2);
+ await assert.rejects(core.avatar('unknown',signal),{status:403});core.selection.clear();await assert.rejects(core.avatar(input.conversationId,signal),{status:403});assert.equal(adapter.avatarCalls,2);
+});
+
+test('аватары: размер, неподдерживаемые байты и исключение во время загрузки не возвращают фото',async t=>{
+ const {adapter,core}=await context(t);const c=adapter.conversations[0];c.avatarVersion='photo-1';await core.refresh();const signal=new AbortController().signal;
+ adapter.avatars.set(c.id,Buffer.alloc(512*1024+1));await assert.rejects(core.avatar(c.id,signal),{status:413});
+ adapter.avatars.set(c.id,Buffer.from('<svg onload="unsafe"/>'));await assert.rejects(core.avatar(c.id,signal),{status:415});
+ adapter.openAvatar=async()=> (async function*(){yield png.subarray(0,10);core.selection.clear();yield png.subarray(10);})();await assert.rejects(core.avatar(c.id,signal),{status:403});
+});

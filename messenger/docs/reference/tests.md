@@ -9,6 +9,8 @@
 - [test/admin.test.ts](../../test/admin.test.ts): админка: метаданные не синхронизируют историю; выбор сохраняется в SQLite
 - [test/attachments.test.ts](../../test/attachments.test.ts): HTTP вложений: chat-cookie и CSRF, закрытые файлы, безопасные заголовки и ошибки
 - [test/attachments.test.ts](../../test/attachments.test.ts): HTTP вложений: выход во время скачивания отзывает запрос и удаляет частичный файл
+- [test/attachments.test.ts](../../test/attachments.test.ts): аватары: версия обновляет кеш, неизвестные и исключённые диалоги не читают фото
+- [test/attachments.test.ts](../../test/attachments.test.ts): аватары: размер, неподдерживаемые байты и исключение во время загрузки не возвращают фото
 - [test/attachments.test.ts](../../test/attachments.test.ts): вложения: HTML/SVG не становятся встроенными картинками или документами
 - [test/attachments.test.ts](../../test/attachments.test.ts): вложения: LRU ограничивает диск, очистка не удаляет настройки и текстовую историю
 - [test/attachments.test.ts](../../test/attachments.test.ts): вложения: исключение во время загрузки удаляет частичный файл и закрывает итератор
@@ -33,16 +35,15 @@
 - [test/browser/admin.spec.ts](../../test/browser/admin.spec.ts): админка: отдельный вход, Telegram code/2FA и выбор галочками
 - [test/browser/admin.spec.ts](../../test/browser/admin.spec.ts): админка: папки отдельными закладками, общий выбор, поиск и клавиатура
 - [test/browser/admin.spec.ts](../../test/browser/admin.spec.ts): админка: причина отказа получения кода видна после очистки секретных полей
-- [test/browser/arrival.spec.ts](../../test/browser/arrival.spec.ts): возврат: ручной выбор отменяет запоздалое автоматическое открытие
-- [test/browser/arrival.spec.ts](../../test/browser/arrival.spec.ts): возврат: сохраняет черновик, открывает новое после возврата и принимает явный клик уведомления
-- [test/browser/arrival.spec.ts](../../test/browser/arrival.spec.ts): открытие: без непрочитанных остаётся общая лента
-- [test/browser/arrival.spec.ts](../../test/browser/arrival.spec.ts): открытие: свежайший непрочитанный выбран раньше общей ленты, количество не определяет адресата
+- [test/browser/arrival.spec.ts](../../test/browser/arrival.spec.ts): возврат: ручной выбор отменяет запоздалое обновление списка
+- [test/browser/arrival.spec.ts](../../test/browser/arrival.spec.ts): возврат: сохраняет выбранный чат с черновиком и без него, явный push меняет адресата
 - [test/browser/arrival.spec.ts](../../test/browser/arrival.spec.ts): уведомление: открытое окно входа сохраняет выбранный в push диалог
 - [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: исключение диалога закрывает уже открытое изображение
 - [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: миниатюры в ленте, оригинал по нажатию, открытие PDF, скачивание и мобильные границы
 - [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: системное меню вызывается только явным нажатием, без скачивания
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): единая лента, выбор адресата, отправка, непрочитанные, выход и мобильные границы
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): открытый чат скрывает исключённые диалоги без синхронизации истории
+- [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): список чатов: поиск, фильтр, возврат браузером и отдельные черновики
 - [test/browser/notifications.spec.ts](../../test/browser/notifications.spec.ts): уведомления: iPhone получает инструкцию установки на экран Домой
 - [test/browser/notifications.spec.ts](../../test/browser/notifications.spec.ts): уведомления: явное включение, проверка и выключение без повторного запроса разрешения
 - [test/browser/paging.spec.ts](../../test/browser/paging.spec.ts): автокеш: прокрутка без кнопок, обновления и удаления, быстрый переход
@@ -112,5 +113,6 @@
 - [test/telegram-media.test.ts](../../test/telegram-media.test.ts): Telegram-вложения: один message ID нужного peer, поток и AbortSignal; чужой peer отклоняется
 - [test/telegram-media.test.ts](../../test/telegram-media.test.ts): Telegram-вложения: фото, видео, голосовое и файлы без native secrets в DTO
 - [test/telegram-media.test.ts](../../test/telegram-media.test.ts): Telegram-миниатюры: готовый размер, локальные байты, TTL и предел без оригинала
+- [test/telegram.test.ts](../../test/telegram.test.ts): Telegram-аватары: маленькое фото известного peer, его DC и отменяемый ограниченный поток
 - [test/telegram.test.ts](../../test/telegram.test.ts): Telegram-события: выбор до преобразования, правки, области ID удалений и снятие подписки
 - [test/telegram.test.ts](../../test/telegram.test.ts): Telegram: DTO, фильтр broadcast, уникальность message ID и буквальная отправка

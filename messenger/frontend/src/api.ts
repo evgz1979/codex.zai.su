@@ -40,3 +40,11 @@ export async function attachmentData(input:AttachmentRequest,signal:AbortSignal)
   let name='Файл';try{name=decodeURIComponent(response.headers.get('x-attachment-name')||'Файл');}catch{/* Неполный заголовок не становится URL или HTML. */}
   return {blob,attachment:{id:input.attachmentId,kind,name,mimeType:blob.type,size:blob.size,downloadable:true}};
 }
+
+//: Получает фото только выбранного диалога через same-origin chat API.
+//: Не принимает внешний URL; 404 оставляет инициалы вместо фотографии.
+export async function avatarData(conversationId:string,signal:AbortSignal):Promise<Blob>{
+  const response=await fetch(`${appApiBase}/chat/avatar`,{method:'POST',credentials:'same-origin',cache:'no-store',signal,headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({conversationId})});
+  if(!response.ok){const result=await response.json().catch(()=>({}));throw new ApiError(response.status,result.error||'Фото недоступно.');}
+  const blob=await response.blob();if(!['image/jpeg','image/png','image/webp'].includes(blob.type)||blob.size>MEDIA_LIMITS.previewBytes)throw new Error('Фото недоступно.');return blob;
+}

@@ -24,6 +24,7 @@ b.conversations = b.conversations.slice(0,1); b.conversations[0].title = 'Мар
 b.messages = b.messages.slice(0,1); b.messages[0].text = 'Это синтетическое сообщение из другого источника.';
 b.messages[0].date = '2026-11-07T10:01:30.000Z';
 const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64');
+a.conversations[0].avatarVersion='synthetic-photo-1';a.avatars.set(a.conversations[0].id,png);
 const wave=Buffer.alloc(8044);wave.write('RIFF',0);wave.writeUInt32LE(8036,4);wave.write('WAVEfmt ',8);wave.writeUInt32LE(16,16);wave.writeUInt16LE(1,20);wave.writeUInt16LE(1,22);wave.writeUInt32LE(8000,24);wave.writeUInt32LE(8000,28);wave.writeUInt16LE(1,32);wave.writeUInt16LE(8,34);wave.write('data',36);wave.writeUInt32LE(8000,40);wave.fill(128,44);
 for(const [name,kind,mimeType,bytes] of [['Тестовое фото.png','image','image/png',png],['Документ.txt','file','application/octet-stream',Buffer.from('Синтетический файл')],['Аудио.wav','audio','audio/wav',wave],['Видео.mp4','video','video/mp4',Buffer.from('Synthetic unsupported video')]] as const){const attachment={id:entityId(a.source.id,'attachment',name),name,kind,mimeType,size:bytes.length,downloadable:true};a.messages[0].attachments.push(attachment);a.media.set(attachment.id,{attachment,bytes});}
 for(const value of a.media.values())if(value.attachment.kind==='video')a.previews.set(value.attachment.id,{attachment:{...value.attachment,kind:'image',mimeType:'image/png',size:png.length},bytes:png});
