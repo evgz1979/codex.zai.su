@@ -56,7 +56,10 @@ useAppUpdates()
 Cookie, manifest и push-подписки не удаляются; отмена предупреждения сохраняет черновики.
 
 ```typescript
-async apply(hasDrafts: boolean)
+async apply(state: () => {
+    busy: boolean;
+    hasDrafts: boolean;
+})
 ```
 
 <a id="symbol-useAppUpdates.check"></a>

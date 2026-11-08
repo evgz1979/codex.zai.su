@@ -35,11 +35,12 @@ export function useAppUpdates(){
   },[]);
   //: Перезагружает тот же личный адрес с уникальным параметром после сетевой проверки.
   //: Cookie, manifest и push-подписки не удаляются; отмена предупреждения сохраняет черновики.
-  async function apply(hasDrafts:boolean){
-    if(applying)return;
-    if(hasDrafts&&!window.confirm('При обновлении несохранённые черновики будут удалены. Обновить приложение?'))return;
+  async function apply(state:()=>{busy:boolean;hasDrafts:boolean}){
+    if(applying||state().busy)return;
     setApplying(true);setError('');const release=await check();if(!mounted.current)return;
     if(!release){setApplying(false);setError('Не удалось получить обновление. Проверьте подключение и повторите.');return;}
+    if(state().busy){setApplying(false);setError('Дождитесь завершения текущей операции и повторите обновление.');return;}
+    if(state().hasDrafts&&!window.confirm('При обновлении несохранённые черновики будут удалены. Обновить приложение?')){setApplying(false);return;}
     const url=new URL(location.href);url.searchParams.set('_app_update',`${release.buildId}-${Date.now()}`);location.replace(url.href);
   }
   return {version:current.version,available:!!latest&&latest.buildId!==current.buildId,latest:latest?.version,applying,error,apply};
@@ -47,5 +48,6 @@ export function useAppUpdates(){
 //: Показывает текущую версию и рабочую кнопку обновления внутри приложения.
 //: Во время отправки или просмотра вложения применение обновления недоступно.
 export default function AppUpdates({updates,busy,hasDrafts}:{updates:ReturnType<typeof useAppUpdates>;busy:boolean;hasDrafts:boolean}){
-  return <div className={`app-updates ${updates.available?'update-available':''}`}><div><span role={updates.available?'status':undefined}>{updates.available?`Доступно обновление ${updates.latest}`:`Версия ${updates.version}`}</span><button type="button" disabled={busy||updates.applying} onClick={()=>void updates.apply(hasDrafts)}>{updates.applying?'Обновление…':'Обновить приложение'}</button></div>{updates.error&&<p role="alert">{updates.error}</p>}</div>;
+  const state=useRef({busy,hasDrafts});state.current={busy,hasDrafts};
+  return <div className={`app-updates ${updates.available?'update-available':''}`}><div><span role={updates.available?'status':undefined}>{updates.available?`Доступно обновление ${updates.latest}`:`Версия ${updates.version}`}</span><button type="button" disabled={busy||updates.applying} onClick={()=>void updates.apply(()=>state.current)}>{updates.applying?'Обновление…':'Обновить приложение'}</button></div>{updates.error&&<p role="alert">{updates.error}</p>}</div>;
 }
