@@ -277,7 +277,7 @@ export function App() {
   }
 
   if (!session || !session.authenticated) return <main className="entry">
-    <div className="entry-brand"><Brand /></div>
+    <div className="entry-brand"><Brand /><AppUpdates updates={updates} busy={busy} hasDrafts={false}/></div>
     <section className="login-card">
       <h1>Вход</h1>
       {session?.account&&<p className="account-name">{session.account.displayName} · @{session.account.username}</p>}
@@ -288,7 +288,6 @@ export function App() {
         {error && <p className="error" role="alert">{error}</p>}
       </form>}
     </section>
-    <AppUpdates updates={updates} busy={busy} hasDrafts={false}/>
   </main>;
 
   const conversations=snapshot?.conversations.filter(c=>(!onlyUnread||c.unreadCount>0)&&c.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())).sort(compareConversations)||[];
@@ -307,11 +306,9 @@ export function App() {
         {!conversations.length&&<p className="list-empty">{!snapshot?'Загрузка чатов…':query.trim()?'Чаты не найдены':onlyUnread?'Нет непрочитанных чатов':'Здесь появятся ваши диалоги после подключения аккаунта и выбора в админке.'}</p>}
       </nav>
       <Notifications />
-      <AppUpdates updates={updates} busy={pending||!!attachmentTarget} hasDrafts={Object.values(drafts).some(Boolean)}/>
-      <div className="sidebar-footer"><span>{session.account?.displayName||'Messenger'} · {unread} непрочитанных</span><button className="icon-button" aria-label="Выйти" onClick={logout} disabled={busy}><Icon name="logout" /></button></div>
+      <div className="sidebar-footer"><span>{session.account?.displayName||'Messenger'} · {unread} непрочитанных</span><div className="footer-actions"><AppUpdates updates={updates} busy={pending||!!attachmentTarget} hasDrafts={Object.values(drafts).some(Boolean)}/><button className="icon-button" aria-label="Выйти" onClick={logout} disabled={busy}><Icon name="logout" /></button></div></div>
     </aside>
     <section className="chat" aria-label="Единая лента сообщений" hidden={!chatOpen}>
-      {updates.available&&<AppUpdates updates={updates} busy={pending||!!attachmentTarget} hasDrafts={Object.values(drafts).some(Boolean)}/>}
       <header className="chat-header"><button className="back-button" aria-label="Назад к чатам" disabled={busy} onClick={backToList}><Icon name="back"/><span>Чаты</span></button><div className="chat-heading"><div className="header-title"><h1>{target?.title||'Общая лента'}</h1></div><p>{target?snapshot?.sources.find(s=>s.id===target.sourceId)?.name:`${unread} непрочитанных`}</p></div>{target&&<Avatar key={target.id} conversation={target} onUnauthorized={fail}/>}</header>
       <div className="feed-info"><span className="status-dot" />{syncStatus?.pausedUntil?'Синхронизация временно приостановлена':syncStatus?.pendingConversations?'История синхронизируется в фоне':'Автоматическая синхронизация'}<span className="feed-limit">Сообщения из локального кеша</span></div>
       {error && <div className="error-banner" role="alert">{error}</div>}

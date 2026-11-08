@@ -45,9 +45,10 @@ export function useAppUpdates(){
   }
   return {version:current.version,available:!!latest&&latest.buildId!==current.buildId,latest:latest?.version,applying,error,apply};
 }
-//: Показывает текущую версию и рабочую кнопку обновления внутри приложения.
-//: Во время отправки или просмотра вложения применение обновления недоступно.
+//: Показывает компактную кнопку обновления в существующей строке действий.
+//: Версия доступна в подсказке; ошибка показывается поверх интерфейса без новой строки.
 export default function AppUpdates({updates,busy,hasDrafts}:{updates:ReturnType<typeof useAppUpdates>;busy:boolean;hasDrafts:boolean}){
   const state=useRef({busy,hasDrafts});state.current={busy,hasDrafts};
-  return <div className={`app-updates ${updates.available?'update-available':''}`}><div><span role={updates.available?'status':undefined}>{updates.available?`Доступно обновление ${updates.latest}`:`Версия ${updates.version}`}</span><button type="button" disabled={busy||updates.applying} onClick={()=>void updates.apply(()=>state.current)}>{updates.applying?'Обновление…':'Обновить приложение'}</button></div>{updates.error&&<p role="alert">{updates.error}</p>}</div>;
+  const title=updates.error||(updates.available?`Доступно обновление ${updates.latest}`:`Обновить приложение · версия ${updates.version}`);
+  return <span className={`app-updates-inline ${updates.available?'update-available':''}`}><button className="icon-button" type="button" aria-label="Обновить приложение" title={title} disabled={busy||updates.applying} onClick={()=>void updates.apply(()=>state.current)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5m-5 0a8 8 0 0 1 13.6-5.7L20 9m0 3a8 8 0 0 1-13.6 5.7L4 15"/></svg>{updates.available&&<i className="update-dot"/>}</button>{updates.error&&<span className="update-error" role="alert">{updates.error}</span>}</span>;
 }
