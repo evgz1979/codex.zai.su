@@ -36,10 +36,11 @@ test('offline: отзыв сессии очищает локальные дан�
   await context.setOffline(true);expect((await request.post(`${baseURL}/api/chat/logout`,{headers:{Origin:baseURL!,Cookie:cookie,'X-CSRF-Token':session.csrfToken},data:{}})).status()).toBe(200);
   await context.setOffline(false);await expect(page.getByLabel('Пароль',{exact:true})).toBeVisible();expect(await stored(page)).not.toContain('Синтетическая расшифровка');await context.setOffline(true);await page.reload();await expect(page.getByRole('article')).toHaveCount(0);
 });
-test('offline: кеши владельца и личной ссылки изолированы, выход гостя не очищает владельца',async({page,context,request,baseURL},testInfo)=>{
-  const username=`cache${testInfo.project.name==='desktop-chromium'?'pc':testInfo.project.name==='iphone-webkit'?'phone':'small'}`;
+test('offline: кеши владельца и личной ссылки изолированы, выход гостя не очищает владельца',async({page,context,request,baseURL})=>{
+  const username='cacheguest';
   const admin=await request.post(`${baseURL}/api/admin/login`,{headers:{Origin:baseURL!},data:{password:'browser-admin-password'}});const info=await admin.json() as {csrfToken:string};expect(admin.status()).toBe(200);
-  expect((await request.post(`${baseURL}/api/admin/users/create`,{headers:{Origin:baseURL!,'X-CSRF-Token':info.csrfToken},data:{username,displayName:'Кеш гостя',password:'cache-user-password'}})).status()).toBe(200);
+  const existing=await request.get(`${baseURL}/api/u/${username}/chat/session`);
+  if(existing.status()===404)expect((await request.post(`${baseURL}/api/admin/users/create`,{headers:{Origin:baseURL!,'X-CSRF-Token':info.csrfToken},data:{username,displayName:'Кеш гостя',password:'cache-user-password'}})).status()).toBe(200);else expect(existing.status()).toBe(200);
   await login(page);await page.getByRole('button',{name:/Анна Смирнова/}).click();await expect(page.getByRole('article')).not.toHaveCount(0);
   const personal=await context.newPage();await login(personal,`/${username}/`,'cache-user-password');await context.setOffline(true);await personal.reload();await expect(personal.getByRole('heading',{name:'Чаты',exact:true})).toBeVisible();await expect(personal.getByRole('button',{name:/Анна Смирнова/})).toHaveCount(0);await expect(personal.locator('.sidebar-footer')).toContainText('Кеш гостя');
   await personal.getByRole('button',{name:'Выйти',exact:true}).click();await page.reload();await expect(page.getByRole('heading',{name:'Чаты',exact:true})).toBeVisible();await page.getByRole('button',{name:/Анна Смирнова/}).click();await expect(page.getByRole('article')).not.toHaveCount(0);
