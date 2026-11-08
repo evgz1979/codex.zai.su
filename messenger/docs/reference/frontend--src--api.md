@@ -40,6 +40,18 @@ class ApiError extends Error
 constructor(public status: number, message: string)
 ```
 
+<a id="symbol-appApiBase"></a>
+
+## appApiBase
+
+Сохраняет прежний API-префикс независимо от формы публичной ссылки.
+
+Старые cookie остаются действительными при коротком адресе личной страницы.
+
+```typescript
+const appApiBase = appBase ? `/api/u/${appBase.split('/').pop()}` : '/api'
+```
+
 <a id="symbol-appBase"></a>
 
 ## appBase
@@ -49,7 +61,7 @@ constructor(public status: number, message: string)
 Имя не берётся из localStorage; API и настройки остаются в одном аккаунте.
 
 ```typescript
-const appBase = /^\/u\/[a-z][a-z0-9_-]{1,31}(?=\/|$)/.exec(location.pathname)?.[0] || ''
+const appBase = messengerPageBase(location.pathname)
 ```
 
 <a id="symbol-attachmentData"></a>

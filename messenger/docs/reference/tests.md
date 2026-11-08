@@ -3,7 +3,7 @@
 Извлечены имена test(...) без запуска. Наличие сценария не означает успешный прогон.
 
 - [test/accounts.test.ts](../../test/accounts.test.ts): личные пользователи: ссылки, пароли, cookie, роли, данные, отправки, медиа и блокировка изолированы
-- [test/accounts.test.ts](../../test/accounts.test.ts): личный worker: badge и уведомление открывают только свой Messenger среди нескольких аккаунтов
+- [test/accounts.test.ts](../../test/accounts.test.ts): личные ссылки: старый реестр сохраняет адреса, новые аккаунты получают короткие
 - [test/admin.test.ts](../../test/admin.test.ts): HTTP: отдельные права и Secure cookie, отсутствие Telegram-секретов в ответах
 - [test/admin.test.ts](../../test/admin.test.ts): Telegram-вход: этапы code/2FA, сохранение сессии без кода и пароля, отмена
 - [test/admin.test.ts](../../test/admin.test.ts): админка: метаданные не синхронизируют историю; выбор сохраняется в SQLite

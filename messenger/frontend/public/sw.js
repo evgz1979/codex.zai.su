@@ -2,12 +2,13 @@
 self.addEventListener('install',()=>self.skipWaiting());
 self.addEventListener('activate',event=>event.waitUntil(self.clients.claim()));
 const workerBase=self.registration?.scope?new URL(self.registration.scope).pathname.replace(/\/$/,''):'';
+const workerApiBase=workerBase?`/api/u/${workerBase.split('/').pop()}`:'/api';
 //: Уточняет число после поздней доставки, даже когда приложение уже закрыли.
 //: Читает только защищённый счётчик; при истёкшей сессии использует число push.
 async function currentBadge(fallback){
   if(typeof fetch!=='function')return {count:fallback,fresh:false};
   const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),3000);
-  try{const response=await fetch(`${workerBase?'/api'+workerBase:'/api'}/chat/badge`,{credentials:'same-origin',cache:'no-store',signal:controller.signal});if(response.ok){const value=await response.json();if(Number.isSafeInteger(value.count)&&value.count>=0)return {count:value.count,fresh:true};}}catch{/* Offline и истёкший вход не теряют обычные push. */}finally{clearTimeout(timer);}
+  try{const response=await fetch(`${workerApiBase}/chat/badge`,{credentials:'same-origin',cache:'no-store',signal:controller.signal});if(response.ok){const value=await response.json();if(Number.isSafeInteger(value.count)&&value.count>=0)return {count:value.count,fresh:true};}}catch{/* Offline и истёкший вход не теряют обычные push. */}finally{clearTimeout(timer);}
   return {count:fallback,fresh:false};
 }
 self.addEventListener('push',event=>{

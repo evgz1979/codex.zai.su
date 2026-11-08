@@ -105,7 +105,18 @@ export interface SendRequest { destination: Destination; text: string; requestId
 export interface SessionInfo { authenticated: boolean; setupRequired: boolean; csrfToken?: string; account?:AccountInfo }
 //: Показывает имя личного Messenger без Telegram-реквизитов.
 //: Персональная ссылка публично раскрывает только выбранное владельцем имя.
-export interface AccountInfo {id:string;username:string;displayName:string;isOwner:boolean}
+export interface AccountInfo {id:string;username:string;displayName:string;isOwner:boolean;path?:string}
+//: Исключает служебные пути из коротких имён новых личных ссылок.
+//: Существующие имена продолжают работать через прежний путь /u/username.
+export const ACCOUNT_RESERVED_NAMES=['owner','admin','api','assets','healthz'] as const;
+//: Определяет префикс личной страницы по короткому или прежнему адресу.
+//: Служебные пути владельца не считаются пользовательскими страницами.
+export function messengerPageBase(pathname:string):string {
+  const legacy=/^\/u\/[a-z][a-z0-9_-]{1,31}(?=\/|$)/.exec(pathname);
+  if(legacy)return legacy[0];
+  const direct=/^\/([a-z][a-z0-9_-]{1,31})(?=\/|$)/.exec(pathname);
+  return direct&&!ACCOUNT_RESERVED_NAMES.some(name=>name===direct[1])?direct[0]:'';
+}
 //: Задаёт ограничения выборок, кеша и длины текста MVP.
 //: Одна константа используется сервером и клиентской валидацией текста.
 export const LIMITS = { conversations: 1000, pageMessages: 10, syncMessages:100, cachedMessages: 400, text: 4096 } as const;

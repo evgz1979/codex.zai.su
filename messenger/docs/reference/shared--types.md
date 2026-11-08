@@ -4,6 +4,18 @@
 
 [Исходный модуль](../../shared/types.ts) · [Индекс](README.md)
 
+<a id="symbol-ACCOUNT_RESERVED_NAMES"></a>
+
+## ACCOUNT_RESERVED_NAMES
+
+Исключает служебные пути из коротких имён новых личных ссылок.
+
+Существующие имена продолжают работать через прежний путь /u/username.
+
+```typescript
+const ACCOUNT_RESERVED_NAMES = ['owner', 'admin', 'api', 'assets', 'healthz'] as const
+```
+
 <a id="symbol-AccountInfo"></a>
 
 ## AccountInfo
@@ -18,6 +30,7 @@ export interface AccountInfo {
     username: string;
     displayName: string;
     isOwner: boolean;
+    path?: string;
 }
 ```
 
@@ -332,6 +345,18 @@ export interface MessagePage {
     cached?: boolean;
     sourceUpdatedAt?: number;
 }
+```
+
+<a id="symbol-messengerPageBase"></a>
+
+## messengerPageBase
+
+Определяет префикс личной страницы по короткому или прежнему адресу.
+
+Служебные пути владельца не считаются пользовательскими страницами.
+
+```typescript
+messengerPageBase(pathname: string): string
 ```
 
 <a id="symbol-PASSWORD_LIMITS"></a>

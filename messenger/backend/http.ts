@@ -3,7 +3,7 @@ import {pipeline} from 'node:stream/promises';
 import {Transform} from 'node:stream';
 import type {AttachmentService} from './core/attachments.js';
 import type {PushService} from './core/push.js';
-import {MEDIA_LIMITS,type AttachmentRequest} from '../shared/types.js';
+import {MEDIA_LIMITS,messengerPageBase,type AttachmentRequest} from '../shared/types.js';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { readFile,open as openFile } from 'node:fs/promises';
 import { resolve, extname, sep } from 'node:path';
@@ -44,16 +44,18 @@ export function createApp(options: { service:MessengerService; store:Store; auth
       if(req.headers.host!==new URL(options.origin).host) throw new AppError(403,'Недопустимый адрес сервера.');
       if(!['GET','POST'].includes(req.method||'')) throw new AppError(405,'Метод недоступен.');
       const originalPath=new URL(req.url||'/',options.origin).pathname;
-      const personal=/^\/(api\/)?u\/([a-z][a-z0-9_-]{1,31})(\/.*)?$/.exec(originalPath);
-      const account=personal?options.accounts?.find(personal[2]):options.accounts?.owner;
+      const personalApi=/^\/api\/u\/([a-z][a-z0-9_-]{1,31})(\/.*)?$/.exec(originalPath);
+      const pagePrefix=personalApi?`/u/${personalApi[1]}`:messengerPageBase(originalPath);
+      const username=personalApi?.[1]||pagePrefix.split('/').pop();
+      const personal=!!pagePrefix;
+      const account=personal?options.accounts?.find(username!):options.accounts?.owner;
       if(personal&&!account)throw new AppError(404,'Пользователь не найден или доступ отключён.');
       const current=account?.runtime||options;
       const auth=current.auth||ownerAuth;
-      const accountInfo=account?{id:account.info.id,username:account.info.username,displayName:account.info.displayName,isOwner:account.info.isOwner}:undefined;
-      const pagePrefix=personal?`/u/${personal[2]}`:'';
-      const apiPrefix=personal?`/api/u/${personal[2]}`:'/api';
-      const path=personal?`${personal[1]?'/api':''}${personal[3]||'/'}`:originalPath;
-      if(personal&&!personal[1]&&!['/','/admin','/admin/','/sw.js','/manifest.webmanifest'].includes(path))throw new AppError(404,'Адрес не найден.');
+      const accountInfo=account?{id:account.info.id,username:account.info.username,displayName:account.info.displayName,isOwner:account.info.isOwner,path:account.info.path||(account.info.isOwner?'/':`/u/${account.info.username}/`)}:undefined;
+      const apiPrefix=personal?`/api/u/${username}`:'/api';
+      const path=personalApi?`/api${personalApi[2]||'/'}`:personal?originalPath.slice(pagePrefix.length)||'/':originalPath;
+      if(personal&&!personalApi&&!['/','/admin','/admin/','/sw.js','/manifest.webmanifest'].includes(path))throw new AppError(404,'Адрес не найден.');
       if(req.method==='POST'&&req.headers.origin!==options.origin) throw new AppError(403,'Недопустимый источник запроса.');
       if(path==='/healthz'&&req.method==='GET'&&!personal) return send(res,auth.ready()?200:503,{status:auth.ready()?'ok':'locked'});
       if(path.startsWith('/api/')) {
@@ -148,7 +150,7 @@ export function createApp(options: { service:MessengerService; store:Store; auth
         throw new AppError(404,'Адрес не найден.');
       }
       if(req.method!=='GET') throw new AppError(405,'Метод недоступен.');
-      if(personal&&!personal[1]&&originalPath===pagePrefix){res.writeHead(308,{Location:`${pagePrefix}/`});return res.end();}
+      if(personal&&!personalApi&&originalPath===pagePrefix){res.writeHead(308,{Location:`${pagePrefix}/`});return res.end();}
       const asset=path==='/'||path==='/admin'||path==='/admin/'?'/index.html':decodeURIComponent(path);
       if(!['/index.html','/favicon.svg','/manifest.webmanifest','/sw.js','/icon-192.png','/icon-512.png','/apple-touch-icon.png'].includes(asset)&&!/^\/assets\/[a-zA-Z0-9_.-]+\.(js|css)$/.test(asset)) throw new AppError(404,'Файл не найден.');
       const file=resolve(root,`.${asset}`); if(!file.startsWith(root+sep)) throw new AppError(404,'Файл не найден.');

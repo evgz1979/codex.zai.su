@@ -4,7 +4,7 @@ import {AuthError,passwordHash} from './auth/auth.js';
 import type {Role} from './auth/auth.js';
 import {AppError} from './core/errors.js';
 import {createAccountRuntime,type AccountRuntime} from './runtime.js';
-import {PASSWORD_LIMITS,type AccountInfo} from '../shared/types.js';
+import {PASSWORD_LIMITS,ACCOUNT_RESERVED_NAMES,type AccountInfo} from '../shared/types.js';
 
 //: Хранит метаданные личного аккаунта и признак блокировки.
 //: Пароли и Telegram-реквизиты находятся только в отдельном личном каталоге.
@@ -28,9 +28,9 @@ export class Accounts {
   //: Восстанавливает только зарегистрированные аккаунты из приватных настроек владельца.
   //: При повреждённом реестре запуск прекращается; каталоги с диска не обнаруживаются автоматически.
   constructor(private directory:string,private origin:string,private factory:RuntimeFactory=createAccountRuntime) {
-    this.owner={info:{id:'owner',username:'owner',displayName:'Владелец',isOwner:true,enabled:true},runtime:factory(directory,origin)};
+    this.owner={info:{id:'owner',username:'owner',displayName:'Владелец',isOwner:true,enabled:true,path:'/'},runtime:factory(directory,origin)};
     const saved=JSON.parse(this.owner.runtime.store.get('accounts.v1')||'[]') as AccountRecord[];
-    if(!Array.isArray(saved)||saved.length>4||saved.some(a=>!a||!this.validUsername(a.username)||a.username==='owner'||typeof a.id!=='string'||!/^[a-f0-9-]{36}$/.test(a.id)||a.isOwner!==false||typeof a.enabled!=='boolean'||typeof a.displayName!=='string'||!a.displayName.trim()||a.displayName.length>80)||new Set(saved.map(a=>a.username)).size!==saved.length||new Set(saved.map(a=>a.id)).size!==saved.length)throw new Error('Invalid account registry');
+    if(!Array.isArray(saved)||saved.length>4||saved.some(a=>!a||!this.validUsername(a.username)||a.username==='owner'||typeof a.id!=='string'||!/^[a-f0-9-]{36}$/.test(a.id)||a.isOwner!==false||typeof a.enabled!=='boolean'||typeof a.displayName!=='string'||!a.displayName.trim()||a.displayName.length>80||(a.path!==undefined&&a.path!==`/u/${a.username}/`&&(a.path!==`/${a.username}/`||ACCOUNT_RESERVED_NAMES.some(name=>name===a.username))))||new Set(saved.map(a=>a.username)).size!==saved.length||new Set(saved.map(a=>a.id)).size!==saved.length)throw new Error('Invalid account registry');
     this.records=saved;
     this.active.set('owner',this.owner);
     for(const info of saved)if(info.enabled)this.open(info);
@@ -44,9 +44,9 @@ export class Accounts {
   //: Сохраняет только реестр имён, UUID и блокировок в БД владельца.
   //: Содержимое личных БД и секреты в реестр не включаются.
   private save(){this.owner.runtime.store.set('accounts.v1',JSON.stringify(this.records));}
-  //: Возвращает метаданные без доступа к чужим личным сервисам.
-  //: HTTP разрешает вызов только административной сессии владельца.
-  list():AccountRecord[]{return [this.owner.info,...this.records].map(a=>({...a}));}
+  //: Возвращает метаданные и персональные ссылки без доступа к чужим сервисам.
+  //: Старые записи без path сохраняют /u/username; список доступен только владельцу.
+  list():AccountRecord[]{return [this.owner.info,...this.records].map(a=>({...a,path:a.path||(a.isOwner?'/':`/u/${a.username}/`)}));}
   //: Находит только включённый аккаунт с точным именем персональной ссылки.
   //: Заблокированное или неизвестное имя не даёт доступ даже при прежнем cookie.
   find(username:string){return [...this.active.values()].find(a=>!a.info.isOwner&&a.info.username===username&&a.info.enabled);}
@@ -66,7 +66,8 @@ export class Accounts {
   //: Не подключает Telegram; максимум четыре гостя, повторное имя и параллельные изменения запрещены.
   async create(input:Record<string,unknown>){
     if(this.changing)throw new AppError(409,'Дождитесь завершения изменения.');
-    if(!this.validUsername(input.username)||input.username==='owner')throw new AppError(400,'Имя: 2–32 символа, латинская буква в начале, затем буквы, цифры, _ или -.');
+    if(!this.validUsername(input.username))throw new AppError(400,'Имя: 2–32 символа, латинская буква в начале, затем буквы, цифры, _ или -.');
+    if(ACCOUNT_RESERVED_NAMES.some(name=>name===input.username))throw new AppError(400,'Это имя зарезервировано. Выберите другое.');
     if(typeof input.displayName!=='string'||!input.displayName.trim()||input.displayName.length>80)throw new AppError(400,'Введите имя до 80 символов.');
     if(typeof input.password!=='string'||input.password.length<PASSWORD_LIMITS.min||input.password.length>PASSWORD_LIMITS.max)throw new AppError(400,'Пароль должен содержать от 8 до 512 символов.');
     if(this.records.some(a=>a.username===input.username))throw new AppError(409,'Это имя уже используется.');
@@ -74,7 +75,7 @@ export class Accounts {
     this.changing=true;
     try{
       const hash=await passwordHash(input.password);
-      const info:AccountRecord={id:randomUUID(),username:input.username,displayName:input.displayName.trim(),isOwner:false,enabled:true};
+      const info:AccountRecord={id:randomUUID(),username:input.username,displayName:input.displayName.trim(),isOwner:false,enabled:true,path:`/${input.username}/`};
       const account=this.open(info);account.runtime.store.set('auth.chat',hash);account.runtime.store.set('auth.admin',hash);
       this.records.push(info);this.save();return {...info};
     }finally{this.changing=false;}

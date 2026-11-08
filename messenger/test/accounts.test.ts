@@ -14,7 +14,7 @@ import {AttachmentService} from '../backend/core/attachments.js';
 import {PushService} from '../backend/core/push.js';
 import {createApp} from '../backend/http.js';
 import type {TelegramAdapter} from '../backend/connectors/telegram/adapter.js';
-import {destinationFor,entityId} from '../shared/types.js';
+import {destinationFor,entityId,messengerPageBase} from '../shared/types.js';
 import {TestAdapter} from './fixtures.js';
 
 test('личные пользователи: ссылки, пароли, cookie, роли, данные, отправки, медиа и блокировка изолированы',async t=>{
@@ -52,12 +52,21 @@ test('личные пользователи: ссылки, пароли, cookie,
   assert.equal((await request('/api/admin/users/create',{username:'../bad',displayName:'Bad',password:'anna-password'},owner)).status,400);
   assert.equal((await request('/api/admin/users/create',{username:'owner',displayName:'Bad',password:'anna-password'},owner)).status,400);
   const created=await request('/api/admin/users/create',{username:'anna',displayName:'Анна',password:'anna-password'},owner);assert.equal(created.status,200);
-  const {user:anna}=await created.json() as {user:{id:string}};
+  const {user:anna}=await created.json() as {user:{id:string;path:string}};
+  assert.equal(anna.path,'/anna/');
+  for(const username of ['admin','api','assets','healthz'])assert.equal((await request('/api/admin/users/create',{username,displayName:'Reserved',password:'reserved-password'},owner)).status,400);
   await accounts.create({username:'friend',displayName:'<img src=x onerror=alert(1)>',password:'friend-password'});
   const escaped=await (await request('/u/friend/')).text();assert.ok(escaped.includes('&lt;img'));assert.ok(!escaped.includes('<img'));
+  const directEscaped=await (await request('/friend/')).text();assert.ok(directEscaped.includes('&lt;img'));assert.ok(!directEscaped.includes('<img'));
   assert.equal((await request('/api/admin/users/create',{username:'anna',displayName:'Other',password:'another-password'},owner)).status,409);
   const publicInfo=await request('/api/u/anna/chat/session');const info=await publicInfo.json() as {authenticated:boolean;account:{displayName:string}};assert.equal(info.authenticated,false);assert.equal(info.account.displayName,'Анна');assert.ok(!JSON.stringify(info).includes('PRIVATE'));
   assert.equal((await request('/u/anna')).headers.get('location'),'/u/anna/');
+  assert.equal((await request('/anna')).headers.get('location'),'/anna/');
+  assert.match(await (await request('/anna/')).text(),/\/anna\/manifest.webmanifest/);
+  const directManifest=await (await request('/anna/manifest.webmanifest')).json() as {id:string;scope:string;start_url:string};assert.equal(directManifest.id,'/anna/');assert.equal(directManifest.scope,'/anna/');assert.equal(directManifest.start_url,'/anna/');
+  assert.equal((await request('/anna/sw.js')).status,200);assert.equal((await request('/anna/admin')).status,200);
+  assert.equal((await request('/anna/api/chat/session')).status,404);
+  assert.equal((await request('/healthz')).status,200);assert.equal((await request('/admin')).status,200);
   assert.match(await (await request('/u/anna/')).text(),/\/u\/anna\/manifest.webmanifest/);
   const manifest=await (await request('/u/anna/manifest.webmanifest')).json() as {scope:string;start_url:string;name:string};assert.equal(manifest.scope,'/u/anna/');assert.equal(manifest.start_url,'/u/anna/');assert.ok(manifest.name.includes('Анна'));
   assert.equal((await request('/u/anna/sw.js')).status,200);assert.equal((await request('/u/missing/')).status,404);
@@ -97,15 +106,32 @@ test('личные пользователи: ссылки, пароли, cookie,
   assert.equal(accounts.find('anna')!.runtime.push!.configuration().publicKey,vapid);
   assert.ok(await accounts.find('anna')!.runtime.auth.login('new-anna-password'));
   assert.equal(accounts.list().length,3);assert.equal(accounts.owner.runtime.store.get('auth.chat'),hash);
+  assert.equal(accounts.list().find(a=>a.username==='anna')!.path,'/anna/');
 });
 
-test('личный worker: badge и уведомление открывают только свой Messenger среди нескольких аккаунтов',async()=>{
+for(const base of ['/u/anna','/anna'])test(`личный worker ${base}: badge и уведомление открывают только свой Messenger среди нескольких аккаунтов`,async()=>{
   const callbacks=new Map<string,(event:any)=>void>();const requests:string[]=[];const focused:string[]=[];const opened:string[]=[];const commands:unknown[]=[];
-  const self={location:{origin:'https://msg.zai.su:8443'},registration:{scope:'https://msg.zai.su:8443/u/anna/',showNotification:async()=>{}},addEventListener:(name:string,callback:(event:any)=>void)=>callbacks.set(name,callback),clients:{matchAll:async()=>['/','/u/friend/','/u/anna/admin','/u/anna/'].map(path=>({url:`https://msg.zai.su:8443${path}`,visibilityState:'visible',postMessage:(value:unknown)=>{commands.push({path,value});},focus:async()=>{focused.push(path);}})),openWindow:async(path:string)=>{opened.push(path);}}};
+  const self={location:{origin:'https://msg.zai.su:8443'},registration:{scope:`https://msg.zai.su:8443${base}/`,showNotification:async()=>{}},addEventListener:(name:string,callback:(event:any)=>void)=>callbacks.set(name,callback),clients:{matchAll:async()=>['/','/friend/','/u/friend/',`${base}/admin`,`${base}/`].map(path=>({url:`https://msg.zai.su:8443${path}`,visibilityState:'visible',postMessage:(value:unknown)=>{commands.push({path,value});},focus:async()=>{focused.push(path);}})),openWindow:async(path:string)=>{opened.push(path);}}};
   runInNewContext(readFileSync(new URL('../frontend/public/sw.js',import.meta.url),'utf8'),{self,URL,AbortController,setTimeout,clearTimeout,navigator:{setAppBadge:async()=>{}},fetch:async(path:string)=>{requests.push(path);return {ok:true,json:async()=>({count:2})};}});
   let pending=Promise.resolve();const waitUntil=(promise:Promise<void>)=>{pending=promise;};
   callbacks.get('push')!({data:{json:()=>({badge:3,conversationId:'personal-conversation'})},waitUntil});await pending;
-  assert.deepEqual(requests,['/api/u/anna/chat/badge']);assert.deepEqual(JSON.parse(JSON.stringify(commands)),[{path:'/u/anna/',value:{type:'messenger:badge-refresh'}}]);
-  callbacks.get('notificationclick')!({notification:{data:{conversationId:'personal-conversation'},close(){}},waitUntil});await pending;assert.deepEqual(focused,['/u/anna/']);
-  self.clients.matchAll=async()=>[];callbacks.get('notificationclick')!({notification:{data:{conversationId:'personal-conversation'},close(){}},waitUntil});await pending;assert.deepEqual(opened,['/u/anna/#conversation=personal-conversation']);
+  assert.deepEqual(requests,['/api/u/anna/chat/badge']);assert.deepEqual(JSON.parse(JSON.stringify(commands)),[{path:`${base}/`,value:{type:'messenger:badge-refresh'}}]);
+  callbacks.get('notificationclick')!({notification:{data:{conversationId:'personal-conversation'},close(){}},waitUntil});await pending;assert.deepEqual(focused,[`${base}/`]);
+  self.clients.matchAll=async()=>[];callbacks.get('notificationclick')!({notification:{data:{conversationId:'personal-conversation'},close(){}},waitUntil});await pending;assert.deepEqual(opened,[`${base}/#conversation=personal-conversation`]);
+});
+
+test('личные ссылки: старый реестр сохраняет адреса, новые аккаунты получают короткие',async t=>{
+  const directory=mkdtempSync(join(tmpdir(),'messenger-links-'));let accounts=new Accounts(directory,'http://127.0.0.1');
+  t.after(async()=>{await accounts.stop();rmSync(directory,{recursive:true,force:true});});
+  const old=await accounts.create({username:'olduser',displayName:'Прежний пользователь',password:'old-password'});
+  const legacy=JSON.parse(accounts.owner.runtime.store.get('accounts.v1')!) as {path?:string}[];delete legacy[0].path;
+  const registry=JSON.stringify(legacy);accounts.owner.runtime.store.set('accounts.v1',registry);await accounts.stop();
+  accounts=new Accounts(directory,'http://127.0.0.1');
+  assert.equal(accounts.owner.runtime.store.get('accounts.v1'),registry);assert.equal(accounts.list().find(a=>a.id===old.id)!.path,'/u/olduser/');
+  assert.ok(await accounts.find('olduser')!.runtime.auth.login('old-password'));
+  const fresh=await accounts.create({username:'newuser',displayName:'Новый пользователь',password:'new-password'});assert.equal(fresh.path,'/newuser/');
+  assert.equal(accounts.list().find(a=>a.id===old.id)!.path,'/u/olduser/');
+  await accounts.stop();accounts=new Accounts(directory,'http://127.0.0.1');
+  assert.equal(accounts.list().find(a=>a.id===old.id)!.path,'/u/olduser/');assert.equal(accounts.list().find(a=>a.id===fresh.id)!.path,'/newuser/');
+  for(const [path,expected] of [['/anna/','/anna'],['/anna/admin','/anna'],['/u/olduser/','/u/olduser'],['/u/admin/','/u/admin'],['/admin',''],['/api/u/anna/chat/session',''],['/assets/app.js',''],['/healthz',''],['/anna.evil/','']])assert.equal(messengerPageBase(path),expected);
 });

@@ -16,7 +16,9 @@ POST — точный Origin. Защищённые методы требуют c
 `/api/u/username/`; все действия работают только с хранилищем аккаунта из ссылки.
 Cookie роли имеют Path `/api/u/username/chat` и `/api/u/username/admin`.
 `session` и успешный `login` дополнительно возвращают безопасный `account`:
-`{id,username,displayName,isOwner}`. Имя видно до входа, CSRF выдаётся после входа.
+`{id,username,displayName,isOwner,path}`. Имя видно до входа, CSRF выдаётся после входа.
+`path` — персональная ссылка: `/username/` для новых аккаунтов и сохранённая
+`/u/username/` для старых. Форма публичного пути не меняет API и cookie.
 В теле login по-прежнему только `{password}`. Неизвестный и заблокированный
 пользователь возвращает 404 без открытия его сервисов.
 
@@ -24,7 +26,7 @@ Cookie роли имеют Path `/api/u/username/chat` и `/api/u/username/admin
 
 | Метод | Путь | Контракт |
 | --- | --- | --- |
-| GET | /api/admin/users | `{users:[{id,username,displayName,isOwner,enabled}]}` |
+| GET | /api/admin/users | `{users:[{id,username,displayName,isOwner,enabled,path}]}` |
 | POST | /api/admin/users/create | `{username,displayName,password}` → `{user}`; начальный пароль обеих ролей |
 | POST | /api/admin/users/access | `{id,enabled}` → `{ok:true}`; владелец не блокируется |
 
