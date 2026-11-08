@@ -9,6 +9,7 @@ import VoiceTranscription from './VoiceTranscription';
 import type {AttachmentRequest} from '../../shared/types';
 import { api, ApiError, setCsrf,appBase,isOffline } from './api';
 import {useOffline} from './useOffline';
+import {useOfflinePrefetch} from './useOfflinePrefetch';
 import Notifications,{notificationEndpoint,unsubscribeNotifications} from './Notifications';
 import {useVisibleReads} from './useVisibleReads';
 import {useAppBadge} from './useAppBadge';
@@ -74,6 +75,7 @@ export function App() {
   const draft = target ? drafts[target.id] || '' : '';
   const unread = snapshot?.conversations.reduce((n,c) => n + c.unreadCount, 0) || 0;
   const connected = snapshot?.sources.some(s => s.connected);
+  const preparation=useOfflinePrefetch(snapshot,!!session?.authenticated&&!offline,fail);
   useAppBadge(unread,!!session?.authenticated&&!!snapshot);
   useVisibleReads(feed,messages,!!session?.authenticated&&!offline&&!pending&&chatOpen&&!attachmentTarget,async message=>{
     const result=await api<Snapshot>('read',{conversationId:message.conversationId,messageId:message.id});
@@ -315,7 +317,7 @@ export function App() {
   const conversations=snapshot?.conversations.filter(c=>(!onlyUnread||c.unreadCount>0)&&c.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())).sort(compareConversations)||[];
   return <main className={`workspace ${chatOpen?'chat-screen':'list-screen'}`}>
     <aside className="sidebar" aria-label="Чаты" hidden={chatOpen}>
-      <header className="list-header"><a href={`${appBase}/admin`} className="settings-link" aria-disabled={offline} onClick={e=>{if(offline)e.preventDefault();}}>Настройки</a><div><h1>Чаты</h1><p role="status">{offline?'Без сети · сохранённые сообщения':arrival.opening&&!snapshot?'Соединение…':syncStatus?.pausedUntil?'Синхронизация приостановлена':connected?'Подключено':'Нет подключения'}</p></div><button className="icon-button inbox-button" aria-label="Общая лента" disabled={busy} onClick={()=>void openInbox()}><Icon name="inbox" /></button></header>
+      <header className="list-header"><a href={`${appBase}/admin`} className="settings-link" aria-disabled={offline} onClick={e=>{if(offline)e.preventDefault();}}>Настройки</a><div><h1>Чаты</h1><p role="status">{offline?'Без сети · сохранённые сообщения':arrival.opening&&!snapshot?'Соединение…':syncStatus?.pausedUntil?'Синхронизация приостановлена':preparation.pending?`Сохраняются чаты: ${preparation.ready}/${preparation.total}`:connected?'Подключено':'Нет подключения'}</p></div><button className="icon-button inbox-button" aria-label="Общая лента" disabled={busy} onClick={()=>void openInbox()}><Icon name="inbox" /></button></header>
       <label className="search"><Icon name="search" /><input aria-label="Поиск диалогов" placeholder="Поиск" value={query} onChange={e=>setQuery(e.target.value)} /></label>
       <div className="chat-filters" role="group" aria-label="Фильтр чатов"><button aria-pressed={!onlyUnread} onClick={()=>setOnlyUnread(false)}>Все</button><button aria-pressed={onlyUnread} onClick={()=>setOnlyUnread(true)}>Непрочитанные{unread>0&&<span>{unread}</span>}</button></div>
       {error&&<div className="error-banner" role="alert">{error}</div>}

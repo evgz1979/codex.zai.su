@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const printer = ts.createPrinter({ removeComments: true, newLine: ts.NewLineKind.LineFeed });
 const purposes = {
+  'frontend/src/useOfflinePrefetch.ts':'Фоновая последовательная подготовка голов выбранных чатов для чтения без сети без переключения адресата.',
   'frontend/src/offline-cache.ts':'Ограниченный личный кеш просмотренных сообщений в IndexedDB без паролей и токенов.',
   'frontend/src/useOffline.ts':'Режим локального чтения после потери связи и подтверждённого восстановления сервера.',
   'backend/core/transcription.ts':'Явная встроенная расшифровка голосовых, приватный кеш, дедупликация и проверка обновлений источника.',

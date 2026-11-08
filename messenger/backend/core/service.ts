@@ -1,7 +1,7 @@
 import {telegramAuthIssue} from '../auth/telegram-issue.js';
 import type { SourceAdapter, SourceEvent } from './source-adapter.js';
 import type { Store } from '../storage/store.js';
-import { destinationFor,comparePosition,compareConversations, LIMITS, MEDIA_LIMITS, type AttachmentRequest,type Conversation, type ConversationPageResult, type Message, type SendRequest, type Snapshot } from '../../shared/types.js';
+import { destinationFor,comparePosition,compareConversations, LIMITS, MEDIA_LIMITS,OFFLINE_LIMITS,type OfflineBatch, type AttachmentRequest,type Conversation, type ConversationPageResult, type Message, type SendRequest, type Snapshot } from '../../shared/types.js';
 import { AppError } from './errors.js';
 import { ConnectorRegistry } from './registry.js';
 import { ConversationSelectionService } from './selection.js';
@@ -38,6 +38,14 @@ export class MessengerService {
   //: Возвращает страницу единой хронологии из выбранных диалогов SQLite.
   //: Общий курсор не даёт доступа к исключённому архиву или произвольному источнику.
   inboxPage(before?:string){if(before&&before.length>2048)throw new AppError(400,'Некорректный курсор кеша.');return {snapshot:this.snapshot(),page:this.store.messagePage('inbox',before)};}
+  //: Читает небольшие головы выбранных чатов для фоновой подготовки устройства.
+  //: Проверяет весь пакет до чтения SQLite, не вызывает источник и не меняет latestSeen/read.
+  offlineBatch(ids:unknown):OfflineBatch{
+    if(!Array.isArray(ids)||!ids.length||ids.length>OFFLINE_LIMITS.batch||ids.some(id=>typeof id!=='string'||!id||id.length>2048)||new Set(ids).size!==ids.length)throw new AppError(400,'Некорректный список чатов для сохранения.');
+    const conversations=(ids as string[]).map(id=>this.conversation(id));const messages:Message[]=[];const readyIds:string[]=[];
+    for(const conversation of conversations){const page=this.store.messagePage(conversation.id);messages.push(...page.messages.slice(-OFFLINE_LIMITS.headMessages));if(page.messages.length||page.historyComplete)readyIds.push(conversation.id);}
+    return {messages,readyIds};
+  }
   //: Загружает ограниченный кеш либо пустой снимок.
   //: Загруженные данные сразу помечаются устаревшими.
   constructor(private adapters: SourceAdapter[], private store: Store) {

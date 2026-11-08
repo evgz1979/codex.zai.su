@@ -26,6 +26,7 @@
 | POST | `/api/chat/inbox` |
 | POST | `/api/chat/login` |
 | POST | `/api/chat/logout` |
+| POST | `/api/chat/offline` |
 | POST | `/api/chat/older` |
 | POST | `/api/chat/open` |
 | GET | `/api/chat/push/config` |

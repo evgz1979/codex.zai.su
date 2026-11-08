@@ -376,6 +376,33 @@ messagePreview(message: Pick<Message, 'text' | 'attachments'>): string
 messengerPageBase(pathname: string): string
 ```
 
+<a id="symbol-OFFLINE_LIMITS"></a>
+
+## OFFLINE_LIMITS
+
+Ограничивает фоновое заполнение и размер браузерного кеша выбранных диалогов.
+
+По пять последних сообщений каждого чата сохраняются без его открытия и отметки прочтения.
+
+```typescript
+const OFFLINE_LIMITS = { conversations: 200, messages: 1000, perConversation: 100, headMessages: 5, batch: 20, bytes: 4 * 1024 * 1024, refreshMs: 30000 } as const
+```
+
+<a id="symbol-OfflineBatch"></a>
+
+## OfflineBatch
+
+Передаёт небольшую порцию истории выбранных чатов для автономного чтения.
+
+Источник — только серверная SQLite; readyIds также включает заведомо пустые чаты.
+
+```typescript
+export interface OfflineBatch {
+    messages: Message[];
+    readyIds: EntityId[];
+}
+```
+
 <a id="symbol-PASSWORD_LIMITS"></a>
 
 ## PASSWORD_LIMITS

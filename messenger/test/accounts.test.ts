@@ -85,6 +85,8 @@ test('личные пользователи: ссылки, пароли, cookie,
   for(const action of ['open','read'])assert.equal((await request(`/api/u/anna/chat/${action}`,{conversationId:ownerAdapter.conversations[0].id},chat)).status,403);
   assert.equal((await request('/api/u/anna/chat/send',{destination:destinationFor(ownerAdapter.conversations[0]),text:'must not send',requestId:'foreign-send-route-0001'},chat)).status,403);
   assert.equal(ownerAdapter.sent.length,0);
+  assert.equal((await request('/api/u/anna/chat/offline',{conversationIds:[ownerAdapter.conversations[0].id]},chat)).status,403);
+  assert.equal((await request('/api/u/anna/chat/offline',{conversationIds:[userAdapter.conversations[0].id]},chat)).status,200);
   assert.equal((await request('/api/u/anna/chat/send',{destination:destinationFor(userAdapter.conversations[0]),text:'personal send',requestId:'personal-send-test-0001'},chat)).status,200);assert.equal(userAdapter.sent.length,1);assert.equal(ownerAdapter.sent.length,0);
   const message=userAdapter.messages[0];const media={conversationId:message.conversationId,messageId:message.id,attachmentId:message.attachments[0].id};
   const file=await request('/api/u/anna/chat/attachment',media,chat);assert.equal(file.status,200);assert.equal(await file.text(),`MEDIA:${anna.id}`);

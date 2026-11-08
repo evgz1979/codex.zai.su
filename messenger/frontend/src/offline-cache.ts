@@ -1,4 +1,4 @@
-import {compareConversations,LIMITS,type AccountInfo,type ConversationPageResult,type Message,type SessionInfo,type Snapshot} from '../../shared/types';
+import {compareConversations,LIMITS,OFFLINE_LIMITS,type AccountInfo,type ConversationPageResult,type Message,type SessionInfo,type Snapshot} from '../../shared/types';
 //: Описывает сохранённые данные одного личного адреса без реквизитов входа.
 //: Срок чтения ограничен веб-сессией; logoutPending содержит только факт локального выхода.
 interface SavedAccount {account?:AccountInfo;expiresAt:number;savedAt:number;snapshot:Snapshot;messages:Message[];logoutPending?:boolean;accessRevision?:number;allowedIds?:string[]}
@@ -59,18 +59,26 @@ export class OfflineCache {
     return {...(same?previous:undefined),account:info.account,expiresAt:Math.min(info.expiresAt||Date.now()+8*3600000,Date.now()+8*3600000),savedAt:previous?.savedAt||0,snapshot:same&&previous?previous.snapshot:emptySnapshot(),messages:same&&previous?previous.messages:[]};
   });}
   //: Ограничивает кеш двумястами чатами, сотней сообщений чата и тысячей всего.
-  //: Общий объём JSON не превышает 4 МиБ; сохраняются наиболее свежие записи.
+  //: Резервирует последние пять записей каждого чата; лимит байтов сначала удаляет более старые.
   private bound(value:SavedAccount){
-    value.snapshot.conversations.sort(compareConversations);value.snapshot.conversations=value.snapshot.conversations.slice(0,200);
+    value.snapshot.conversations.sort(compareConversations);value.snapshot.conversations=value.snapshot.conversations.slice(0,OFFLINE_LIMITS.conversations);
     const ids=new Set(value.snapshot.conversations.map(c=>c.id));const counts=new Map<string,number>();
-    value.messages=value.messages.filter(m=>ids.has(m.conversationId)).sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id)).filter(m=>{const count=(counts.get(m.conversationId)||0)+1;counts.set(m.conversationId,count);return count<=100;}).slice(0,1000);
-    const encoder=new TextEncoder();while(encoder.encode(JSON.stringify(value)).byteLength>4*1024*1024){if(value.messages.length)value.messages.splice(Math.max(0,value.messages.length-25));else if(value.snapshot.conversations.length)value.snapshot.conversations.pop();else break;}
+    const ordered=value.messages.filter(m=>ids.has(m.conversationId)).sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id)).filter(m=>{const count=(counts.get(m.conversationId)||0)+1;counts.set(m.conversationId,count);return count<=OFFLINE_LIMITS.perConversation;});
+    counts.clear();const reserved=new Set<string>();const newest=new Set<string>();
+    for(const message of ordered){const count=(counts.get(message.conversationId)||0)+1;counts.set(message.conversationId,count);if(count<=OFFLINE_LIMITS.headMessages)reserved.add(message.id);if(count===1)newest.add(message.id);}
+    const extra=ordered.filter(m=>!reserved.has(m.id)).slice(0,Math.max(0,OFFLINE_LIMITS.messages-reserved.size));const kept=new Set([...reserved,...extra.map(m=>m.id)]);value.messages=ordered.filter(m=>kept.has(m.id));
+    const encoder=new TextEncoder();while(encoder.encode(JSON.stringify(value)).byteLength>OFFLINE_LIMITS.bytes){
+      const removable=value.messages.filter(m=>!newest.has(m.id)).slice(-25);
+      if(removable.length){const removed=new Set(removable.map(m=>m.id));value.messages=value.messages.filter(m=>!removed.has(m.id));}
+      else if(value.snapshot.conversations.some(c=>c.avatarThumbnail)){for(const conversation of value.snapshot.conversations)delete conversation.avatarThumbnail;}
+      else if(value.messages.length)value.messages.pop();else if(value.snapshot.conversations.length)value.snapshot.conversations.pop();else break;
+    }
     return value;
   }
   //: Запоминает только разрешённые ответы чтения и успешные изменения сообщений.
   //: Снятие выбора, удаления и reset немедленно удаляют соответствующую локальную историю.
   remember(path:string,input:unknown,result:unknown,generation:number,revisionAtRequest:number){
-    if(!path.startsWith('access?')&&!['snapshot','inbox','open','older','read','refresh','send','transcribe'].includes(path))return Promise.resolve();
+    if(!path.startsWith('access?')&&!['snapshot','inbox','open','older','read','refresh','send','transcribe','offline'].includes(path))return Promise.resolve();
     return this.change(value=>{
     if(!value||value.logoutPending||value.expiresAt<=Date.now())return value;
     const data=result as Snapshot&Partial<ConversationPageResult>&{ids?:string[];deletedIds?:string[];reset?:boolean;revision?:number};
@@ -85,8 +93,13 @@ export class OfflineCache {
       if(revisionAtRequest!==this.dataRevision)return false;
       const snapshot=data.snapshot||(['snapshot','read','refresh'].includes(path)?data:undefined);
       if(snapshot?.conversations){value.snapshot={...structuredClone(snapshot),messages:[]};if(value.allowedIds){const ids=new Set(value.allowedIds);value.snapshot.conversations=value.snapshot.conversations.filter(c=>ids.has(c.id));}}
-      const messages=[...(snapshot?.messages||[]),...(data.page?.messages||[]),...(path==='send'?[result as Message]:[])];
-      const merged=new Map(value.messages.map(m=>[m.id,m]));for(const message of messages)merged.set(message.id,structuredClone(message));value.messages=[...merged.values()];
+      const messages=[...(snapshot?.messages||[]),...(data.page?.messages||[]),...(path==='send'?[result as Message]:[]),...(path==='offline'?data.messages:[])];
+      const merged=new Map(value.messages.map(m=>[m.id,m]));if(path==='offline'&&messages.every(m=>JSON.stringify(merged.get(m.id))===JSON.stringify(m)))return false;
+      for(const message of messages){
+        const previous=merged.get(message.id);const version=message.editedAt||message.date;if(previous&&(previous.editedAt||previous.date)>version)continue;
+        const copy=structuredClone(message);if(previous&&(previous.editedAt||previous.date)===version&&previous.voiceTranscription?.pending===false&&copy.voiceTranscription?.pending!==false&&copy.attachments.some(a=>a.isVoice))copy.voiceTranscription=previous.voiceTranscription;
+        merged.set(message.id,copy);
+      }value.messages=[...merged.values()];
       if(path==='transcribe'){const message=value.messages.find(m=>m.id===(input as {messageId?:string})?.messageId);if(message)message.voiceTranscription=result as Message['voiceTranscription'];}
     }
     value.savedAt=Date.now();return this.bound(value);

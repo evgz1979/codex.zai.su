@@ -57,6 +57,7 @@ session и login не требуют сессии, login требует Origin. 
 | GET | badge | `{count}` из метаданных выбранных диалогов, без текстов; требует chat-cookie |
 | POST | refresh | Метаданные и непрочитанные выбранных диалогов; без чтения истории |
 | POST | inbox | `{before?}` → страница единой хронологии из SQLite |
+| POST | offline | `{conversationIds:string[]}` (1–20 разных выбранных ID) → `{messages,readyIds}`; по пять последних сообщений чата из SQLite без open/read |
 | POST | open | `{conversationId}` → ConversationPageResult с последними 10 сообщениями этого адресата |
 | POST | older | `{conversationId,before}` → ConversationPageResult с предыдущими 10 |
 | POST | read | `{conversationId,messageId?}` → отметка до показанного сообщения; без messageId — ручная |

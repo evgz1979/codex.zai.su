@@ -1,4 +1,5 @@
 import {test,expect,type Page} from '@playwright/test';
+import type {Conversation,Message,Snapshot} from '../../shared/types';
 test.use({serviceWorkers:'allow'});
 //: Дожидается настоящей оболочки в Cache Storage и подтверждённого входа.
 //: Синтетический сервер работает на loopback, API и worker не подменяются.
@@ -13,6 +14,13 @@ async function stored(page:Page){return page.evaluate(async()=>{
   const db=await new Promise<IDBDatabase>((resolve,reject)=>{const request=indexedDB.open('zai-messenger-offline-v1',1);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
   const result=await new Promise<unknown[]>((resolve,reject)=>{const request=db.transaction('accounts').objectStore('accounts').getAll();request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});db.close();return JSON.stringify(result);
 });}
+test('offline: список готовит сообщения неоткрытых чатов без open и отметок прочтения',async({page,context})=>{
+  let opened=0;let reads=0;page.on('request',request=>{if(request.url().endsWith('/chat/open'))opened++;if(request.url().endsWith('/chat/read'))reads++;});
+  await login(page);await expect.poll(async()=>{const value=JSON.parse(await stored(page))[0] as {snapshot:{conversations:{id:string}[]};messages:{conversationId:string}[]};return !!value?.snapshot.conversations.length&&value.snapshot.conversations.every(c=>value.messages.some(m=>m.conversationId===c.id));}).toBe(true);
+  expect(opened).toBe(0);expect(reads).toBe(0);await context.setOffline(true);await page.reload();await expect(page.getByRole('heading',{name:'Чаты',exact:true})).toBeVisible();
+  for(const name of ['Анна Смирнова','Команда проекта','Алексей','Мария · другой источник']){await page.getByRole('button',{name:new RegExp(name)}).click();await expect(page.getByRole('article')).not.toHaveCount(0);await expect(page.getByText('В этом чате ещё нет сохранённых сообщений',{exact:true})).toHaveCount(0);await page.getByRole('button',{name:'Назад к чатам'}).click();}
+  expect(reads).toBe(0);
+});
 test('offline: просмотренные чаты и расшифровки доступны после закрытия окна, без отправок',async({page,context},testInfo)=>{
   await login(page);await page.getByRole('button',{name:'Общая лента',exact:true}).click();
   await expect(page.getByRole('button',{name:'Открыть вложение: Голосовое.wav'})).toBeVisible();
@@ -60,6 +68,20 @@ test('offline: опрос неизменённой ревизии не пере�
 });
 test.describe('отказ сервера',()=>{
   test.use({serviceWorkers:'block'});
+  test('offline: активный чат не вытесняет головы остальных при ограничении тысячи сообщений',async({page})=>{
+    const conversations:Conversation[]=Array.from({length:191},(_,index)=>({id:`cache-conversation-${index}`,sourceId:'synthetic-cache',title:`Кеш чата ${index}`,kind:'direct',recipient:{id:`cache-recipient-${index}`,name:`Участник ${index}`},unreadCount:0,preview:'Синтетическое сообщение',updatedAt:new Date(Date.UTC(2026,10,8)-index*86400000).toISOString(),canSend:true}));
+    const history:Message[][]=conversations.map((conversation,index)=>Array.from({length:index===0?100:5},(_,number)=>({id:`cache-message-${index}-${number}`,sourceId:conversation.sourceId,conversationId:conversation.id,sender:conversation.recipient,date:new Date(Date.parse(conversation.updatedAt)+number*1000).toISOString(),text:`Тестовый текст ${index}/${number}`,outgoing:false,status:'received',attachments:[]})));
+    const snapshot:Snapshot={sources:[{id:'synthetic-cache',kind:'test',name:'Тестовый источник',connected:true}],conversations,messages:history[0].slice(-10),refreshedAt:new Date().toISOString(),stale:false};
+    await page.route('**/api/chat/access?*',route=>route.fulfill({json:{ids:conversations.map(c=>c.id),revision:1}}));
+    await page.route('**/api/chat/inbox',route=>route.fulfill({json:{snapshot,page:{conversationId:'inbox',messages:[],nextCursor:null,historyComplete:true}}}));
+    await page.route('**/api/chat/offline',route=>{const ids=route.request().postDataJSON().conversationIds as string[];return route.fulfill({json:{messages:history.filter(messages=>ids.includes(messages[0].conversationId)).flatMap(messages=>messages.slice(-5)),readyIds:ids}});});
+    await page.route('**/api/chat/open',route=>route.fulfill({json:{snapshot,page:{conversationId:conversations[0].id,messages:history[0],nextCursor:null,historyComplete:true}}}));
+    await page.route('**/api/chat/read',route=>route.fulfill({json:snapshot}));
+    await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();
+    await expect.poll(async()=>{const value=JSON.parse(await stored(page))[0] as {messages:Message[]};return value?.messages.filter(m=>m.conversationId!==conversations[0].id).length||0;}).toBe(950);
+    await page.getByRole('button',{name:/Кеш чата 0/}).click();await expect(page.getByRole('article')).toHaveCount(100);
+    const saved=JSON.parse(await stored(page))[0] as {messages:Message[]};expect(saved.messages).toHaveLength(1000);for(const conversation of conversations)expect(saved.messages.filter(m=>m.conversationId===conversation.id).length).toBeGreaterThanOrEqual(5);
+  });
   test('offline: 503 использует сохранённое чтение, 401 очищает его',async({page})=>{
     await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();await page.getByRole('button',{name:/Анна Смирнова/}).click();await expect(page.getByRole('article')).not.toHaveCount(0);
     await page.route('**/api/chat/**',route=>route.fulfill({status:503,contentType:'text/html',body:'Synthetic server unavailable'}));await page.reload();await expect(page.getByRole('heading',{name:'Чаты',exact:true})).toBeVisible();await expect(page.locator('.list-header')).toContainText('Без сети');await page.getByRole('button',{name:/Анна Смирнова/}).click();await expect(page.getByRole('article')).not.toHaveCount(0);

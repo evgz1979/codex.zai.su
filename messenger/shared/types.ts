@@ -17,6 +17,12 @@ export interface AttachmentRequest {conversationId:EntityId;messageId:EntityId;a
 //: Передаёт текст встроенной расшифровки голосового сообщения источника.
 //: pending означает промежуточный текст; native ID задания остаётся на сервере.
 export interface VoiceTranscription {text:string;pending:boolean}
+//: Ограничивает фоновое заполнение и размер браузерного кеша выбранных диалогов.
+//: По пять последних сообщений каждого чата сохраняются без его открытия и отметки прочтения.
+export const OFFLINE_LIMITS={conversations:200,messages:1000,perConversation:100,headMessages:5,batch:20,bytes:4*1024*1024,refreshMs:30000} as const;
+//: Передаёт небольшую порцию истории выбранных чатов для автономного чтения.
+//: Источник — только серверная SQLite; readyIds также включает заведомо пустые чаты.
+export interface OfflineBatch {messages:Message[];readyIds:EntityId[]}
 //: Ограничивает память запроса и объём приватного кеша медиа.
 //: Отдельная фоновая подготовка ограничена пятью днями, текстовая история не усечена.
 export const MEDIA_LIMITS={fileBytes:32*1024*1024,cacheBytes:512*1024*1024,parallel:2,cacheFiles:2048,timeoutMs:60000,previewBytes:512*1024,preloadDays:5} as const;

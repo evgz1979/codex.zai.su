@@ -42,7 +42,7 @@ async function network<T>(role:'admin'|'chat',path:string,input?:unknown,signal?
   //: Передаёт отмену владельца HTTP-запросу, не считая её потерей связи.
   //: Дедлайн применяется только к чтению; отправки не повторяются автоматически.
   const abort=()=>controller.abort();signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)abort();
-  const read=path==='session'||path==='snapshot'||path.startsWith('access?')||['inbox','open','older'].includes(path);
+  const read=path==='session'||path==='snapshot'||path.startsWith('access?')||['inbox','open','older','offline'].includes(path);
   const timer=read?setTimeout(abort,8000):undefined;
   let res:Response;
   try{if(navigator.onLine===false)throw new TypeError('Offline');res=await fetch(`${appApiBase}/${role}/${path}`, {

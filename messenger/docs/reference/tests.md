@@ -53,6 +53,7 @@
 - [test/browser/notifications.spec.ts](../../test/browser/notifications.spec.ts): уведомления: iPhone получает инструкцию установки на экран Домой
 - [test/browser/notifications.spec.ts](../../test/browser/notifications.spec.ts): уведомления: явное включение, проверка и выключение без повторного запроса разрешения
 - [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: 503 использует сохранённое чтение, 401 очищает его
+- [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: активный чат не вытесняет головы остальных при ограничении тысячи сообщений
 - [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: кеши владельца и личной ссылки изолированы, выход гостя не очищает владельца
 - [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: локальный выход очищает сообщения, повторный запуск не восстанавливает старую cookie
 - [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: опрос неизменённой ревизии не перезаписывает сохранённые сообщения
@@ -60,6 +61,7 @@
 - [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: поздний ответ исключённого чата не возвращает сообщения в кеш
 - [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: просмотренные чаты и расшифровки доступны после закрытия окна, без отправок
 - [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: просроченный кеш не открывает переписку, недоступное хранилище не мешает входу
+- [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: список готовит сообщения неоткрытых чатов без open и отметок прочтения
 - [test/browser/paging.spec.ts](../../test/browser/paging.spec.ts): автокеш: прокрутка без кнопок, обновления и удаления, быстрый переход
 - [test/browser/reads.spec.ts](../../test/browser/reads.spec.ts): просмотр: видимая активная лента снимает счётчик, скрытые сообщения ждут просмотра
 - [test/browser/transcription.spec.ts](../../test/browser/transcription.spec.ts): голосовое: pending обновляется, повтор клика заблокирован, текст безопасен
@@ -96,6 +98,9 @@
 - [test/media-preload.test.ts](../../test/media-preload.test.ts): предзагрузка: перезапуск не повторяет готовое, новое вложение готовится автоматически
 - [test/media-preload.test.ts](../../test/media-preload.test.ts): предзагрузка: старые вложения остаются по нажатию, текстовый архив не усечён
 - [test/media-preload.test.ts](../../test/media-preload.test.ts): предзагрузка: только выбранные вложения за пять дней, миниатюра и оригинал, без прочитанных
+- [test/offline-prefetch.test.ts](../../test/offline-prefetch.test.ts): offline-подготовка HTTP: cookie chat, CSRF, роль и точные выбранные ID
+- [test/offline-prefetch.test.ts](../../test/offline-prefetch.test.ts): offline-подготовка: невыбранный чат запрещает весь пакет до чтения сообщений
+- [test/offline-prefetch.test.ts](../../test/offline-prefetch.test.ts): offline-подготовка: по пять сообщений каждого чата из SQLite без подключения, просмотра и read
 - [test/paging.test.ts](../../test/paging.test.ts): Telegram-страницы: offsetId, сервисные записи, конец и курсор чужого диалога
 - [test/paging.test.ts](../../test/paging.test.ts): общая хронология: все страницы SQLite, границы курсора и исключённый архив
 - [test/paging.test.ts](../../test/paging.test.ts): страницы кеша: чужой курсор и исключённый диалог отклоняются без Telegram

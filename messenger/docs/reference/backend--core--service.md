@@ -208,6 +208,18 @@ ingest(event: SourceEvent)
 async markRead(id: string, messageId?: string)
 ```
 
+<a id="symbol-MessengerService.offlineBatch"></a>
+
+## MessengerService.offlineBatch
+
+Читает небольшие головы выбранных чатов для фоновой подготовки устройства.
+
+Проверяет весь пакет до чтения SQLite, не вызывает источник и не меняет latestSeen/read.
+
+```typescript
+offlineBatch(ids: unknown): OfflineBatch
+```
+
 <a id="symbol-MessengerService.onIncoming"></a>
 
 ## MessengerService.onIncoming

@@ -23,7 +23,7 @@
 | [backend/core/push.ts](backend--core--push.md) | Приватные подписки Web Push, VAPID и доставка нейтральных уведомлений новых входящих. | 19 |
 | [backend/core/registry.ts](backend--core--registry.md) | Реестр подключённых SourceAdapter. | 5 |
 | [backend/core/selection.ts](backend--core--selection.md) | Постоянный выбор разрешённых диалогов и ревизия доступа. | 9 |
-| [backend/core/service.ts](backend--core--service.md) | Единая лента, маршруты, лимиты, кеш и дедупликация отправок. | 24 |
+| [backend/core/service.ts](backend--core--service.md) | Единая лента, маршруты, лимиты, кеш и дедупликация отправок. | 25 |
 | [backend/core/source-adapter.ts](backend--core--source-adapter.md) | Общий контракт операций с сообщениями и необязательного каталога папок источника. | 4 |
 | [backend/core/sync.ts](backend--core--sync.md) | Автоматическое заполнение полного SQLite-кеша выбранных диалогов, события и возобновляемая история. | 7 |
 | [backend/core/transcription.ts](backend--core--transcription.md) | Явная встроенная расшифровка голосовых, приватный кеш, дедупликация и проверка обновлений источника. | 6 |
@@ -54,6 +54,7 @@
 | [frontend/src/useAppBadge.ts](frontend--src--useAppBadge.md) | Согласование значка приложения и уведомлений при чтении, возврате фокуса и позднем push. | 4 |
 | [frontend/src/useConversationArrival.ts](frontend--src--useConversationArrival.md) | Отменяемое открытие свежего непрочитанного при запуске и возврате, точного диалога по уведомлению. | 7 |
 | [frontend/src/useOffline.ts](frontend--src--useOffline.md) | Режим локального чтения после потери связи и подтверждённого восстановления сервера. | 1 |
+| [frontend/src/useOfflinePrefetch.ts](frontend--src--useOfflinePrefetch.md) | Фоновая последовательная подготовка голов выбранных чатов для чтения без сети без переключения адресата. | 3 |
 | [frontend/src/useVisibleReads.ts](frontend--src--useVisibleReads.md) | Подтверждение просмотра реально видимых сообщений после остановки прокрутки в активной ленте. | 4 |
 | [frontend/vite.config.ts](frontend--vite.config.md) | React/Vite-сборка в dist/client без отдельного production-порта. | 1 |
 | [playwright.config.ts](playwright.config.md) | Три браузерные конфигурации и изолированный сервер синтетических данных. | 0 |
@@ -64,4 +65,4 @@
 | [scripts/start.sh](scripts--start-sh.md) | Запуск собранного сервера по абсолютному пути для безопасной проверки PID. | 0 |
 | [scripts/stop.mjs](scripts--stop.md) | Проверка PID и команды процесса перед SIGTERM только Messenger. | 0 |
 | [scripts/stop.sh](scripts--stop-sh.md) | Выбор Node.js и запуск штатного stop.mjs. | 0 |
-| [shared/types.ts](shared--types.md) | Общие DTO ленты и каталога, статусы веб-авторизации, лимиты, ID и Destination. | 37 |
+| [shared/types.ts](shared--types.md) | Общие DTO ленты и каталога, статусы веб-авторизации, лимиты, ID и Destination. | 39 |
