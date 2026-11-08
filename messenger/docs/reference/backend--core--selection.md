@@ -10,10 +10,22 @@
 
 Хранит разрешённые диалоги и проверяет доступ на каждой операции.
 
-Пустой выбор запрещает загрузку, отправку и отметку прочитанного.
+История запрещена до выбора или разрешения нового личного входящего; исключения постоянны.
 
 ```typescript
 class ConversationSelectionService
+```
+
+<a id="symbol-ConversationSelectionService.admit"></a>
+
+## ConversationSelectionService.admit
+
+Разрешает новый входящий личный контакт до преобразования его сообщения.
+
+Явное исключение переживает рестарт и имеет приоритет над обнаружением.
+
+```typescript
+admit(conversation: Conversation)
 ```
 
 <a id="symbol-ConversationSelectionService.allows"></a>
@@ -62,6 +74,18 @@ constructor(private store: Store)
 
 ```typescript
 ids()
+```
+
+<a id="symbol-ConversationSelectionService.observe"></a>
+
+## ConversationSelectionService.observe
+
+Фиксирует исходный каталог и обнаруживает новые личные входящие по метаданным.
+
+Старые невыбранные, исключённые, боты, группы и каналы сами не разрешаются.
+
+```typescript
+observe(sourceId: string, catalog: Conversation[])
 ```
 
 <a id="symbol-ConversationSelectionService.replace"></a>

@@ -39,6 +39,7 @@
 - [test/browser/notifications.spec.ts](../../test/browser/notifications.spec.ts): уведомления: iPhone получает инструкцию установки на экран Домой
 - [test/browser/notifications.spec.ts](../../test/browser/notifications.spec.ts): уведомления: явное включение, проверка и выключение без повторного запроса разрешения
 - [test/browser/paging.spec.ts](../../test/browser/paging.spec.ts): автокеш: прокрутка без кнопок, обновления и удаления, быстрый переход
+- [test/browser/reads.spec.ts](../../test/browser/reads.spec.ts): просмотр: видимая активная лента снимает счётчик, скрытые сообщения ждут просмотра
 - [test/core.test.ts](../../test/core.test.ts): SQLite сохраняет всю историю, ограничивает снимок и сохраняет исключённый архив
 - [test/core.test.ts](../../test/core.test.ts): единая лента объединяет источники и сохраняет хронологию
 - [test/core.test.ts](../../test/core.test.ts): идентификаторы не конфликтуют между источниками, типами и строками
@@ -71,6 +72,7 @@
 - [test/paging.test.ts](../../test/paging.test.ts): страницы: отметка прочитанного работает после вытеснения из общего кеша
 - [test/push.test.ts](../../test/push.test.ts): push HTTP: приватность, CSRF, allowlist статики и отзыв при выходе
 - [test/push.test.ts](../../test/push.test.ts): push worker: видимое нейтральное уведомление, badge и переход только в свой чат
+- [test/push.test.ts](../../test/push.test.ts): push worker: поздний push при закрытом чате не возвращает прочитанный badge
 - [test/push.test.ts](../../test/push.test.ts): push: HTTP 410 удаляет устройство; временный отказ сохраняет подписку и не раскрывает ошибку
 - [test/push.test.ts](../../test/push.test.ts): push: VAPID и устройства переживают рестарт; смена пароля отзывает доставку
 - [test/push.test.ts](../../test/push.test.ts): push: библиотека формирует зашифрованный aes128gcm запрос с VAPID
@@ -78,6 +80,16 @@
 - [test/push.test.ts](../../test/push.test.ts): push: подписки проверяют провайдера, схему, порт и P-256 ключи
 - [test/push.test.ts](../../test/push.test.ts): push: пропущенная свежая голова уведомляет, история и сообщения до подписки молчат
 - [test/push.test.ts](../../test/push.test.ts): push: снятие выбора, удаление и отзыв подписки проверяются перед доставкой
+- [test/reads-discovery.test.ts](../../test/reads-discovery.test.ts): Telegram: новый личный входящий сначала проходит discover, исключённые и боты не преобразуются
+- [test/reads-discovery.test.ts](../../test/reads-discovery.test.ts): диалоги: непрочитанные выше прочитанных, внутри порядок по свежести
+- [test/reads-discovery.test.ts](../../test/reads-discovery.test.ts): контакты: наблюдение работает при пустом выборе и исключения сохраняются в SQLite
+- [test/reads-discovery.test.ts](../../test/reads-discovery.test.ts): контакты: обнаружение из метаданных после пропуска, начальная история не создаёт лишних уведомлений
+- [test/reads-discovery.test.ts](../../test/reads-discovery.test.ts): контакты: сохранение устаревшей админской формы сохраняет уже добавленный новый контакт
+- [test/reads-discovery.test.ts](../../test/reads-discovery.test.ts): контакты: старые невыбранные остаются закрытыми, новый входящий разрешается до записи и уведомляет
+- [test/reads-discovery.test.ts](../../test/reads-discovery.test.ts): просмотр: входящее во время RPC остаётся непрочитанным, исключённый поздний ответ не применяется
+- [test/reads-discovery.test.ts](../../test/reads-discovery.test.ts): просмотр: отказ источника не сбрасывает счётчик и не сохраняет границу
+- [test/reads-discovery.test.ts](../../test/reads-discovery.test.ts): просмотр: старый кеш без sequence правильно различает 9 и 10 одной секунды
+- [test/reads-discovery.test.ts](../../test/reads-discovery.test.ts): просмотр: точная граница, сообщения одной секунды и запоздалая голова не возвращают счётчик
 - [test/telegram-auth.test.ts](../../test/telegram-auth.test.ts): Telegram: настоящая оркестрация teleproto сохраняет причину sendCode
 - [test/telegram-auth.test.ts](../../test/telegram-auth.test.ts): Telegram: неверный код повторяется на том же запросе, затем доступен 2FA
 - [test/telegram-auth.test.ts](../../test/telegram-auth.test.ts): Telegram: ошибка фабрики не оставляет вечный connecting и не блокирует новый вход

@@ -58,7 +58,7 @@ authorize()
 Парсинг не пишет тела запросов в журнал или хранилище.
 
 ```typescript
-async body(req: IncomingMessage): Promise<Record<string, unknown>>
+async body(req: IncomingMessage, limit = 20000): Promise<Record<string, unknown>>
 ```
 
 <a id="symbol-createApp.cookie"></a>

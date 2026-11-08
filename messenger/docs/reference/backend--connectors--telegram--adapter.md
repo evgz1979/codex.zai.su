@@ -49,7 +49,7 @@ private bindEvents()
 Правка не увеличивает счётчик непрочитанных как новое сообщение.
 
 ```typescript
-changed(event: NewMessageEvent)
+async changed(event: NewMessageEvent)
 ```
 
 <a id="symbol-TelegramAdapter.bindEvents.deleted"></a>
@@ -62,6 +62,18 @@ changed(event: NewMessageEvent)
 
 ```typescript
 deleted(event: DeletedMessageEvent)
+```
+
+<a id="symbol-TelegramAdapter.canDiscoverContacts"></a>
+
+## TelegramAdapter.canDiscoverContacts
+
+Разрешает наблюдение новых личных входящих после существующего входа Telegram.
+
+Проверяет только наличие vault, не запускает интерактивную авторизацию.
+
+```typescript
+canDiscoverContacts()
 ```
 
 <a id="symbol-TelegramAdapter.connect"></a>
@@ -289,7 +301,7 @@ async sendText(destination: Destination, text: string)
 Подписка сохраняется при пересоздании MTProto-клиента; unselected-текст не копируется.
 
 ```typescript
-subscribe(listener: (event: SourceEvent) => void, allows: (id: string) => boolean)
+subscribe(listener: (event: SourceEvent) => void, allows: (id: string) => boolean, discover?: (conversation: Conversation) => boolean)
 ```
 
 <a id="symbol-TelegramPort"></a>

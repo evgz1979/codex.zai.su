@@ -28,6 +28,42 @@ class Store
 access(since = 0)
 ```
 
+<a id="symbol-Store.acknowledgeRead"></a>
+
+## Store.acknowledgeRead
+
+Атомарно сохраняет просмотр до конкретного сообщения и оставшиеся входящие.
+
+Поздняя отметка старой страницы не передвигает границу назад.
+
+```typescript
+acknowledgeRead(id: string, message: Message)
+```
+
+<a id="symbol-Store.admitContact"></a>
+
+## Store.admitContact
+
+Атомарно разрешает новый личный контакт и сохраняет только его метаданные.
+
+Готовая политика исключения и предел списка проверяются до доступа к сообщению.
+
+```typescript
+admitContact(conversation: Conversation)
+```
+
+<a id="symbol-Store.badgeCount"></a>
+
+## Store.badgeCount
+
+Считает непрочитанные только по метаданным выбранных диалогов.
+
+Worker получает число без загрузки текстов или истории.
+
+```typescript
+badgeCount()
+```
+
 <a id="symbol-Store.checkpointExists"></a>
 
 ## Store.checkpointExists
@@ -98,6 +134,18 @@ conversation(id: string): Conversation | undefined
 
 ```typescript
 deleteSourceKeys(keys: string[], allowed: string[])
+```
+
+<a id="symbol-Store.excluded"></a>
+
+## Store.excluded
+
+Проверяет сохранённое исключение владельца для автоматического обнаружения.
+
+Неизвестный после начальной фиксации контакт можно принять по входящему.
+
+```typescript
+excluded(id: string)
 ```
 
 <a id="symbol-Store.finishMediaJob"></a>
@@ -172,6 +220,18 @@ message(id: string): Message | undefined
 messagePage(id: string, before?: string): MessagePage
 ```
 
+<a id="symbol-Store.observeCatalog"></a>
+
+## Store.observeCatalog
+
+Запоминает метаданные каталога без чтения истории невыбранных диалогов.
+
+При первом запуске прежние невыбранные и архивные диалоги остаются исключёнными.
+
+```typescript
+observeCatalog(sourceId: string, catalog: Conversation[], now = Date.now())
+```
+
 <a id="symbol-Store.progress"></a>
 
 ## Store.progress
@@ -194,6 +254,18 @@ progress(id: string): SyncProgress
 
 ```typescript
 pruneMediaJobs(since: string)
+```
+
+<a id="symbol-Store.readPosition"></a>
+
+## Store.readPosition
+
+Читает постоянную границу реально просмотренных сообщений одного диалога.
+
+Позиция не содержит текст и не открывает доступ к исключённому архиву.
+
+```typescript
+readPosition(id: string): Pick<Message, 'id' | 'date' | 'sequence'> | undefined
 ```
 
 <a id="symbol-Store.remove"></a>
@@ -241,7 +313,7 @@ saveProgress(id: string, progress: SyncProgress)
 При ошибке транзакция откатывается, кеш не удаляется.
 
 ```typescript
-select(ids: string[])
+select(ids: string[], catalog?: Conversation[])
 ```
 
 <a id="symbol-Store.selected"></a>
@@ -280,6 +352,18 @@ set(key: string, value: string)
 syncStatus(): SyncStatus
 ```
 
+<a id="symbol-Store.unreadAfter"></a>
+
+## Store.unreadAfter
+
+Считает входящие после просмотренной позиции индексированной выборкой.
+
+Последовательность источника различает сообщения одной секунды.
+
+```typescript
+private unreadAfter(id: string, position: Pick<Message, 'id' | 'date' | 'sequence'>)
+```
+
 <a id="symbol-Store.upsertMessages"></a>
 
 ## Store.upsertMessages
@@ -290,6 +374,18 @@ syncStatus(): SyncStatus
 
 ```typescript
 upsertMessages(messages: Message[], countUnread = false)
+```
+
+<a id="symbol-Store.withReadPosition"></a>
+
+## Store.withReadPosition
+
+Не позволяет запоздалым метаданным вернуть прочитанные счётчики.
+
+Более свежая голова источника сохраняет собственное число непрочитанных.
+
+```typescript
+withReadPosition(conversation: Conversation)
 ```
 
 <a id="symbol-SyncProgress"></a>

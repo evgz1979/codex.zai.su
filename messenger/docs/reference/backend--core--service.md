@@ -76,6 +76,18 @@ attachmentMetadata(input: AttachmentRequest, original: Message, attachment: Mess
 cacheMessages(id: string, messages: Message[], notify = false)
 ```
 
+<a id="symbol-MessengerService.canDiscoverContacts"></a>
+
+## MessengerService.canDiscoverContacts
+
+Проверяет готовность источника к обнаружению новых личных входящих.
+
+Отсутствие Telegram-сессии не запускает авторизацию или сетевой обход.
+
+```typescript
+canDiscoverContacts()
+```
+
 <a id="symbol-MessengerService.constructor"></a>
 
 ## MessengerService.constructor
@@ -110,6 +122,18 @@ private conversation(id: string): Conversation
 
 ```typescript
 async disconnect()
+```
+
+<a id="symbol-MessengerService.discoverContact"></a>
+
+## MessengerService.discoverContact
+
+Принимает новые метаданные только от зарегистрированного источника.
+
+История становится доступна после атомарного разрешения нового личного контакта.
+
+```typescript
+discoverContact(conversation: Conversation)
 ```
 
 <a id="symbol-MessengerService.doRefresh"></a>
@@ -152,12 +176,12 @@ ingest(event: SourceEvent)
 
 ## MessengerService.markRead
 
-Явно отмечает диалог прочитанным через адаптер.
+Отмечает прочитанным до реально показанного либо явно выбранного сообщения.
 
-Ориентируется на последнее загруженное сообщение и сохраняет нулевой счётчик.
+Проверяет маршрут, сохраняет новые входящие и не откатывает позднюю границу.
 
 ```typescript
-async markRead(id: string)
+async markRead(id: string, messageId?: string)
 ```
 
 <a id="symbol-MessengerService.onIncoming"></a>

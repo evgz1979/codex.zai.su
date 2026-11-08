@@ -37,7 +37,8 @@ export interface SourceAdapter {
     recentMessages(conversationId: string, limit: number): Promise<Message[]>;
     messagePage?(conversationId: string, limit: number, before?: string): Promise<MessagePage>;
     historyPage?(conversationId: string, before?: string, limit?: number): Promise<HistoryPage>;
-    subscribe?(listener: (event: SourceEvent) => void, allows: (conversationId: string) => boolean): () => void;
+    canDiscoverContacts?(): boolean;
+    subscribe?(listener: (event: SourceEvent) => void, allows: (conversationId: string) => boolean, discover?: (conversation: Conversation) => boolean): () => void;
     openAttachment?(request: AttachmentRequest, signal: AbortSignal): Promise<AttachmentContent>;
     sendText(destination: Destination, text: string): Promise<Message>;
     markRead(conversationId: string, messageId: string): Promise<void>;

@@ -75,6 +75,30 @@ export interface AttachmentRequest {
 }
 ```
 
+<a id="symbol-compareConversations"></a>
+
+## compareConversations
+
+Поднимает диалоги с непрочитанными и сохраняет свежие сообщения сверху.
+
+При равном времени порядок устойчив по общему ID.
+
+```typescript
+compareConversations(a: Conversation, b: Conversation)
+```
+
+<a id="symbol-comparePosition"></a>
+
+## comparePosition
+
+Сравнивает позиции сообщений одного диалога для подтверждения просмотра.
+
+При равной дате использует последовательность источника, затем общий ID.
+
+```typescript
+comparePosition(a: Pick<Message, 'date' | 'id' | 'sequence'>, b: Pick<Message, 'date' | 'id' | 'sequence'>)
+```
+
 <a id="symbol-Conversation"></a>
 
 ## Conversation
@@ -94,6 +118,7 @@ export interface Conversation {
     updatedAt: string;
     preview: string;
     canSend: boolean;
+    isBot?: boolean;
 }
 ```
 
@@ -268,6 +293,7 @@ export interface Message {
     attachments: Attachment[];
     sourceKey?: EntityId;
     editedAt?: string;
+    sequence?: number;
 }
 ```
 
@@ -301,6 +327,18 @@ export interface MessagePage {
 
 ```typescript
 const PASSWORD_LIMITS = { min: 8, max: 512 } as const
+```
+
+<a id="symbol-positionSequence"></a>
+
+## positionSequence
+
+Получает порядок источника для новой записи или прежнего составного message ID.
+
+Совместимость применяется только к числовому суффиксу после закодированного разделителя.
+
+```typescript
+positionSequence(message: Pick<Message, 'id' | 'sequence'>)
 ```
 
 <a id="symbol-Recipient"></a>

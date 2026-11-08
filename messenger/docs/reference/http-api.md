@@ -18,6 +18,7 @@
 | POST | `/api/admin/telegram/password` |
 | GET | `/api/chat/access` |
 | POST | `/api/chat/attachment` |
+| GET | `/api/chat/badge` |
 | POST | `/api/chat/inbox` |
 | POST | `/api/chat/login` |
 | POST | `/api/chat/logout` |

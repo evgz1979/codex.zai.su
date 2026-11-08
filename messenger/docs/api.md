@@ -5,7 +5,8 @@ Web Push: [методы подписки, проверки и отзыва](noti
 Публичный Origin: `https://msg.zai.su:8443`. Backend принимает точный Host,
 POST — точный Origin. Защищённые методы требуют cookie нужной роли; изменяющие
 методы также X-CSRF-Token этой роли. Content-Type application/json и лимит
-20000 байт применяются к методам, которые читают тело. Ответы no-store.
+20000 байт применяются к методам, которые читают тело; admin/selection допускает
+200000 байт для списка до 1000 ID. Ответы no-store.
 
 Полный [генерируемый список маршрутов](reference/http-api.md).
 
@@ -29,11 +30,12 @@ session и login не требуют сессии, login требует Origin. 
 | --- | --- | --- |
 | GET | access?since=revision | Разрешённые ID, ревизия кеша, deletedIds, reset и sync; без текстов |
 | GET | snapshot | Snapshot разрешённых ID с последними 10 уже загруженными сообщениями |
+| GET | badge | `{count}` из метаданных выбранных диалогов, без текстов; требует chat-cookie |
 | POST | refresh | Метаданные и непрочитанные выбранных диалогов; без чтения истории |
 | POST | inbox | `{before?}` → страница единой хронологии из SQLite |
 | POST | open | `{conversationId}` → ConversationPageResult с последними 10 сообщениями этого адресата |
 | POST | older | `{conversationId,before}` → ConversationPageResult с предыдущими 10 |
-| POST | read | `{conversationId}` → явная отметка прочитанного |
+| POST | read | `{conversationId,messageId?}` → отметка до показанного сообщения; без messageId — ручная |
 | POST | attachment | `{conversationId,messageId,attachmentId,variant?:'preview'}` → оригинал до 32 МиБ или миниатюра до 512 КиБ |
 | POST | send | `{destination,text,requestId}` → отправленный Message |
 
@@ -80,7 +82,7 @@ CSRF; admin-cookie не даёт доступа. GET этого метода н�
 | --- | --- | --- |
 | GET | status | Безопасный статус Telegram и число разрешённых ID |
 | GET | dialogs | AdminDialogCatalog: conversations с пустыми preview, folders, truncated и selectedIds |
-| POST | selection | `{ids:string[]}`; максимум 100 известных уникальных ID |
+| POST | selection | `{ids:string[]}`; максимум 1000 известных уникальных ID |
 | POST | telegram/begin | `{apiId:number,apiHash:string,phone:string}` → stage |
 | POST | telegram/code | `{value:string}` → следующий stage |
 | POST | telegram/password | `{value:string}` → следующий stage |
