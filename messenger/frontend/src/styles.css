@@ -250,6 +250,14 @@ svg { width: 21px; height: 21px; flex-shrink: 0; }
 .attachment-button > span:last-child { min-width: 0; overflow-wrap: anywhere; }
 .attachment-button small { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; }
 .attachment-button:hover { background: var(--accent-soft); }
+.voice-transcription { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 4px; }
+.transcribe-button { min-height: 44px; padding: 6px 8px; color: #247cb9; text-align: left; border-radius: 6px; }
+.transcribe-button:hover { background: var(--accent-soft); }
+.transcription-caption { display: block; margin-top: 5px; color: var(--muted); font-size: 11px; }
+.bubble .transcription-text { margin-top: 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.bubble .transcription-empty, .bubble .transcription-error { margin-top: 4px; font-size: 12px; }
+.transcription-empty { color: var(--muted); }
+.transcription-error { color: #ae493e; }
 .media-viewer { width: min(96vw, 1000px); max-height: 94vh; max-height: 94dvh; padding: 0; border: 0; border-radius: 12px; background: var(--surface); color: #17212b; }
 .media-viewer[open] { display: flex; flex-direction: column; }
 .media-viewer::backdrop { background: #101b29cf; }

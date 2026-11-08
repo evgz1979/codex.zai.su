@@ -54,6 +54,9 @@
 - [test/browser/notifications.spec.ts](../../test/browser/notifications.spec.ts): уведомления: явное включение, проверка и выключение без повторного запроса разрешения
 - [test/browser/paging.spec.ts](../../test/browser/paging.spec.ts): автокеш: прокрутка без кнопок, обновления и удаления, быстрый переход
 - [test/browser/reads.spec.ts](../../test/browser/reads.spec.ts): просмотр: видимая активная лента снимает счётчик, скрытые сообщения ждут просмотра
+- [test/browser/transcription.spec.ts](../../test/browser/transcription.spec.ts): голосовое: pending обновляется, повтор клика заблокирован, текст безопасен
+- [test/browser/transcription.spec.ts](../../test/browser/transcription.spec.ts): голосовое: ошибка остаётся у сообщения, повтор ручной, уход отменяет запрос
+- [test/browser/transcription.spec.ts](../../test/browser/transcription.spec.ts): голосовое: расшифровка только по кнопке, текст под сообщением и готовый кеш после reload
 - [test/browser/updates.spec.ts](../../test/browser/updates.spec.ts): обновления: без сети приложение остаётся открытым, восстановление позволяет обновиться
 - [test/browser/updates.spec.ts](../../test/browser/updates.spec.ts): обновления: новая сборка не перезагружает чат, отмена сохраняет черновик, применение сохраняет вход
 - [test/browser/updates.spec.ts](../../test/browser/updates.spec.ts): обновления: черновик, начатый во время проверки версии, тоже требует подтверждения
@@ -124,7 +127,17 @@
 - [test/telegram-media.test.ts](../../test/telegram-media.test.ts): Telegram-вложения: один message ID нужного peer, поток и AbortSignal; чужой peer отклоняется
 - [test/telegram-media.test.ts](../../test/telegram-media.test.ts): Telegram-вложения: фото, видео, голосовое и файлы без native secrets в DTO
 - [test/telegram-media.test.ts](../../test/telegram-media.test.ts): Telegram-миниатюры: готовый размер, локальные байты, TTL и предел без оригинала
+- [test/telegram-transcription.test.ts](../../test/telegram-transcription.test.ts): Telegram-расшифровка: Premium, длина, flood и ошибка речи имеют безопасные тексты
+- [test/telegram-transcription.test.ts](../../test/telegram-transcription.test.ts): Telegram-расшифровка: точный peer/msgId, pending и ранний готовый update
+- [test/telegram-transcription.test.ts](../../test/telegram-transcription.test.ts): Telegram-расшифровка: чужой peer, ID, временное и обычное аудио отклоняются до RPC
 - [test/telegram.test.ts](../../test/telegram.test.ts): Telegram-аватары: маленькое фото известного peer, его DC и отменяемый ограниченный поток
 - [test/telegram.test.ts](../../test/telegram.test.ts): Telegram-превью: последние сообщения выбранных чатов доступны без истории и прочтения
 - [test/telegram.test.ts](../../test/telegram.test.ts): Telegram-события: выбор до преобразования, правки, области ID удалений и снятие подписки
 - [test/telegram.test.ts](../../test/telegram.test.ts): Telegram: DTO, фильтр broadcast, уникальность message ID и буквальная отправка
+- [test/transcription.test.ts](../../test/transcription.test.ts): HTTP расшифровки: chat-cookie, CSRF, роли и отзыв сессии во время RPC
+- [test/transcription.test.ts](../../test/transcription.test.ts): расшифровка: дубли объединяются, частичный текст завершается только своим update
+- [test/transcription.test.ts](../../test/transcription.test.ts): расшифровка: незавершённый кеш после рестарта можно продолжить
+- [test/transcription.test.ts](../../test/transcription.test.ts): расшифровка: ошибка провайдера скрывает исходный текст и позволяет ручной повтор
+- [test/transcription.test.ts](../../test/transcription.test.ts): расшифровка: поздний результат после исключения, замены или удаления не сохраняется
+- [test/transcription.test.ts](../../test/transcription.test.ts): расшифровка: точный маршрут, сохранение после синхронизации и перезапуска без нового RPC
+- [test/transcription.test.ts](../../test/transcription.test.ts): расшифровка: чужие маршруты, preview, обычное аудио и исключение не вызывают источник

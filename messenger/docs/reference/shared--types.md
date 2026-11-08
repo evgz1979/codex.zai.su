@@ -325,6 +325,7 @@ export interface Message {
     outgoing: boolean;
     status: DeliveryStatus;
     attachments: Attachment[];
+    voiceTranscription?: VoiceTranscription;
     sourceKey?: EntityId;
     editedAt?: string;
     sequence?: number;
@@ -548,4 +549,19 @@ telegramAuthIssueText(issue: TelegramAuthIssue): string
 
 ```typescript
 export type TelegramAuthStage = 'idle' | 'connecting' | 'code' | 'password' | 'connected' | 'error';
+```
+
+<a id="symbol-VoiceTranscription"></a>
+
+## VoiceTranscription
+
+Передаёт текст встроенной расшифровки голосового сообщения источника.
+
+pending означает промежуточный текст; native ID задания остаётся на сервере.
+
+```typescript
+export interface VoiceTranscription {
+    text: string;
+    pending: boolean;
+}
 ```

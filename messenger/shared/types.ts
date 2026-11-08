@@ -14,6 +14,9 @@ export interface Attachment { id: EntityId; kind: 'image' | 'video' | 'file' | '
 //: Задаёт точный маршрут чтения вложения сохранённого сообщения.
 //: Сервер повторно проверяет диалог, сообщение, источник и ID вложения.
 export interface AttachmentRequest {conversationId:EntityId;messageId:EntityId;attachmentId:EntityId;variant?:'preview'}
+//: Передаёт текст встроенной расшифровки голосового сообщения источника.
+//: pending означает промежуточный текст; native ID задания остаётся на сервере.
+export interface VoiceTranscription {text:string;pending:boolean}
 //: Ограничивает память запроса и объём приватного кеша медиа.
 //: Отдельная фоновая подготовка ограничена пятью днями, текстовая история не усечена.
 export const MEDIA_LIMITS={fileBytes:32*1024*1024,cacheBytes:512*1024*1024,parallel:2,cacheFiles:2048,timeoutMs:60000,previewBytes:512*1024,preloadDays:5} as const;
@@ -65,6 +68,7 @@ export interface Message {
   outgoing: boolean;
   status: DeliveryStatus;
   attachments: Attachment[];
+  voiceTranscription?:VoiceTranscription;
   sourceKey?:EntityId;
   editedAt?:string;
   sequence?:number;

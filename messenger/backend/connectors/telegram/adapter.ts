@@ -6,11 +6,12 @@ import { telegramClient } from './client.js';
 import { entityId, messagePreview, LIMITS, type Conversation, type ConversationCatalog, type Destination, type Message, type MessagePage, type Source } from '../../../shared/types.js';
 import {telegramFolders,type TelegramMuteDefaults} from './folders.js';
 import {AppError} from '../../core/errors.js';
-import {NewMessage,EditedMessage,DeletedMessage,type NewMessageEvent,type DeletedMessageEvent} from 'teleproto/events';
+import {NewMessage,EditedMessage,DeletedMessage,Raw,type NewMessageEvent,type DeletedMessageEvent} from 'teleproto/events';
 import {telegramAttachments,telegramPreview} from './media.js';
 import {type AttachmentRequest,MEDIA_LIMITS} from '../../../shared/types.js';
 import type {AttachmentContent} from '../../core/source-adapter.js';
-import type {SourceEvent} from '../../core/source-adapter.js';
+import type {SourceEvent,SourceTranscription} from '../../core/source-adapter.js';
+import {telegramAuthIssue} from '../../auth/telegram-issue.js';
 import type {HistoryPage} from '../../../shared/types.js';
 
 //: Восстанавливает маленький JPEG профиля из уже полученных метаданных Telegram.
@@ -34,6 +35,7 @@ export class TelegramAdapter implements SourceAdapter {
   private connecting?: Promise<void>;
   private subscribers=new Set<{listener:(event:SourceEvent)=>void;allows:(id:string)=>boolean;discover?:(conversation:Conversation)=>boolean}>();
   private listenedClient?:TelegramPort;
+  private transcriptions=new Map<string,SourceTranscription>();
   //: Подключает приватное хранилище и фабрику клиента.
   //: По умолчанию используется teleproto; отдельная фабрика служит изолированным тестам.
   constructor(private vault: SecretVault, private createClient: (credentials: NonNullable<ReturnType<SecretVault['load']>>, vault: SecretVault) => TelegramPort = telegramClient) {
@@ -211,6 +213,29 @@ export class TelegramAdapter implements SourceAdapter {
     }
     return {attachment,chunks:this.client!.iterDownload(message,{signal,limit:MEDIA_LIMITS.fileBytes+1,requestSize:256*1024})};
   }
+  //: Запрашивает встроенную расшифровку Telegram для одного проверенного голосового.
+  //: Аудиобайты не скачиваются; peer, message, voice и TTL проверяются перед RPC.
+  async transcribeVoice(input:AttachmentRequest):Promise<SourceTranscription>{
+    try{
+      const native=this.cursorOffset(input.conversationId,input.messageId);const dialog=await this.dialog(input.conversationId);
+      const messages=await this.client!.getMessages(dialog.inputEntity,{ids:[native]});const message=messages[0];
+      if(!(message instanceof Api.Message)||message.id!==native||entityId(this.source.id,'conversation',message.chatId?.toString()||utils.getPeerId(message.peerId))!==input.conversationId)throw new AppError(404,'Голосовое сообщение больше недоступно.');
+      const attachment=telegramAttachments(this.source.id,input.conversationId,message).find(a=>a.id===input.attachmentId);
+      if(input.variant!==undefined||attachment?.kind!=='audio'||!attachment.isVoice||attachment.downloadable===false)throw new AppError(415,'Расшифровка доступна только для голосовых сообщений.');
+      const result=await this.client!.invoke(new Api.messages.TranscribeAudio({peer:dialog.inputEntity,msgId:native}));
+      const cached=this.transcriptions.get(input.messageId);
+      return cached?.transcriptionId===result.transcriptionId.toString()&&!cached.pending?cached:{transcriptionId:result.transcriptionId.toString(),text:result.text,pending:!!result.pending};
+    }catch(error){
+      if(error instanceof AppError)throw error;
+      const rpc=error&&typeof error==='object'?(error as {errorMessage?:string}).errorMessage:undefined;
+      if(rpc==='PREMIUM_ACCOUNT_REQUIRED')throw new AppError(403,'Telegram требует Premium для расшифровки этого сообщения.');
+      if(rpc==='MSG_VOICE_TOO_LONG')throw new AppError(422,'Голосовое сообщение слишком длинное для расшифровки Telegram.');
+      if(rpc==='MSG_ID_INVALID'||rpc==='MSG_VOICE_MISSING')throw new AppError(404,'Голосовое сообщение больше недоступно.');
+      if(rpc==='TRANSCRIPTION_FAILED')throw new AppError(502,'Telegram не смог распознать речь. Попробуйте позже.');
+      const issue=telegramAuthIssue(error);if(issue.code==='rate_limited')throw new AppError(429,'Telegram временно ограничил расшифровку. Повторите позже.',issue.retryAfterSeconds);
+      throw new AppError(503,'Не удалось получить расшифровку Telegram. Повторите позже.');
+    }
+  }
   //: Подписывает ядро на изменения только разрешённых диалогов.
   //: Подписка сохраняется при пересоздании MTProto-клиента; unselected-текст не копируется.
   subscribe(listener:(event:SourceEvent)=>void,allows:(id:string)=>boolean,discover?:(conversation:Conversation)=>boolean){const item={listener,allows,discover};this.subscribers.add(item);this.bindEvents();return()=>{this.subscribers.delete(item);};}
@@ -241,7 +266,21 @@ export class TelegramAdapter implements SourceAdapter {
     //: Передаёт области удалённых ID без содержимого сообщения.
     //: Неоднозначные личные удаления разрешаются серверным индексом source_key.
     const deleted=(event:DeletedMessageEvent)=>{const namespace=event.isChannel?event.chatId?.toString():'global';if(!namespace)return;const id=entityId(this.source.id,'conversation',namespace);const keys=event.deletedIds.map(n=>entityId(this.source.id,'source-message',`${namespace}/${n}`));for(const sub of this.subscribers)if(!event.isChannel||sub.allows(id))sub.listener({type:'delete',sourceId:this.source.id,keys});};
-    client.addEventHandler(changed,new NewMessage({}));client.addEventHandler(changed,new EditedMessage({}));client.addEventHandler(deleted,new DeletedMessage({}));
+    //: Принимает частичный или готовый текст только для разрешённого диалога.
+    //: Буфер ограничен 128 записями и закрывает гонку update до ответа RPC.
+    const transcribed=(update:Api.TypeUpdate)=>{
+      if(!(update instanceof Api.UpdateTranscribedAudio)||this.client!==client)return;
+      const conversationId=entityId(this.source.id,'conversation',utils.getPeerId(update.peer));
+      const request={conversationId,messageId:entityId(this.source.id,'message',`${conversationId}/${update.msgId}`),attachmentId:entityId(this.source.id,'attachment',`${conversationId}/${update.msgId}`)};
+      const result={transcriptionId:update.transcriptionId.toString(),text:update.text,pending:!!update.pending};
+      for(const sub of this.subscribers)if(sub.allows(conversationId)){
+        const previous=this.transcriptions.get(request.messageId);
+        if(previous?.transcriptionId===result.transcriptionId&&!previous.pending&&result.pending)continue;
+        this.transcriptions.set(request.messageId,result);while(this.transcriptions.size>128)this.transcriptions.delete(this.transcriptions.keys().next().value!);
+        sub.listener({type:'transcription',sourceId:this.source.id,request,result});
+      }
+    };
+    client.addEventHandler(changed,new NewMessage({}));client.addEventHandler(changed,new EditedMessage({}));client.addEventHandler(deleted,new DeletedMessage({}));client.addEventHandler(transcribed,new Raw({types:[Api.UpdateTranscribedAudio]}));
   }
   //: Отправляет буквальный текст в проверенный Telegram dialog.
   //: Повторно сверяет source и recipient; отключает разметку и link preview.

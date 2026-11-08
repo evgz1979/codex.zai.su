@@ -1,6 +1,6 @@
 // Только синтетические данные тестов. Не подключается к production entrypoint.
 import {AppError} from '../backend/core/errors.js';
-import type { SourceAdapter,SourceEvent,AttachmentContent } from '../backend/core/source-adapter.js';
+import type { SourceAdapter,SourceEvent,AttachmentContent,SourceTranscription } from '../backend/core/source-adapter.js';
 import { destinationFor, entityId, type AttachmentRequest,type Conversation, type Destination, type Message, type Source } from '../shared/types.js';
 export class TestAdapter implements SourceAdapter {
   source: Source;
@@ -12,6 +12,8 @@ export class TestAdapter implements SourceAdapter {
   fail = false;
   attachmentCalls=0;
   avatarCalls=0;
+  transcriptionCalls:AttachmentRequest[]=[];
+  transcriptionResult:SourceTranscription={transcriptionId:'100',text:'Синтетическая расшифровка голосового.',pending:false};
   avatars=new Map<string,Buffer>();
   previews=new Map<string,{attachment:Message['attachments'][number];bytes:Buffer}>();
   media=new Map<string,{attachment:Message['attachments'][number];bytes:Buffer}>();
@@ -71,4 +73,7 @@ export class TestAdapter implements SourceAdapter {
     return {attachment:value.attachment,chunks:(async function*(){yield value.bytes;})()};
   }
   async markRead(id: string) { this.reads.push(id); }
+  //: Возвращает явно синтетическую расшифровку для изолированных тестов.
+  //: Не вызывает Telegram; параметры позволяют проверить отсутствие лишних RPC.
+  async transcribeVoice(input:AttachmentRequest):Promise<SourceTranscription>{this.transcriptionCalls.push(input);if(this.fail)throw new Error('PRIVATE_PROVIDER_ERROR');return this.transcriptionResult;}
 }

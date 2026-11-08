@@ -89,6 +89,13 @@ export function createApp(options: { service:MessengerService; store:Store; auth
           }
           if(action==='access'&&req.method==='GET') {const since=Number(new URL(req.url||'/',options.origin).searchParams.get('since')||0);if(!Number.isSafeInteger(since)||since<0)throw new AppError(400,'Некорректная ревизия.');return send(res,200,current.store.access(since));}
           if(action==='snapshot'&&req.method==='GET') return send(res,200,current.service.snapshot());
+          if(action==='transcribe'&&req.method==='POST'){
+            const input=await body(req) as unknown as AttachmentRequest;
+            const result=await current.service.transcriptions.request(input);
+            if(!auth.session(req.headers.cookie,'chat',secure)||(account&&!options.accounts!.allows(account)))throw new AppError(401,'Войдите в приложение.');
+            current.service.attachmentMessage(input);
+            return send(res,200,result);
+          }
           if(action==='inbox'&&req.method==='POST'){const input=await body(req);if(input.before!==undefined&&(typeof input.before!=='string'||!input.before||input.before.length>2048))throw new AppError(400,'Некорректный курсор кеша.');return send(res,200,current.service.inboxPage(input.before as string|undefined));}
           if(action==='refresh'&&req.method==='POST') return send(res,200,await current.service.refresh());
           if((action==='open'||action==='older'||action==='read')&&req.method==='POST') {

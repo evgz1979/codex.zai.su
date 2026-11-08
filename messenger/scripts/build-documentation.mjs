@@ -5,6 +5,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const printer = ts.createPrinter({ removeComments: true, newLine: ts.NewLineKind.LineFeed });
 const purposes = {
+  'backend/core/transcription.ts':'Явная встроенная расшифровка голосовых, приватный кеш, дедупликация и проверка обновлений источника.',
+  'frontend/src/VoiceTranscription.tsx':'Кнопка расшифровки голосового, частичный текст, ручной повтор и отменяемый опрос.',
   'test/browser/updates.spec.ts':'Проверка обновления установленного приложения, предупреждения о черновиках, входа и отказа сети.',
   'frontend/src/AppUpdates.tsx':'Проверка версии сборки и обновление приложения по нажатию без смены manifest и подписок.',
   'backend/accounts.ts': 'Закрытый реестр личных пользователей, персональные ссылки, блокировки и независимые серверные экземпляры.',

@@ -76,6 +76,18 @@ async changed(event: NewMessageEvent)
 deleted(event: DeletedMessageEvent)
 ```
 
+<a id="symbol-TelegramAdapter.bindEvents.transcribed"></a>
+
+## TelegramAdapter.bindEvents.transcribed
+
+Принимает частичный или готовый текст только для разрешённого диалога.
+
+Буфер ограничен 128 записями и закрывает гонку update до ответа RPC.
+
+```typescript
+transcribed(update: Api.TypeUpdate)
+```
+
 <a id="symbol-TelegramAdapter.canDiscoverContacts"></a>
 
 ## TelegramAdapter.canDiscoverContacts
@@ -326,6 +338,18 @@ async sendText(destination: Destination, text: string)
 
 ```typescript
 subscribe(listener: (event: SourceEvent) => void, allows: (id: string) => boolean, discover?: (conversation: Conversation) => boolean)
+```
+
+<a id="symbol-TelegramAdapter.transcribeVoice"></a>
+
+## TelegramAdapter.transcribeVoice
+
+Запрашивает встроенную расшифровку Telegram для одного проверенного голосового.
+
+Аудиобайты не скачиваются; peer, message, voice и TTL проверяются перед RPC.
+
+```typescript
+async transcribeVoice(input: AttachmentRequest): Promise<SourceTranscription>
 ```
 
 <a id="symbol-TelegramPort"></a>

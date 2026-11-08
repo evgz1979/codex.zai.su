@@ -6,6 +6,7 @@ import { AppError } from './errors.js';
 import { ConnectorRegistry } from './registry.js';
 import { ConversationSelectionService } from './selection.js';
 import { UnifiedInboxService } from './inbox.js';
+import {VoiceTranscriptionService} from './transcription.js';
 export { AppError } from './errors.js';
 //: Объединяет источники в общую ленту и проверяет отправки.
 //: Зависит от SourceAdapter и Store, без Telegram-специфичных ID.
@@ -14,6 +15,7 @@ export class MessengerService {
   readonly registry: ConnectorRegistry;
   readonly selection: ConversationSelectionService;
   readonly inbox: UnifiedInboxService;
+  readonly transcriptions:VoiceTranscriptionService;
   private pendingRefresh?: Promise<Snapshot>;
   private sends = new Map<string, { signature: string; result: Promise<Message>; created: number }>();
   private avatars=new Map<string,{version:string;bytes:Buffer;mimeType:string}>();
@@ -42,6 +44,7 @@ export class MessengerService {
     this.registry = new ConnectorRegistry(adapters);
     this.selection = new ConversationSelectionService(store);
     this.inbox = new UnifiedInboxService(this.selection);
+    this.transcriptions=new VoiceTranscriptionService(this,store);
     this.state = store.loadCache();
     this.state.stale = true;
   }
@@ -123,6 +126,7 @@ export class MessengerService {
   //: Применяет событие источника только к текущему списку разрешений.
   //: Правки и удаления не открывают доступ к исключённому архиву.
   ingest(event:SourceEvent){
+    if(event.type==='transcription'){this.transcriptions.ingest(event);return;}
     if(event.type==='message'){
       const m=event.message;if(!this.selection.allows(m.conversationId))return;this.adapter(m.sourceId);const c=this.store.conversation(m.conversationId);if(!c||c.sourceId!==m.sourceId)return;
       const fresh=!event.edited&&!m.editedAt&&!m.outgoing&&!this.store.message(m.id);

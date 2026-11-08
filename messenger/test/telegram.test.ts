@@ -59,7 +59,7 @@ test('Telegram-события: выбор до преобразования, п�
  const selected=entityId(adapter.source.id,'conversation','123');const channelId=entityId(adapter.source.id,'conversation','-100456');const allowed=new Set([selected,channelId]);
  const unsubscribe=adapter.subscribe(event=>events.push(event),id=>allowed.has(id));
  try{
-  await adapter.connect();assert.equal(handlers.length,3);
+  await adapter.connect();assert.equal(handlers.length,4);
   const m=new Api.Message({id:7,peerId:new Api.PeerUser({userId:123n as never}),date:123,message:'Синтетическое'});
   const emit=(builder:unknown,event:unknown)=>handlers.find(h=>h.builder instanceof (builder as typeof NewMessage))!.callback(event as never);
   emit(NewMessage,{message:m});assert.equal(events.length,1);const original=events[0];assert.equal(original.type,'message');if(original.type!=='message')throw new Error('Expected message');assert.equal(original.message.conversationId,selected);

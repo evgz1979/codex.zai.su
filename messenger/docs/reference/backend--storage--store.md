@@ -304,6 +304,18 @@ saveCache(snapshot: Snapshot)
 saveProgress(id: string, progress: SyncProgress)
 ```
 
+<a id="symbol-Store.saveTranscription"></a>
+
+## Store.saveTranscription
+
+Сохраняет расшифровку без изменения сообщения, превью и непрочитанных.
+
+Завершённый ответ того же задания не откатывается поздним частичным текстом.
+
+```typescript
+saveTranscription(message: Message, attachmentId: string, result: SourceTranscription)
+```
+
 <a id="symbol-Store.select"></a>
 
 ## Store.select
@@ -352,6 +364,18 @@ set(key: string, value: string)
 syncStatus(): SyncStatus
 ```
 
+<a id="symbol-Store.transcription"></a>
+
+## Store.transcription
+
+Читает внутреннее состояние одного ранее запрошенного задания.
+
+Проверку доступа к диалогу выполняет сервис до чтения этой записи.
+
+```typescript
+transcription(id: string): StoredTranscription | undefined
+```
+
 <a id="symbol-Store.unreadAfter"></a>
 
 ## Store.unreadAfter
@@ -386,6 +410,34 @@ upsertMessages(messages: Message[], countUnread = false)
 
 ```typescript
 withReadPosition(conversation: Conversation)
+```
+
+<a id="symbol-Store.withTranscription"></a>
+
+## Store.withTranscription
+
+Дополняет сообщение только расшифровкой той же версии голосового.
+
+Синхронизация исходного DTO не удаляет текст и не возвращает устаревший результат.
+
+```typescript
+private withTranscription(message: Message): Message
+```
+
+<a id="symbol-StoredTranscription"></a>
+
+## StoredTranscription
+
+Хранит приватную расшифровку отдельно от синхронизируемого сообщения.
+
+Версия и ID вложения запрещают показывать текст после замены голосового.
+
+```typescript
+export interface StoredTranscription extends SourceTranscription {
+    attachmentId: string;
+    version: string;
+    updatedAt: number;
+}
 ```
 
 <a id="symbol-SyncProgress"></a>

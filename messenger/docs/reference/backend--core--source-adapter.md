@@ -41,6 +41,7 @@ export interface SourceAdapter {
     subscribe?(listener: (event: SourceEvent) => void, allows: (conversationId: string) => boolean, discover?: (conversation: Conversation) => boolean): () => void;
     openAvatar?(conversationId: string, signal: AbortSignal): Promise<AsyncIterable<Uint8Array>>;
     openAttachment?(request: AttachmentRequest, signal: AbortSignal): Promise<AttachmentContent>;
+    transcribeVoice?(request: AttachmentRequest): Promise<SourceTranscription>;
     sendText(destination: Destination, text: string): Promise<Message>;
     markRead(conversationId: string, messageId: string): Promise<void>;
 }
@@ -50,7 +51,7 @@ export interface SourceAdapter {
 
 ## SourceEvent
 
-Передаёт обновлённое сообщение или ключи удалений одного источника.
+Передаёт сообщения, удаления и обновления расшифровки одного источника.
 
 Ключ удаления включает источник и его область уникальности, без MTProto-объектов.
 
@@ -63,5 +64,24 @@ export type SourceEvent = {
     type: 'delete';
     sourceId: string;
     keys: string[];
+} | {
+    type: 'transcription';
+    sourceId: string;
+    request: AttachmentRequest;
+    result: SourceTranscription;
 };
+```
+
+<a id="symbol-SourceTranscription"></a>
+
+## SourceTranscription
+
+Связывает внутреннее задание расшифровки с обновлениями источника.
+
+transcriptionId хранится только на сервере и не входит в публичный DTO.
+
+```typescript
+export interface SourceTranscription extends VoiceTranscription {
+    transcriptionId: string;
+}
 ```

@@ -90,6 +90,13 @@ test('личные пользователи: ссылки, пароли, cookie,
   const file=await request('/api/u/anna/chat/attachment',media,chat);assert.equal(file.status,200);assert.equal(await file.text(),`MEDIA:${anna.id}`);
   assert.notEqual((await request('/api/chat/attachment',media,chat)).status,200);
   const foreign=ownerAdapter.messages[0];assert.equal((await request('/api/u/anna/chat/attachment',{conversationId:foreign.conversationId,messageId:foreign.id,attachmentId:foreign.attachments[0].id},chat)).status,403);assert.equal(ownerAdapter.attachmentCalls,0);
+  const voice={id:entityId(userAdapter.source.id,'attachment','voice'),kind:'audio' as const,name:'voice.ogg',isVoice:true};
+  accounts.find('anna')!.runtime.store.upsertMessages([{...message,attachments:[...message.attachments,voice]}]);
+  const transcription={...media,attachmentId:voice.id};
+  assert.equal((await request('/api/u/anna/chat/transcribe',{conversationId:foreign.conversationId,messageId:foreign.id,attachmentId:foreign.attachments[0].id},chat)).status,403);assert.equal(ownerAdapter.transcriptionCalls.length,0);
+  assert.equal((await request('/api/chat/transcribe',transcription,chat)).status,401);
+  assert.equal((await request('/api/u/anna/chat/transcribe',transcription,chat)).status,200);assert.equal(userAdapter.transcriptionCalls.length,1);assert.equal(ownerAdapter.transcriptionCalls.length,0);
+  assert.equal(accounts.owner.runtime.store.transcription(message.id),undefined);
   const vapid=accounts.find('anna')!.runtime.push!.configuration().publicKey;assert.notEqual(vapid,accounts.owner.runtime.push!.configuration().publicKey);
   assert.equal(statSync(join(directory,'users',anna.id)).mode&0o777,0o700);
   assert.equal(statSync(join(directory,'users',anna.id,'messenger.sqlite')).mode&0o777,0o600);

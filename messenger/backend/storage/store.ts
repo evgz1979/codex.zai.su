@@ -4,6 +4,10 @@ import { chmodSync } from 'node:fs';
 import { privateDirectory } from './private-files.js';
 import { LIMITS,messagePreview,comparePosition,positionSequence, type Snapshot, type Conversation, type Message, type MessagePage,type Attachment,type AttachmentRequest, type SyncStatus } from '../../shared/types.js';
 import {AppError} from '../core/errors.js';
+import type {SourceTranscription} from '../core/source-adapter.js';
+//: Хранит приватную расшифровку отдельно от синхронизируемого сообщения.
+//: Версия и ID вложения запрещают показывать текст после замены голосового.
+export interface StoredTranscription extends SourceTranscription {attachmentId:string;version:string;updatedAt:number}
 //: Хранит курсоры возобновляемой истории и сверки новых сообщений.
 //: Курсоры источника отделены от курсоров страниц браузерного SQLite API.
 export interface SyncProgress {initialized:boolean;historyCursor:string|null;historyComplete:boolean;headKeys:string[];newerCursor:string|null;pendingHeadKeys:string[];nextHeadAt:number;checkpointIds:string[];lastHeadAt?:number}
@@ -26,6 +30,7 @@ export class Store {
     this.db.exec('CREATE INDEX IF NOT EXISTS message_page_order ON message_cache(conversation_id,date DESC,id DESC); CREATE INDEX IF NOT EXISTS message_source_key ON message_cache(source_key); CREATE TABLE IF NOT EXISTS sync_state (id TEXT PRIMARY KEY,payload TEXT NOT NULL); CREATE TABLE IF NOT EXISTS message_tombstones (source_key TEXT PRIMARY KEY);');
     this.db.exec("CREATE INDEX IF NOT EXISTS message_date_order ON message_cache(date DESC,id DESC); CREATE TABLE IF NOT EXISTS media_preload (message_id TEXT NOT NULL,attachment_id TEXT NOT NULL,version TEXT NOT NULL,variant TEXT NOT NULL,message_date TEXT NOT NULL,next_attempt INTEGER NOT NULL,PRIMARY KEY(message_id,attachment_id,version,variant));");
     this.db.exec('CREATE TABLE IF NOT EXISTS conversation_policy (id TEXT PRIMARY KEY,source_id TEXT NOT NULL,excluded INTEGER NOT NULL);');
+    this.db.exec('CREATE TABLE IF NOT EXISTS voice_transcriptions (message_id TEXT PRIMARY KEY,payload TEXT NOT NULL);');
     // Мигрируем только прежний локальный кеш. Выбор по умолчанию остаётся пустым.
     const old = this.get('cache');
     if (old) { try { this.saveCache(JSON.parse(old)); } catch { /* Повреждённый старый кеш не является настройкой. */ } this.remove('cache'); }
@@ -44,7 +49,27 @@ export class Store {
   conversation(id:string):Conversation|undefined{const row=this.db.prepare('SELECT payload FROM conversation_cache WHERE id=?').get(id) as {payload:string}|undefined;return row?JSON.parse(row.payload):undefined;}
   //: Читает ровно одно сообщение по общему ID для защищённого доступа к медиа.
   //: Проверку выбора выполняет ядро перед обращением к этому методу.
-  message(id:string):Message|undefined{const row=this.db.prepare('SELECT payload FROM message_cache WHERE id=?').get(id) as {payload:string}|undefined;return row?JSON.parse(row.payload):undefined;}
+  message(id:string):Message|undefined{const row=this.db.prepare('SELECT payload FROM message_cache WHERE id=?').get(id) as {payload:string}|undefined;return row?this.withTranscription(JSON.parse(row.payload)):undefined;}
+  //: Читает внутреннее состояние одного ранее запрошенного задания.
+  //: Проверку доступа к диалогу выполняет сервис до чтения этой записи.
+  transcription(id:string):StoredTranscription|undefined{const row=this.db.prepare('SELECT payload FROM voice_transcriptions WHERE message_id=?').get(id) as {payload:string}|undefined;return row?JSON.parse(row.payload):undefined;}
+  //: Дополняет сообщение только расшифровкой той же версии голосового.
+  //: Синхронизация исходного DTO не удаляет текст и не возвращает устаревший результат.
+  private withTranscription(message:Message):Message{
+    delete message.voiceTranscription;
+    if(!message.attachments.some(a=>a.kind==='audio'&&a.isVoice&&a.downloadable!==false))return message;
+    const saved=this.transcription(message.id);
+    if(saved&&saved.version===(message.editedAt||message.date)&&message.attachments.some(a=>a.id===saved.attachmentId&&a.kind==='audio'&&a.isVoice&&a.downloadable!==false))message.voiceTranscription={text:saved.text,pending:saved.pending};
+    return message;
+  }
+  //: Сохраняет расшифровку без изменения сообщения, превью и непрочитанных.
+  //: Завершённый ответ того же задания не откатывается поздним частичным текстом.
+  saveTranscription(message:Message,attachmentId:string,result:SourceTranscription){
+    const previous=this.transcription(message.id);const version=message.editedAt||message.date;
+    if(previous?.version===version&&previous.attachmentId===attachmentId&&previous.transcriptionId===result.transcriptionId&&!previous.pending&&result.pending)return;
+    const value:StoredTranscription={...result,attachmentId,version,updatedAt:Date.now()};
+    this.db.prepare('INSERT OR REPLACE INTO voice_transcriptions(message_id,payload) VALUES (?,?)').run(message.id,JSON.stringify(value));this.revision++;
+  }
   //: Читает постоянную границу реально просмотренных сообщений одного диалога.
   //: Позиция не содержит текст и не открывает доступ к исключённому архиву.
   readPosition(id:string):Pick<Message,'id'|'date'|'sequence'>|undefined{const value=this.get(`read.position.${id}`);return value?JSON.parse(value):undefined;}
@@ -101,7 +126,7 @@ export class Store {
     const conversations = (this.db.prepare(`SELECT payload FROM conversation_cache WHERE id IN (${placeholders})`).all(...ids) as {payload:string}[]).map(r=>JSON.parse(r.payload) as Conversation);
     const recent=this.db.prepare('SELECT payload FROM message_cache WHERE conversation_id=? ORDER BY date DESC,id DESC LIMIT ?');
     const messages=ids.flatMap(id=>(recent.all(id,LIMITS.pageMessages) as {payload:string}[]).map(r=>JSON.parse(r.payload) as Message)).sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id)).slice(-LIMITS.cachedMessages);
-    return { ...empty,conversations,messages };
+    return { ...empty,conversations,messages:messages.map(message=>this.withTranscription(message)) };
   }
   //: Сохраняет метаданные и сообщения без усечения накопленной истории.
   //: Объём памяти ответа ограничен отдельно; исключённый архив не удаляется.
@@ -109,7 +134,7 @@ export class Store {
     this.db.exec('BEGIN IMMEDIATE');
     try {
       for (const c of snapshot.conversations) this.db.prepare('INSERT OR REPLACE INTO conversation_cache (id,payload) VALUES (?,?)').run(c.id,JSON.stringify(this.withReadPosition(c)));
-      for (const m of snapshot.messages) this.db.prepare('INSERT OR REPLACE INTO message_cache (id,conversation_id,date,payload,source_key) VALUES (?,?,?,?,?)').run(m.id,m.conversationId,m.date,JSON.stringify(m),m.sourceKey||null);
+      for (const m of snapshot.messages) this.db.prepare('INSERT OR REPLACE INTO message_cache (id,conversation_id,date,payload,source_key) VALUES (?,?,?,?,?)').run(m.id,m.conversationId,m.date,JSON.stringify({...m,voiceTranscription:undefined}),m.sourceKey||null);
       if (snapshot.refreshedAt) this.set('refreshedAt',snapshot.refreshedAt);
       this.db.exec('COMMIT');
       this.revision++;
@@ -117,7 +142,7 @@ export class Store {
   }
   //: Удаляет кеш только явной локальной командой.
   //: Пароли, выбор и Telegram-сессия сохраняются.
-  clearCache() { this.db.exec('DELETE FROM message_cache; DELETE FROM conversation_cache; DELETE FROM sync_state; DELETE FROM message_tombstones; DELETE FROM media_preload; VACUUM;'); this.remove('refreshedAt');this.revision++; }
+  clearCache() { this.db.exec('DELETE FROM voice_transcriptions; DELETE FROM message_cache; DELETE FROM conversation_cache; DELETE FROM sync_state; DELETE FROM message_tombstones; DELETE FROM media_preload; VACUUM;'); this.remove('refreshedAt');this.revision++; }
   //: Возвращает одну индексированную страницу SQLite без запроса к источнику.
   //: Курсор привязан к диалогу, дате и ID; незавершённая история может ожидать фоновой загрузки.
   messagePage(id:string,before?:string):MessagePage {
@@ -128,7 +153,7 @@ export class Store {
     const rows=ids.flatMap(conversationId=>(anchor?query.all(conversationId,anchor.date,anchor.date,anchor.id,LIMITS.pageMessages+1):query.all(conversationId,LIMITS.pageMessages+1)) as {payload:string}[]).map(r=>JSON.parse(r.payload) as Message).sort((a,b)=>a.date===b.date?(a.id<b.id?1:a.id>b.id?-1:0):a.date<b.date?1:-1);
     const progress=ids.map(conversationId=>this.progress(conversationId));const historyComplete=progress.every(p=>p.historyComplete);const more=rows.length>LIMITS.pageMessages;const messages=rows.slice(0,LIMITS.pageMessages).reverse();const oldest=messages[0];
     const cursor=oldest?Buffer.from(JSON.stringify({conversationId:id,date:oldest.date,id:oldest.id})).toString('base64url'):before||null;
-    return {conversationId:id,messages,nextCursor:more||!historyComplete?cursor:null,oldestCursor:cursor,historyComplete,cached:true,sourceUpdatedAt:progress.length?Math.min(...progress.map(p=>p.lastHeadAt||0)):undefined};
+    return {conversationId:id,messages:messages.map(message=>this.withTranscription(message)),nextCursor:more||!historyComplete?cursor:null,oldestCursor:cursor,historyComplete,cached:true,sourceUpdatedAt:progress.length?Math.min(...progress.map(p=>p.lastHeadAt||0)):undefined};
   }
   //: Читает сохранённый прогресс или начальное состояние нового выбранного чата.
   //: Завершённая история не загружается заново при обычном рестарте.
@@ -144,7 +169,7 @@ export class Store {
   upsertMessages(messages:Message[],countUnread=false){
     let changed=false;this.db.exec('BEGIN IMMEDIATE');
     const unread=new Map<string,number>();
-    try{for(const m of messages){const existed=countUnread?!!this.db.prepare('SELECT 1 FROM message_cache WHERE id=?').get(m.id):true;const result=this.db.prepare("INSERT INTO message_cache (id,conversation_id,date,payload,source_key) SELECT ?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM message_tombstones WHERE source_key=?) ON CONFLICT(id) DO UPDATE SET date=excluded.date,payload=excluded.payload,source_key=excluded.source_key WHERE payload<>excluded.payload AND COALESCE(json_extract(excluded.payload,'$.editedAt'),excluded.date)>=COALESCE(json_extract(message_cache.payload,'$.editedAt'),message_cache.date)").run(m.id,m.conversationId,m.date,JSON.stringify(m),m.sourceKey||null,m.sourceKey||null);if(countUnread&&!m.outgoing&&!existed&&Number(result.changes)>0)unread.set(m.conversationId,(unread.get(m.conversationId)||0)+1);changed ||=Number(result.changes)>0;}
+    try{for(const m of messages){const existed=countUnread?!!this.db.prepare('SELECT 1 FROM message_cache WHERE id=?').get(m.id):true;const result=this.db.prepare("INSERT INTO message_cache (id,conversation_id,date,payload,source_key) SELECT ?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM message_tombstones WHERE source_key=?) ON CONFLICT(id) DO UPDATE SET date=excluded.date,payload=excluded.payload,source_key=excluded.source_key WHERE payload<>excluded.payload AND COALESCE(json_extract(excluded.payload,'$.editedAt'),excluded.date)>=COALESCE(json_extract(message_cache.payload,'$.editedAt'),message_cache.date)").run(m.id,m.conversationId,m.date,JSON.stringify({...m,voiceTranscription:undefined}),m.sourceKey||null,m.sourceKey||null);if(countUnread&&!m.outgoing&&!existed&&Number(result.changes)>0)unread.set(m.conversationId,(unread.get(m.conversationId)||0)+1);changed ||=Number(result.changes)>0;}
       for(const id of new Set(messages.map(m=>m.conversationId))){const c=this.conversation(id);const latest=this.db.prepare("SELECT payload FROM message_cache WHERE conversation_id=? ORDER BY date DESC,COALESCE(json_extract(payload,'$.sequence'),message_sequence(id)) DESC,id DESC LIMIT 1").get(id) as {payload:string}|undefined;if(c&&latest){const previous=JSON.stringify(c);const m=JSON.parse(latest.payload) as Message;if(!c.previewMessageId||comparePosition(m,{id:c.previewMessageId,date:c.updatedAt})>=0){c.preview=messagePreview(m);c.previewMessageId=m.id;c.updatedAt=m.date;}c.unreadCount+=unread.get(id)||0;changed ||=previous!==JSON.stringify(c);this.db.prepare('UPDATE conversation_cache SET payload=? WHERE id=?').run(JSON.stringify(c),id);}}
       this.db.exec('COMMIT');if(changed)this.revision++;
     }catch(e){this.db.exec('ROLLBACK');throw e;}
@@ -154,7 +179,7 @@ export class Store {
   deleteSourceKeys(keys:string[],allowed:string[]){
     if(!keys.length||!allowed.length)return;
     for(let offset=0;offset<keys.length;offset+=100){const part=keys.slice(offset,offset+100);const query=`source_key IN (${part.map(()=>'?').join(',')}) AND conversation_id IN (${allowed.map(()=>'?').join(',')})`;const rows=this.db.prepare(`SELECT id,conversation_id,source_key FROM message_cache WHERE ${query}`).all(...part,...allowed) as {id:string;conversation_id:string;source_key:string}[];
-      if(!rows.length)continue;this.db.exec('BEGIN IMMEDIATE');try{for(const row of rows)this.db.prepare('INSERT OR IGNORE INTO message_tombstones(source_key) VALUES (?)').run(row.source_key);this.db.prepare(`DELETE FROM message_cache WHERE ${query}`).run(...part,...allowed);this.db.exec('COMMIT');}catch(error){this.db.exec('ROLLBACK');throw error;}this.revision++;
+      if(!rows.length)continue;this.db.exec('BEGIN IMMEDIATE');try{for(const row of rows){this.db.prepare('INSERT OR IGNORE INTO message_tombstones(source_key) VALUES (?)').run(row.source_key);this.db.prepare('DELETE FROM voice_transcriptions WHERE message_id=?').run(row.id);}this.db.prepare(`DELETE FROM message_cache WHERE ${query}`).run(...part,...allowed);this.db.exec('COMMIT');}catch(error){this.db.exec('ROLLBACK');throw error;}this.revision++;
       const removed=new Set(rows.map(r=>r.id));for(const id of new Set(rows.map(r=>r.conversation_id))){const c=this.conversation(id);const last=this.db.prepare("SELECT payload FROM message_cache WHERE conversation_id=? ORDER BY date DESC,COALESCE(json_extract(payload,'$.sequence'),message_sequence(id)) DESC,id DESC LIMIT 1").get(id) as {payload:string}|undefined;if(c&&(!c.previewMessageId||removed.has(c.previewMessageId))){const message=last?JSON.parse(last.payload) as Message:undefined;c.preview=message?messagePreview(message):'';c.previewMessageId=message?.id;if(message)c.updatedAt=message.date;this.db.prepare('UPDATE conversation_cache SET payload=? WHERE id=?').run(JSON.stringify(c),id);}const progress=this.progress(id);progress.checkpointIds=(progress.checkpointIds||[]).filter(key=>!removed.has(key));progress.headKeys=progress.headKeys.filter(key=>!removed.has(key));this.saveProgress(id,progress);}
       for(const row of rows)this.deletions.push({revision:this.revision,id:row.id,conversationId:row.conversation_id});while(this.deletions.length>1000)this.droppedBefore=this.deletions.shift()!.revision;
     }

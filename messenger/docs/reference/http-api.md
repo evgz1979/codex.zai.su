@@ -38,3 +38,4 @@
 | POST | `/api/chat/send` |
 | GET | `/api/chat/session` |
 | GET | `/api/chat/snapshot` |
+| POST | `/api/chat/transcribe` |

@@ -60,6 +60,7 @@ session и login не требуют сессии, login требует Origin. 
 | POST | read | `{conversationId,messageId?}` → отметка до показанного сообщения; без messageId — ручная |
 | POST | avatar | `{conversationId,refresh?:boolean}` → JPEG/PNG/WebP до 512 КиБ только выбранного диалога, no-store |
 | POST | attachment | `{conversationId,messageId,attachmentId,variant?:'preview'}` → оригинал до 32 МиБ или миниатюра до 512 КиБ |
+| POST | transcribe | `{conversationId,messageId,attachmentId}` → `{text,pending}` встроенной расшифровки голосового |
 | POST | send | `{destination,text,requestId}` → отправленный Message |
 
 Destination содержит sourceId, conversationId, recipientId. Текст 1–4096 UTF-16
@@ -98,6 +99,23 @@ CSRF; admin-cookie не даёт доступа. GET этого метода н�
 миниатюры допустим оригинал до 512 КиБ. Отсутствие превью возвращает 415 и запоминается
 для этой версии сообщения. Параметр с другим значением возвращает 400. Права и CSRF
 идентичны оригиналу; метаданные миниатюры не подменяют метаданные полного файла.
+
+### Расшифровка голосовых
+
+`POST /api/chat/transcribe` принимает `{conversationId,messageId,attachmentId}`,
+возвращает `{text:string,pending:boolean}`. Для личных пользователей используется
+тот же метод под `/api/u/username/chat/`. Нужны chat-cookie, Origin и CSRF;
+admin-cookie не даёт доступа. Сервер проверяет выбранность, источник и точное
+голосовое до RPC и перед ответом. Параметр variant не поддерживается.
+
+Готовый результат возвращается из SQLite. Одновременные повторы объединяются;
+не более двух разных заданий на аккаунт. Pending обновляется событиями Telegram;
+повторный запрос источника возможен не чаще раза в 30 секунд. HTTP-ожидание
+ограничено 25 секундами. Ошибки: 403 — Telegram требует Premium, 422 — слишком
+длинная запись, 429 — лимит, 502 — речь не распознана, 503/504 — временный отказ.
+Общие ошибки доступа к диалогу также сохраняются. Native transcription ID в API
+не передаётся. В Message необязательное поле `voiceTranscription` содержит
+`{text,pending}` той же версии голосового.
 
 ## Админка
 
