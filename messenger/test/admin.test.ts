@@ -51,6 +51,8 @@ test('HTTP: отдельные права и Secure cookie, отсутствие
  const adm=await raw('/api/admin/login',{password:'admin-password-test'});assert.equal(adm.status,200);const ac=(adm.headers['set-cookie'] as string[])[0];const ah={Cookie:ac.split(';')[0],'X-CSRF-Token':JSON.parse(adm.body).csrfToken};
  assert.equal((await raw('/api/chat/snapshot',undefined,ah)).status,401);
  assert.equal((await raw('/api/admin/selection',{ids:[]},{Cookie:ah.Cookie})).status,403);
+ assert.equal((await raw('/api/admin/selection',{ids:Array.from({length:500},(_,i)=>`${i}-${'synthetic'.repeat(12)}`)},ah)).status,400);
+ assert.equal((await raw('/api/admin/selection',{ids:[],padding:'x'.repeat(200001)},ah)).status,413);
  const info=await raw('/api/admin/status',undefined,ah);assert.equal(info.status,200);assert.ok(!/apiHash|api_hash|session|password/.test(info.body));
  admin.login.issue={code:'invalid_api'};admin.login.stage='error';
  const failed=await raw('/api/admin/status',undefined,ah);assert.deepEqual(JSON.parse(failed.body).telegram.issue,{code:'invalid_api'});

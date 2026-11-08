@@ -42,6 +42,8 @@ test('HTTP: вход, CSRF, Origin/Host, приватные API, безопас�
     assert.equal((await request('/api/chat/access?since=-1',undefined,headers)).status,400);
     const opened=await request('/api/chat/open',{conversationId:adapter.conversations[0].id},headers);assert.equal(opened.status,200);
     assert.equal((await opened.json() as {page:{messages:unknown[]}}).page.messages.length,1);
+    assert.equal((await request('/api/chat/read',{conversationId:adapter.conversations[0].id,messageId:123},headers)).status,400);
+    assert.equal((await request('/api/chat/read',{conversationId:adapter.conversations[0].id,messageId:adapter.messages[1].id},headers)).status,400);
     const snapshot = await request('/api/chat/snapshot',undefined,headers);
     assert.equal(snapshot.headers.get('cache-control'),'no-store');
     assert.ok(snapshot.headers.get('content-security-policy')?.includes("connect-src 'self'"));

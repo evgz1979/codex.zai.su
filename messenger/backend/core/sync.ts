@@ -22,7 +22,7 @@ export class AutoSyncService {
   //: Интервал и часы подменяются только изолированными тестами.
   constructor(private core:MessengerService,private store:Store,private interval=3000,private now=Date.now){core.requestSync=id=>{this.priority.add(id);};const pause=Number(store.get('sync.pausedUntil')||0);this.pausedUntil=Number.isFinite(pause)?pause:0;}
   //: Запускает автоматическое обслуживание без браузера и пользовательских кнопок.
-  //: Отсутствие выбранных диалогов не подключает Telegram.
+  //: Готовая сессия наблюдает новые контакты даже при пустом выборе; без сессии вход не запускается.
   start(){this.schedule(0);}
   //: Планирует только один следующий проход.
   //: Фон не создаёт параллельных обходов истории или отдельного сервиса.
@@ -36,9 +36,9 @@ export class AutoSyncService {
   //: Выбирает незагруженную голову, пропуск новых сообщений или страницу старой истории.
   //: Текущий выбор и его ревизия проверяются снова после каждого внешнего запроса.
   private async runOnce(){
-    const now=this.now();if(now<this.pausedUntil||!this.core.selection.ids().length)return;
+    const now=this.now();if(now<this.pausedUntil||!this.core.selection.ids().length&&!this.core.canDiscoverContacts())return;
     if(now>=this.metadataAt){await this.core.refresh();if(this.stopped)return;this.metadataAt=now+30000;
-      for(const adapter of this.core.registry.adapters)if(adapter.subscribe&&!this.subscriptions.has(adapter))this.subscriptions.set(adapter,adapter.subscribe(event=>{try{this.core.ingest(event);}catch{this.metadataAt=0;}},id=>this.core.selection.allows(id)));
+      for(const adapter of this.core.registry.adapters)if(adapter.subscribe&&!this.subscriptions.has(adapter))this.subscriptions.set(adapter,adapter.subscribe(event=>{try{this.core.ingest(event);}catch{this.metadataAt=0;}},id=>this.core.selection.allows(id),conversation=>this.core.discoverContact(conversation)));
     }
     const ids=this.core.selection.ids().filter(id=>!!this.store.conversation(id));if(!ids.length)return;
     for(const id of ids)if(!this.validated.has(id)){const state=this.store.progress(id);if(state.checkpointIds?.length&&!this.store.checkpointExists(state.checkpointIds)){this.store.saveProgress(id,{initialized:false,historyCursor:null,historyComplete:false,headKeys:[],newerCursor:null,pendingHeadKeys:[],nextHeadAt:0,checkpointIds:[]});}this.validated.add(id);}

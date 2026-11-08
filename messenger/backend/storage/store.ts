@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { join } from 'node:path';
 import { chmodSync } from 'node:fs';
 import { privateDirectory } from './private-files.js';
-import { LIMITS, type Snapshot, type Conversation, type Message, type MessagePage,type Attachment,type AttachmentRequest, type SyncStatus } from '../../shared/types.js';
+import { LIMITS,comparePosition,positionSequence, type Snapshot, type Conversation, type Message, type MessagePage,type Attachment,type AttachmentRequest, type SyncStatus } from '../../shared/types.js';
 import {AppError} from '../core/errors.js';
 //: Хранит курсоры возобновляемой истории и сверки новых сообщений.
 //: Курсоры источника отделены от курсоров страниц браузерного SQLite API.
@@ -20,10 +20,12 @@ export class Store {
     privateDirectory(directory);
     const path = join(directory,'messenger.sqlite');
     this.db = new DatabaseSync(path); chmodSync(path,0o600);
+    this.db.function('message_sequence',{deterministic:true},id=>typeof id==='string'?positionSequence({id})??null:null);
     this.db.exec('PRAGMA journal_mode=DELETE; PRAGMA secure_delete=ON; CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE IF NOT EXISTS selected_conversations (id TEXT PRIMARY KEY); CREATE TABLE IF NOT EXISTS conversation_cache (id TEXT PRIMARY KEY, payload TEXT NOT NULL); CREATE TABLE IF NOT EXISTS message_cache (id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL, date TEXT NOT NULL, payload TEXT NOT NULL); CREATE INDEX IF NOT EXISTS message_conversation ON message_cache(conversation_id,date);');
     if(!(this.db.prepare('PRAGMA table_info(message_cache)').all() as {name:string}[]).some(c=>c.name==='source_key'))this.db.exec('ALTER TABLE message_cache ADD COLUMN source_key TEXT;');
     this.db.exec('CREATE INDEX IF NOT EXISTS message_page_order ON message_cache(conversation_id,date DESC,id DESC); CREATE INDEX IF NOT EXISTS message_source_key ON message_cache(source_key); CREATE TABLE IF NOT EXISTS sync_state (id TEXT PRIMARY KEY,payload TEXT NOT NULL); CREATE TABLE IF NOT EXISTS message_tombstones (source_key TEXT PRIMARY KEY);');
     this.db.exec("CREATE INDEX IF NOT EXISTS message_date_order ON message_cache(date DESC,id DESC); CREATE TABLE IF NOT EXISTS media_preload (message_id TEXT NOT NULL,attachment_id TEXT NOT NULL,version TEXT NOT NULL,variant TEXT NOT NULL,message_date TEXT NOT NULL,next_attempt INTEGER NOT NULL,PRIMARY KEY(message_id,attachment_id,version,variant));");
+    this.db.exec('CREATE TABLE IF NOT EXISTS conversation_policy (id TEXT PRIMARY KEY,source_id TEXT NOT NULL,excluded INTEGER NOT NULL);');
     // Мигрируем только прежний локальный кеш. Выбор по умолчанию остаётся пустым.
     const old = this.get('cache');
     if (old) { try { this.saveCache(JSON.parse(old)); } catch { /* Повреждённый старый кеш не является настройкой. */ } this.remove('cache'); }
@@ -43,15 +45,52 @@ export class Store {
   //: Читает ровно одно сообщение по общему ID для защищённого доступа к медиа.
   //: Проверку выбора выполняет ядро перед обращением к этому методу.
   message(id:string):Message|undefined{const row=this.db.prepare('SELECT payload FROM message_cache WHERE id=?').get(id) as {payload:string}|undefined;return row?JSON.parse(row.payload):undefined;}
+  //: Читает постоянную границу реально просмотренных сообщений одного диалога.
+  //: Позиция не содержит текст и не открывает доступ к исключённому архиву.
+  readPosition(id:string):Pick<Message,'id'|'date'|'sequence'>|undefined{const value=this.get(`read.position.${id}`);return value?JSON.parse(value):undefined;}
+  //: Считает входящие после просмотренной позиции индексированной выборкой.
+  //: Последовательность источника различает сообщения одной секунды.
+  private unreadAfter(id:string,position:Pick<Message,'id'|'date'|'sequence'>){const sequence=positionSequence(position);return Number((this.db.prepare("SELECT COUNT(*) AS n FROM message_cache WHERE conversation_id=? AND COALESCE(json_extract(payload,'$.outgoing'),0)=0 AND (date>? OR (date=? AND CASE WHEN ? IS NOT NULL AND COALESCE(json_extract(payload,'$.sequence'),message_sequence(id)) IS NOT NULL THEN COALESCE(json_extract(payload,'$.sequence'),message_sequence(id))>? ELSE id>? END))").get(id,position.date,position.date,sequence??null,sequence??null,position.id) as {n:number}).n);}
+  //: Не позволяет запоздалым метаданным вернуть прочитанные счётчики.
+  //: Более свежая голова источника сохраняет собственное число непрочитанных.
+  withReadPosition(conversation:Conversation){const position=this.readPosition(conversation.id);return position&&conversation.updatedAt<=position.date?{...conversation,unreadCount:this.unreadAfter(conversation.id,position)}:conversation;}
+  //: Атомарно сохраняет просмотр до конкретного сообщения и оставшиеся входящие.
+  //: Поздняя отметка старой страницы не передвигает границу назад.
+  acknowledgeRead(id:string,message:Message){
+    const previous=this.readPosition(id);if(previous&&comparePosition(previous,message)>=0)return;
+    const c=this.conversation(id);if(!c)throw new AppError(404,'Диалог не найден.');
+    this.db.exec('BEGIN IMMEDIATE');try{this.set(`read.position.${id}`,JSON.stringify({id:message.id,date:message.date,sequence:positionSequence(message)}));c.unreadCount=this.unreadAfter(id,message);this.db.prepare('UPDATE conversation_cache SET payload=? WHERE id=?').run(JSON.stringify(c),id);this.db.exec('COMMIT');this.revision++;}catch(error){this.db.exec('ROLLBACK');throw error;}
+  }
   //: Читает разрешённые ID диалогов из SQLite.
   //: Результат сохраняется после перезапуска процесса.
   selected(): string[] { return (this.db.prepare('SELECT id FROM selected_conversations ORDER BY id').all() as {id:string}[]).map(r=>r.id); }
+  //: Считает непрочитанные только по метаданным выбранных диалогов.
+  //: Worker получает число без загрузки текстов или истории.
+  badgeCount(){return Number((this.db.prepare("SELECT COALESCE(SUM(MAX(0,COALESCE(json_extract(c.payload,'$.unreadCount'),0))),0) AS n FROM conversation_cache c JOIN selected_conversations s ON s.id=c.id").get() as {n:number}).n);}
   //: Атомарно заменяет список разрешённых ID.
   //: При ошибке транзакция откатывается, кеш не удаляется.
-  select(ids: string[]) {
+  select(ids: string[],catalog?:Conversation[]) {
     this.db.exec('BEGIN IMMEDIATE');
-    try { this.db.exec('DELETE FROM selected_conversations'); for (const id of ids) this.db.prepare('INSERT INTO selected_conversations (id) VALUES (?)').run(id); this.db.exec('COMMIT');this.revision++; }
+    try { this.db.exec('DELETE FROM selected_conversations'); for (const id of ids) this.db.prepare('INSERT INTO selected_conversations (id) VALUES (?)').run(id);if(catalog)for(const c of catalog)this.db.prepare('INSERT OR REPLACE INTO conversation_policy(id,source_id,excluded) VALUES (?,?,?)').run(c.id,c.sourceId,ids.includes(c.id)?0:1);this.db.exec('COMMIT');this.revision++; }
     catch (e) { this.db.exec('ROLLBACK'); throw e; }
+  }
+  //: Запоминает метаданные каталога без чтения истории невыбранных диалогов.
+  //: При первом запуске прежние невыбранные и архивные диалоги остаются исключёнными.
+  observeCatalog(sourceId:string,catalog:Conversation[],now=Date.now()){
+    const key=`discovery.baseline.${sourceId}`;const first=!this.get(key);const selected=new Set(this.selected());
+    const archived=first?(this.db.prepare("SELECT id FROM conversation_cache WHERE json_extract(payload,'$.sourceId')=?").all(sourceId) as {id:string}[]).map(row=>row.id):[];
+    this.db.exec('BEGIN IMMEDIATE');try{for(const id of new Set([...catalog.map(c=>c.id),...archived]))this.db.prepare('INSERT OR IGNORE INTO conversation_policy(id,source_id,excluded) VALUES (?,?,?)').run(id,sourceId,first&&!selected.has(id)?1:0);if(first)this.set(key,String(now));this.db.exec('COMMIT');}catch(error){this.db.exec('ROLLBACK');throw error;}
+    return first;
+  }
+  //: Проверяет сохранённое исключение владельца для автоматического обнаружения.
+  //: Неизвестный после начальной фиксации контакт можно принять по входящему.
+  excluded(id:string){return (this.db.prepare('SELECT excluded FROM conversation_policy WHERE id=?').get(id) as {excluded:number}|undefined)?.excluded===1;}
+  //: Атомарно разрешает новый личный контакт и сохраняет только его метаданные.
+  //: Готовая политика исключения и предел списка проверяются до доступа к сообщению.
+  admitContact(conversation:Conversation){
+    if(this.excluded(conversation.id)||!this.get(`discovery.baseline.${conversation.sourceId}`))return false;
+    const selected=this.selected();if(selected.includes(conversation.id))return true;if(selected.length>=LIMITS.conversations)return false;
+    this.db.exec('BEGIN IMMEDIATE');try{this.db.prepare('INSERT INTO selected_conversations(id) VALUES (?)').run(conversation.id);this.db.prepare('INSERT OR REPLACE INTO conversation_policy(id,source_id,excluded) VALUES (?,?,0)').run(conversation.id,conversation.sourceId);this.db.prepare('INSERT OR REPLACE INTO conversation_cache(id,payload) VALUES (?,?)').run(conversation.id,JSON.stringify(conversation));this.set(`discovery.notify.${conversation.id}`,conversation.updatedAt);this.db.exec('COMMIT');this.revision++;return true;}catch(error){this.db.exec('ROLLBACK');throw error;}
   }
   //: Загружает кеш только переданных разрешённых ID.
   //: Пустой выбор даёт пустую ленту, исключённый архив не читается для UI.
@@ -69,7 +108,7 @@ export class Store {
   saveCache(snapshot: Snapshot) {
     this.db.exec('BEGIN IMMEDIATE');
     try {
-      for (const c of snapshot.conversations) this.db.prepare('INSERT OR REPLACE INTO conversation_cache (id,payload) VALUES (?,?)').run(c.id,JSON.stringify(c));
+      for (const c of snapshot.conversations) this.db.prepare('INSERT OR REPLACE INTO conversation_cache (id,payload) VALUES (?,?)').run(c.id,JSON.stringify(this.withReadPosition(c)));
       for (const m of snapshot.messages) this.db.prepare('INSERT OR REPLACE INTO message_cache (id,conversation_id,date,payload,source_key) VALUES (?,?,?,?,?)').run(m.id,m.conversationId,m.date,JSON.stringify(m),m.sourceKey||null);
       if (snapshot.refreshedAt) this.set('refreshedAt',snapshot.refreshedAt);
       this.db.exec('COMMIT');

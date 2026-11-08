@@ -1,7 +1,7 @@
 import {telegramAuthIssue} from '../auth/telegram-issue.js';
 import type { SourceAdapter, SourceEvent } from './source-adapter.js';
 import type { Store } from '../storage/store.js';
-import { destinationFor, LIMITS, type AttachmentRequest,type Conversation, type ConversationPageResult, type Message, type SendRequest, type Snapshot } from '../../shared/types.js';
+import { destinationFor,comparePosition,compareConversations, LIMITS, type AttachmentRequest,type Conversation, type ConversationPageResult, type Message, type SendRequest, type Snapshot } from '../../shared/types.js';
 import { AppError } from './errors.js';
 import { ConnectorRegistry } from './registry.js';
 import { ConversationSelectionService } from './selection.js';
@@ -18,10 +18,17 @@ export class MessengerService {
   private sends = new Map<string, { signature: string; result: Promise<Message>; created: number }>();
   private latestSeen=new Map<string,string>();
   private incoming=new Set<(message:Message)=>void>();
+  private readRevision=0;
   requestSync?:(id:string)=>void;
   //: Регистрирует получателя новых входящих после записи в кеш.
   //: Обработчик не получает историю, правки или повтор уже сохранённого ID.
   onIncoming(listener:(message:Message)=>void){this.incoming.add(listener);return ()=>{this.incoming.delete(listener);};}
+  //: Проверяет готовность источника к обнаружению новых личных входящих.
+  //: Отсутствие Telegram-сессии не запускает авторизацию или сетевой обход.
+  canDiscoverContacts(){return this.registry.adapters.some(adapter=>adapter.canDiscoverContacts?.());}
+  //: Принимает новые метаданные только от зарегистрированного источника.
+  //: История становится доступна после атомарного разрешения нового личного контакта.
+  discoverContact(conversation:Conversation){this.adapter(conversation.sourceId);return this.selection.admit(conversation);}
   //: Изолирует уведомления от ошибок необязательных подписчиков.
   //: Сообщение уже сохранено; ошибка доставки не отменяет синхронизацию.
   private publishIncoming(message:Message){for(const listener of this.incoming){try{listener(message);}catch{/* Независимая доставка. */}}}
@@ -41,7 +48,7 @@ export class MessengerService {
   //: Не обращается к сети; общая лента содержит только десять последних загруженных сообщений.
   snapshot(): Snapshot {
     const state=this.inbox.filter({ ...this.store.loadCache(), stale:this.state.stale,sync:this.store.syncStatus(),sources: this.registry.sources() });
-    return {...state,messages:state.messages.slice(-LIMITS.pageMessages)};
+    return {...state,conversations:[...state.conversations].sort(compareConversations),messages:state.messages.slice(-LIMITS.pageMessages)};
   }
   //: Ищет зарегистрированный источник по sourceId.
   //: Неизвестный источник отклоняется с 409.
@@ -67,16 +74,18 @@ export class MessengerService {
   //: Полный сохранённый архив остаётся на диске, без повторного чтения для снимка.
   private async doRefresh(): Promise<Snapshot> {
     const revision = this.selection.revision;
-    if (!this.selection.ids().length) return this.snapshot();
+    const readRevision=this.readRevision;
+    if (!this.selection.ids().length&&!this.canDiscoverContacts()) return this.snapshot();
     try {
       const conversations: Conversation[] = [];
+      const catalogs:{sourceId:string;conversations:Conversation[]}[]=[];
       for (const adapter of this.adapters) {
         await adapter.connect();
-        conversations.push(...(await adapter.listConversations()).filter(c => this.selection.allows(c.id)));
+        catalogs.push({sourceId:adapter.source.id,conversations:await adapter.listConversations()});
       }
-      conversations.sort((a,b) => b.updatedAt.localeCompare(a.updatedAt));
       if (revision !== this.selection.revision) return this.snapshot();
-      for(const c of conversations)c.preview=this.store.conversation(c.id)?.preview||'';
+      for(const catalog of catalogs){if(this.registry.get(catalog.sourceId).canDiscoverContacts?.())this.selection.observe(catalog.sourceId,catalog.conversations);conversations.push(...catalog.conversations.filter(c=>this.selection.allows(c.id)));}
+      for(const c of conversations){const current=this.store.conversation(c.id);c.preview=current?.preview||'';if(current&&(current.updatedAt>c.updatedAt||readRevision!==this.readRevision)){c.unreadCount=current.unreadCount;c.updatedAt=current.updatedAt>c.updatedAt?current.updatedAt:c.updatedAt;}}
       this.store.saveCache({conversations,messages:[],sources:this.registry.sources(),refreshedAt:new Date().toISOString(),stale:false});this.state.stale=false;
       return this.snapshot();
     } catch (error) {
@@ -96,9 +105,11 @@ export class MessengerService {
   //: Флаг notify относится только к сверке свежей головы, история молчит.
   cacheMessages(id:string,messages:Message[],notify=false){
     const c=this.conversation(id);if(messages.some(m=>m.sourceId!==c.sourceId||m.conversationId!==id))throw new AppError(503,'Некорректная страница источника.');
-    const incoming=notify?messages.filter(message=>!message.outgoing&&!message.editedAt&&!this.store.message(message.id)):[];
+    const discovered=this.store.get(`discovery.notify.${id}`);
+    const incoming=notify||discovered?messages.filter(message=>!message.outgoing&&!message.editedAt&&!this.store.message(message.id)&&(!discovered||message.date>=discovered)):[];
     this.store.upsertMessages(messages);this.state.stale=false;
     for(const message of incoming)if(this.store.message(message.id))this.publishIncoming(message);
+    if(discovered)this.store.remove(`discovery.notify.${id}`);
   }
   //: Применяет событие источника только к текущему списку разрешений.
   //: Правки и удаления не открывают доступ к исключённому архиву.
@@ -131,15 +142,16 @@ export class MessengerService {
     if(input.variant==='preview')return;
     this.store.upsertMessages([{...current,attachments:current.attachments.map(a=>a.id===attachment.id?attachment:a)}]);
   }
-  //: Явно отмечает диалог прочитанным через адаптер.
-  //: Ориентируется на последнее загруженное сообщение и сохраняет нулевой счётчик.
-  async markRead(id: string) {
+  //: Отмечает прочитанным до реально показанного либо явно выбранного сообщения.
+  //: Проверяет маршрут, сохраняет новые входящие и не откатывает позднюю границу.
+  async markRead(id: string,messageId?:string) {
     const c = this.conversation(id);
-    const latest = this.latestSeen.get(id)||this.store.messagePage(id).messages.at(-1)?.id;
+    const latest = messageId??this.latestSeen.get(id)??this.store.messagePage(id).messages.at(-1)?.id;
     if (latest) {
+      const message=this.store.message(latest);if(!message||message.conversationId!==id||message.sourceId!==c.sourceId)throw new AppError(400,'Сообщение не относится к этому диалогу.');
+      const previous=this.store.readPosition(id);if(previous&&comparePosition(previous,message)>=0)return this.snapshot();
       await this.adapter(c.sourceId).markRead(id, latest);
-      c.unreadCount = 0;
-      this.store.saveCache({conversations:[c],messages:[],sources:[],refreshedAt:new Date().toISOString(),stale:false});
+      this.selection.require(id);this.store.acknowledgeRead(id,message);this.readRevision++;
     }
     return this.snapshot();
   }

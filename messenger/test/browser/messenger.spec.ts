@@ -37,7 +37,6 @@ test('единая лента, выбор адресата, отправка, н
   await expect(page.locator('.bubble').getByText(draftText,{exact:true})).toBeVisible();
   await expect(page.getByLabel('Сообщение',{exact:true})).toHaveValue('');
   if (!mobile) {
-    await page.getByRole('button',{name:'Отметить прочитанным'}).click();
     await expect(page.getByRole('button',{name:'Отметить прочитанным'})).not.toBeVisible();
   }
   await expect(page.getByRole('button',{name:'Обновить',exact:true})).toHaveCount(0);

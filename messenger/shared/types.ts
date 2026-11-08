@@ -39,6 +39,7 @@ export interface Conversation {
   updatedAt: string;
   preview: string;
   canSend: boolean;
+  isBot?: boolean;
 }
 //: Описывает папку источника и входящие в неё диалоги каталога.
 //: Один диалог может входить в несколько папок; членство не даёт прав чтения.
@@ -63,7 +64,17 @@ export interface Message {
   attachments: Attachment[];
   sourceKey?:EntityId;
   editedAt?:string;
+  sequence?:number;
 }
+//: Сравнивает позиции сообщений одного диалога для подтверждения просмотра.
+//: При равной дате использует последовательность источника, затем общий ID.
+export function comparePosition(a:Pick<Message,'date'|'id'|'sequence'>,b:Pick<Message,'date'|'id'|'sequence'>){const first=positionSequence(a);const second=positionSequence(b);return a.date.localeCompare(b.date)||(first!==undefined&&second!==undefined?first-second:a.id.localeCompare(b.id));}
+//: Получает порядок источника для новой записи или прежнего составного message ID.
+//: Совместимость применяется только к числовому суффиксу после закодированного разделителя.
+export function positionSequence(message:Pick<Message,'id'|'sequence'>){if(Number.isSafeInteger(message.sequence))return message.sequence;const legacy=/:message:.*%2F([0-9]{1,10})$/.exec(message.id);return legacy?Number(legacy[1]):undefined;}
+//: Поднимает диалоги с непрочитанными и сохраняет свежие сообщения сверху.
+//: При равном времени порядок устойчив по общему ID.
+export function compareConversations(a:Conversation,b:Conversation){return Number(b.unreadCount>0)-Number(a.unreadCount>0)||b.updatedAt.localeCompare(a.updatedAt)||a.id.localeCompare(b.id);}
 //: Передаёт ограниченный снимок общей ленты.
 //: stale отражает результат последней фоновой сверки метаданных.
 export interface Snapshot {

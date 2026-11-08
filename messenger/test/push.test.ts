@@ -106,8 +106,10 @@ test('push HTTP: приватность, CSRF, allowlist статики и от�
   t.after(async()=>{server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));});
   const request=(path:string,input?:unknown,headers:Record<string,string>={})=>fetch(origin+path,{method:input===undefined?'GET':'POST',headers:{...(input===undefined?{}:{Origin:origin,'Content-Type':'application/json'}),...headers},...(input===undefined?{}:{body:JSON.stringify(input)})});
   assert.equal((await request('/api/chat/push/config')).status,401);
+  assert.equal((await request('/api/chat/badge')).status,401);
   const login=await request('/api/chat/login',{password:'push-test-password'});const info=await login.json() as {csrfToken:string};
   const headers={Cookie:login.headers.get('set-cookie')!.split(';')[0],'X-CSRF-Token':info.csrfToken};
+  assert.deepEqual(await (await request('/api/chat/badge',undefined,headers)).json(),{count:3});
   const config=await (await request('/api/chat/push/config',undefined,headers)).json();assert.deepEqual(Object.keys(config),['publicKey']);
   const sub=subscription();assert.equal((await request('/api/chat/push/subscribe',{subscription:sub},{Cookie:headers.Cookie})).status,403);
   assert.equal((await request('/api/chat/push/subscribe',{subscription:{...sub,endpoint:'https://127.0.0.1/private'}},headers)).status,400);
@@ -129,4 +131,12 @@ test('push worker: видимое нейтральное уведомление,
   assert.deepEqual(shown,[{title:'Z AI Messenger',body:'Новое сообщение'}]);assert.deepEqual(badges,[7]);assert.equal(listeners.has('fetch'),false);
   listeners.get('push')!({data:{json:()=>{throw new Error();}},waitUntil:(promise:Promise<void>)=>{pending=promise;}});await pending;assert.equal(shown.length,2);
   listeners.get('notificationclick')!({notification:{close:()=>{}},waitUntil:(promise:Promise<void>)=>{pending=promise;}});await pending;assert.deepEqual(opened,['/']);
+});
+
+test('push worker: поздний push при закрытом чате не возвращает прочитанный badge',async()=>{
+  const listeners=new Map<string,(event:any)=>void>();const counts:number[]=[];const requests:string[]=[];let closed=0;let shown=0;
+  const self={addEventListener:(name:string,callback:(event:any)=>void)=>listeners.set(name,callback),registration:{showNotification:async()=>{shown++;},getNotifications:async()=>[{close:()=>{closed++;}}]},clients:{matchAll:async()=>[]}};
+  runInNewContext(readFileSync(new URL('../frontend/public/sw.js',import.meta.url),'utf8'),{self,navigator:{clearAppBadge:async()=>{counts.push(0);},setAppBadge:async(value:number)=>{counts.push(value);}},AbortController,setTimeout,clearTimeout,fetch:async(path:string,options:{credentials:string;cache:string})=>{requests.push(path);assert.equal(options.credentials,'same-origin');assert.equal(options.cache,'no-store');return {ok:true,json:async()=>({count:0})};}});
+  let pending=Promise.resolve();listeners.get('push')!({data:{json:()=>({badge:3})},waitUntil:(promise:Promise<void>)=>{pending=promise;}});await pending;
+  assert.deepEqual(requests,['/api/chat/badge']);assert.deepEqual(counts,[0]);assert.equal(closed,1);assert.equal(shown,1);
 });

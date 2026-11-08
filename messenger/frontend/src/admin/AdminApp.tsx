@@ -37,7 +37,7 @@ export default function AdminApp() {
   async function loadDialogs() { const result=await api<AdminDialogCatalog>('dialogs');setCatalog(result);setSelected(result.selectedIds);await refreshStatus(); }
   //: Сохраняет общий выбор, включая скрытые текущей закладкой диалоги.
   //: Папка не отправляется как разрешение и не включает новые чаты автоматически.
-  async function saveSelection() {await api('selection',{ids:selected});setNotice('Выбор сохранён.');await refreshStatus();}
+  async function saveSelection() {const result=await api<{selectedIds:string[]}>('selection',{ids:selected});setSelected(result.selectedIds);setNotice('Выбор сохранён.');await refreshStatus();}
   //: Отправляет начальные реквизиты Telegram в admin API.
   //: Очищает api_hash и телефон в форме перед ожиданием ответа.
   async function begin(e:FormEvent) { e.preventDefault(); const input={apiId:Number(apiId),apiHash,phone};setApiHash('');setPhone('');void run(async()=>{const result=await api<{stage:TelegramAuthStage}>('telegram/begin',input);setStage(result.stage);await refreshStatus();}); }

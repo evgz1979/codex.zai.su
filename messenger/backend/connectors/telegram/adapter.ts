@@ -26,7 +26,7 @@ export class TelegramAdapter implements SourceAdapter {
   private client?: TelegramPort;
   private dialogs = new Map<string, Pick<Dialog, 'id' | 'inputEntity'>>();
   private connecting?: Promise<void>;
-  private subscribers=new Set<{listener:(event:SourceEvent)=>void;allows:(id:string)=>boolean}>();
+  private subscribers=new Set<{listener:(event:SourceEvent)=>void;allows:(id:string)=>boolean;discover?:(conversation:Conversation)=>boolean}>();
   private listenedClient?:TelegramPort;
   //: Подключает приватное хранилище и фабрику клиента.
   //: По умолчанию используется teleproto; отдельная фабрика служит изолированным тестам.
@@ -72,6 +72,9 @@ export class TelegramAdapter implements SourceAdapter {
   async listConversations(): Promise<Conversation[]> {
     return (await this.loadCatalog(false)).conversations;
   }
+  //: Разрешает наблюдение новых личных входящих после существующего входа Telegram.
+  //: Проверяет только наличие vault, не запускает интерактивную авторизацию.
+  canDiscoverContacts(){return this.vault.exists();}
   //: Получает административный каталог с существующими папками Telegram.
   //: Не меняет папки, выбор диалогов или сохранённую авторизацию.
   async listConversationCatalog():Promise<ConversationCatalog> {
@@ -100,10 +103,11 @@ export class TelegramAdapter implements SourceAdapter {
       const paid = e instanceof Api.User && BigInt(e.sendPaidMessagesStars?.toString() || '0') > 0n;
       result.push({
         id: conversationId, sourceId: this.source.id, title: d.title || d.name || 'Без названия',
-        kind: d.isUser ? 'direct' : d.isGroup ? 'group' : 'channel', recipient: { id: entityId(this.source.id, 'recipient', native), name: d.title || d.name || 'Без названия' },
+        kind: d.isUser ? 'direct' : d.isGroup ? 'group' : 'channel', recipient: { id: entityId(this.source.id, 'recipient', native), name: d.title || d.name || 'Без названия',...(e instanceof Api.User&&e.self?{isSelf:true}:{}) },
         unreadCount: d.unreadCount, updatedAt: new Date((d.date || 0) * 1000).toISOString(),
         preview: '',
         canSend: !banned && !userBanned && !forum && !paid && !broadcast,
+        ...(e instanceof Api.User&&e.bot?{isBot:true}:{}),
       });
     }
     let folders:ConversationCatalog['folders']=[];
@@ -135,7 +139,7 @@ export class TelegramAdapter implements SourceAdapter {
     return {
       id: entityId(this.source.id, 'message', `${conversationId}/${m.id}`), sourceId: this.source.id, conversationId,
       sender: { id: entityId(this.source.id, 'sender', nativeSender), name: m.out ? 'Вы' : sender ? utils.getDisplayName(sender) || 'Участник' : 'Участник', isSelf: !!m.out },
-      date: new Date(m.date * 1000).toISOString(), text: m.message || '', outgoing: !!m.out,
+      date: new Date(m.date * 1000).toISOString(), text: m.message || '', outgoing: !!m.out,sequence:m.id,
       status: m.out ? 'sent' : 'received',
       ...(m.editDate?{editedAt:new Date(m.editDate*1000).toISOString()}:{}),
       attachments: telegramAttachments(this.source.id,conversationId,m),
@@ -189,14 +193,31 @@ export class TelegramAdapter implements SourceAdapter {
   }
   //: Подписывает ядро на изменения только разрешённых диалогов.
   //: Подписка сохраняется при пересоздании MTProto-клиента; unselected-текст не копируется.
-  subscribe(listener:(event:SourceEvent)=>void,allows:(id:string)=>boolean){const item={listener,allows};this.subscribers.add(item);this.bindEvents();return()=>{this.subscribers.delete(item);};}
+  subscribe(listener:(event:SourceEvent)=>void,allows:(id:string)=>boolean,discover?:(conversation:Conversation)=>boolean){const item={listener,allows,discover};this.subscribers.add(item);this.bindEvents();return()=>{this.subscribers.delete(item);};}
   //: Подключает по одному обработчику событий нового клиента.
   //: Не журналирует updates; личные удаления имеют глобальную область, каналы — собственную.
   private bindEvents(){
     const client=this.client;if(!client?.addEventHandler||this.listenedClient===client)return;this.listenedClient=client;
     //: Преобразует входящее сообщение только после проверки разрешённого диалога.
     //: Правка не увеличивает счётчик непрочитанных как новое сообщение.
-    const changed=(event:NewMessageEvent)=>{const m=event.message;if(!(m instanceof Api.Message))return;const native=m.chatId?.toString()||utils.getPeerId(m.peerId);const id=entityId(this.source.id,'conversation',native);for(const sub of this.subscribers)if(sub.allows(id))sub.listener({type:'message',message:this.mapMessage(m,id),edited:!!m.editDate});};
+    const changed=async(event:NewMessageEvent)=>{
+      const m=event.message;const sourceId=this.source.id;if(!(m instanceof Api.Message)||this.client!==client)return;
+      const native=m.chatId?.toString()||utils.getPeerId(m.peerId);const id=entityId(sourceId,'conversation',native);
+      for(const sub of this.subscribers){
+        if(!sub.allows(id)){
+          if(!sub.discover||m.out||m.editDate||!(m.peerId instanceof Api.PeerUser))continue;
+          try{
+            const entity=m.sender instanceof Api.User?m.sender:await event.getChat();
+            if(this.client!==client||this.source.id!==sourceId||!this.subscribers.has(sub)||!(entity instanceof Api.User)||entity.deleted||entity.bot||entity.self||entity.id.toString()!==m.peerId.userId.toString())continue;
+            const peer=utils.getInputPeer(entity);const title=utils.getDisplayName(entity)||'Новый контакт';
+            const conversation:Conversation={id,sourceId,title,kind:'direct',recipient:{id:entityId(sourceId,'recipient',native),name:title},unreadCount:0,updatedAt:new Date(m.date*1000).toISOString(),preview:'',canSend:BigInt(entity.sendPaidMessagesStars?.toString()||'0')===0n};
+            if(!sub.discover(conversation)||!sub.allows(id))continue;
+            this.dialogs.set(id,{id:entity.id,inputEntity:peer});
+          }catch{continue;}
+        }
+        if(this.client===client&&this.source.id===sourceId&&sub.allows(id))sub.listener({type:'message',message:this.mapMessage(m,id),edited:!!m.editDate});
+      }
+    };
     //: Передаёт области удалённых ID без содержимого сообщения.
     //: Неоднозначные личные удаления разрешаются серверным индексом source_key.
     const deleted=(event:DeletedMessageEvent)=>{const namespace=event.isChannel?event.chatId?.toString():'global';if(!namespace)return;const id=entityId(this.source.id,'conversation',namespace);const keys=event.deletedIds.map(n=>entityId(this.source.id,'source-message',`${namespace}/${n}`));for(const sub of this.subscribers)if(!event.isChannel||sub.allows(id))sub.listener({type:'delete',sourceId:this.source.id,keys});};
@@ -214,8 +235,7 @@ export class TelegramAdapter implements SourceAdapter {
   //: Получает peer только через известный общий conversationId.
   async markRead(conversationId: string, messageId: string) {
     const d = await this.dialog(conversationId);
-    const native = Number(decodeURIComponent(messageId.split(':').at(-1)!).split('/').at(-1));
-    if (!Number.isSafeInteger(native)) throw new Error('Invalid message');
+    const native = this.cursorOffset(conversationId,messageId);
     await this.client!.markAsRead(d.inputEntity, native);
   }
 }

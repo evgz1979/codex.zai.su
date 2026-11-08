@@ -1,11 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
-import { destinationFor, LIMITS, type Conversation, type ConversationPageResult, type Message, type MessagePage, type SessionInfo, type Snapshot, type SyncStatus } from '../../shared/types';
+import { destinationFor,compareConversations, LIMITS, type Conversation, type ConversationPageResult, type Message, type MessagePage, type SessionInfo, type Snapshot, type SyncStatus } from '../../shared/types';
 import AttachmentPreview from './AttachmentPreview';
 import {clearPreviews} from './previews';
 import AttachmentViewer from './AttachmentViewer';
 import type {AttachmentRequest} from '../../shared/types';
 import { api, ApiError, setCsrf } from './api';
 import Notifications,{notificationEndpoint,unsubscribeNotifications} from './Notifications';
+import {useVisibleReads} from './useVisibleReads';
+import {useAppBadge} from './useAppBadge';
 
 //: Форматирует время сообщения для интерфейса.
 //: Использует локаль ru-RU и часовой пояс браузера.
@@ -55,7 +57,12 @@ export function App() {
   const draft = target ? drafts[target.id] || '' : '';
   const unread = snapshot?.conversations.reduce((n,c) => n + c.unreadCount, 0) || 0;
   const connected = snapshot?.sources.some(s => s.connected);
-  useEffect(()=>{if(session?.authenticated&&'setAppBadge' in navigator)void navigator.setAppBadge(unread).catch(()=>{});},[unread,session?.authenticated]);
+  useAppBadge(unread,!!session?.authenticated&&!!snapshot);
+  useVisibleReads(feed,messages,!!session?.authenticated&&!pending&&!drawer&&!attachmentTarget,async message=>{
+    const result=await api<Snapshot>('read',{conversationId:message.conversationId,messageId:message.id});
+    const conversation=result.conversations.find(c=>c.id===message.conversationId);
+    if(conversation)setSnapshot(old=>old?{...old,conversations:old.conversations.map(c=>c.id===conversation.id?{...c,unreadCount:conversation.unreadCount}:c)}:old);
+  });
 
   //: Применяет состояние веб-входа и CSRF в памяти.
   //: Не читает и не получает Telegram credentials.
@@ -236,7 +243,7 @@ export function App() {
       <label className="search"><Icon name="search" /><input aria-label="Поиск диалогов" placeholder="Найти разговор" value={query} onChange={e => setQuery(e.target.value)} /></label>
       <button className={`all-row ${!target ? 'active' : ''}`} disabled={busy} onClick={() => { cancelView();live.current.targetId=undefined;setTargetId(undefined);setPage(undefined);scrollPlan.current={mode:'bottom'};setDrawer(false);void loadView(); }}><span className="all-symbol">≋</span><span>Общая лента</span>{unread > 0 && <b className="badge" aria-label={`${unread} непрочитанных`}>{unread}</b>}</button>
       <nav className="conversation-list" aria-label="Получатели">
-        {snapshot?.conversations.filter(c => c.title.toLocaleLowerCase().includes(query.toLocaleLowerCase())).map((c,i) => <button key={c.id} className={`conversation ${target?.id === c.id ? 'selected' : ''}`} disabled={busy} onClick={() => choose(c)} aria-pressed={target?.id === c.id}>
+        {snapshot?.conversations.filter(c => c.title.toLocaleLowerCase().includes(query.toLocaleLowerCase())).sort(compareConversations).map((c,i) => <button key={c.id} className={`conversation ${target?.id === c.id ? 'selected' : ''}`} disabled={busy} onClick={() => choose(c)} aria-pressed={target?.id === c.id}>
           <span className={`avatar tone-${i % 4}`}>{c.title.slice(0,1).toUpperCase()}</span>
           <span className="conversation-copy"><span className="conversation-title"><span className="conversation-name" title={c.title}>{c.title}</span><time>{c.updatedAt && time(c.updatedAt)}</time></span><span className="preview"><span className="source-caption">{snapshot.sources.find(s => s.id === c.sourceId)?.name} · </span>{c.preview || (c.kind === 'group' ? 'Группа' : c.kind === 'channel' ? 'Канал' : 'Личный диалог')}</span></span>
           {c.unreadCount > 0 && <span className="badge">{c.unreadCount}</span>}

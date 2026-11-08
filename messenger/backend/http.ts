@@ -23,10 +23,10 @@ export function createApp(options: { service:MessengerService; store:Store; admi
   function send(res:ServerResponse,status:number,value:unknown) { res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'}); res.end(JSON.stringify(value)); }
   //: Читает JSON-объект с ограничением размера.
   //: Парсинг не пишет тела запросов в журнал или хранилище.
-  async function body(req:IncomingMessage):Promise<Record<string,unknown>> {
+  async function body(req:IncomingMessage,limit=20000):Promise<Record<string,unknown>> {
     if(req.headers['content-type']?.split(';')[0]!=='application/json') throw new AppError(415,'Ожидается JSON.');
     const chunks:Buffer[]=[]; let size=0;
-    for await(const chunk of req) { size+=chunk.length; if(size>20000) throw new AppError(413,'Запрос слишком большой.'); chunks.push(chunk); }
+    for await(const chunk of req) { size+=chunk.length; if(size>limit) throw new AppError(413,'Запрос слишком большой.'); chunks.push(chunk); }
     try { const value=JSON.parse(Buffer.concat(chunks).toString()); if(!value||typeof value!=='object'||Array.isArray(value)) throw new Error(); return value; }
     catch { throw new AppError(400,'Некорректный запрос.'); }
   }
@@ -62,6 +62,7 @@ export function createApp(options: { service:MessengerService; store:Store; admi
         if(req.method==='POST'&&req.headers['x-csrf-token']!==session.csrf) throw new AppError(403,'Обновите страницу и повторите вход.');
         if(action==='logout'&&req.method==='POST') {if(role==='chat'&&options.push){const input=await body(req);if(input.pushEndpoint!==undefined)options.push.remove(input.pushEndpoint);}auth.logout(req.headers.cookie,role,secure); cookie(res,role,'',0); return send(res,200,{ok:true}); }
         if(role==='chat') {
+          if(action==='badge'&&req.method==='GET')return send(res,200,{count:options.store.badgeCount()});
           if(action==='push/config'&&req.method==='GET') {if(!options.push)throw new AppError(503,'Уведомления недоступны.');return send(res,200,options.push.configuration());}
           if((action==='push/status'||action==='push/subscribe'||action==='push/remove'||action==='push/test')&&req.method==='POST') {
             const push=options.push;if(!push)throw new AppError(503,'Уведомления недоступны.');const input=await body(req);
@@ -77,7 +78,8 @@ export function createApp(options: { service:MessengerService; store:Store; admi
           if((action==='open'||action==='older'||action==='read')&&req.method==='POST') {
             const input=await body(req); if(typeof input.conversationId!=='string') throw new AppError(400,'Выберите диалог.');
             if(action==='older'&&(typeof input.before!=='string'||!input.before||input.before.length>2048))throw new AppError(400,'Некорректный курсор сообщений.');
-            return send(res,200,await (action==='read'?options.service.markRead(input.conversationId):options.service.open(input.conversationId,action==='older'?input.before as string:undefined)));
+            if(action==='read'&&input.messageId!==undefined&&(typeof input.messageId!=='string'||!input.messageId||input.messageId.length>2048))throw new AppError(400,'Некорректная позиция просмотра.');
+            return send(res,200,await (action==='read'?options.service.markRead(input.conversationId,input.messageId as string|undefined):options.service.open(input.conversationId,action==='older'?input.before as string:undefined)));
           }
           if(action==='attachment'&&req.method==='POST'){
             const input=await body(req);const attachments=options.attachments;if(!attachments)throw new AppError(503,'Просмотр вложений недоступен.');
@@ -105,7 +107,7 @@ export function createApp(options: { service:MessengerService; store:Store; admi
           const admin=options.admin; if(!admin) throw new AppError(503,'Админка недоступна.');
           if(action==='status'&&req.method==='GET') return send(res,200,admin.status());
           if(action==='dialogs'&&req.method==='GET') return send(res,200,await admin.dialogs());
-          if(action==='selection'&&req.method==='POST') { const input=await body(req); if(!Array.isArray(input.ids)||input.ids.some(id=>typeof id!=='string')) throw new AppError(400,'Проверьте выбор диалогов.'); return send(res,200,{selectedIds:admin.select(input.ids)}); }
+          if(action==='selection'&&req.method==='POST') { const input=await body(req,200000); if(!Array.isArray(input.ids)||input.ids.some(id=>typeof id!=='string')) throw new AppError(400,'Проверьте выбор диалогов.'); return send(res,200,{selectedIds:admin.select(input.ids)}); }
           if(action==='telegram/begin'&&req.method==='POST') {
             const input=await body(req);
             if(typeof input.apiId!=='number'||typeof input.apiHash!=='string'||typeof input.phone!=='string') throw new AppError(400,'Проверьте реквизиты Telegram.');

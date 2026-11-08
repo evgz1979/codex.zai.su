@@ -5,6 +5,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const printer = ts.createPrinter({ removeComments: true, newLine: ts.NewLineKind.LineFeed });
 const purposes = {
+  'frontend/src/useVisibleReads.ts': 'Подтверждение просмотра реально видимых сообщений после остановки прокрутки в активной ленте.',
+  'frontend/src/useAppBadge.ts': 'Согласование значка приложения и уведомлений при чтении, возврате фокуса и позднем push.',
+  'scripts/app-icon.svg': 'Квадратная иконка установки с непрозрачным фоном до краёв; маску применяет ОС.',
+  'scripts/build-icons.mjs': 'Локальная растеризация квадратной SVG-иконки в три размера PNG через Chromium.',
   'backend/core/media-preload.ts': 'Автоматическая подготовка вложений и миниатюр выбранных чатов за последние пять дней с продолжением после рестарта.',
   'frontend/src/AttachmentPreview.tsx': 'Ленивая миниатюра в ленте, фиксированные размеры и открытие оригинала.',
   'frontend/src/previews.ts': 'Последовательная очередь и ограниченный оперативный кеш миниатюр без хранилища браузера.',
