@@ -29,7 +29,7 @@ tar -czf "$audit/release.tar.gz" -C messenger dist/client dist/server package.js
 stage=$(ssh "${ssh_options[@]}" "$vps" 'mktemp -d /var/tmp/zai-messenger-XXXXXX')
 [[ "$stage" == /var/tmp/zai-messenger-* ]]
 printf '%s\n' "$stage" > "$audit/remote-stage"
-scp "${ssh_options[@]}" "$audit/release.tar.gz" "$audit/release.sha256" "$audit/vpn-baseline.json" deploy/messenger/zai-messenger.service deploy/messenger/Caddyfile.append deploy/messenger/caddy_guard.py deploy/messenger/remote-install.sh deploy/messenger/remote-rollback.sh "$vps:$stage/"
+scp "${ssh_options[@]}" "$audit/release.tar.gz" "$audit/release.sha256" "$audit/vpn-baseline.json" deploy/messenger/zai-messenger.service deploy/messenger/zai-whatsapp.service deploy/messenger/install-browser.sh deploy/messenger/Caddyfile.append deploy/messenger/caddy_guard.py deploy/messenger/remote-install.sh deploy/messenger/remote-rollback.sh "$vps:$stage/"
 # Hashes only, sent separately over SSH; never included in a release or printed.
 scp "${ssh_options[@]}" "$bootstrap_dir/bootstrap.json" "$vps:$stage/bootstrap.json"
 ssh "${ssh_options[@]}" "$vps" "cd '$stage' && sha256sum -c release.sha256 && bash remote-install.sh '$stage' '$release_id'"

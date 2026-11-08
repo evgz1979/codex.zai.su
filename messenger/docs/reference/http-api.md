@@ -19,6 +19,11 @@
 | GET | `/api/admin/users` |
 | POST | `/api/admin/users/access` |
 | POST | `/api/admin/users/create` |
+| POST | `/api/admin/whatsapp/begin` |
+| GET | `/api/admin/whatsapp/dialogs` |
+| POST | `/api/admin/whatsapp/disconnect` |
+| POST | `/api/admin/whatsapp/selection` |
+| GET | `/api/admin/whatsapp/status` |
 | GET | `/api/chat/access` |
 | POST | `/api/chat/attachment` |
 | POST | `/api/chat/avatar` |

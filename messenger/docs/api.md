@@ -1,5 +1,15 @@
 # HTTP API
 
+## WhatsApp Web
+
+Только личная admin-роль; общий `status` не возвращает QR.
+GET `whatsapp/status` возвращает временный PNG data URL и состояние;
+GET `whatsapp/dialogs` — метаданные. POST `whatsapp/begin`,
+`whatsapp/disconnect`, `whatsapp/selection` требуют Origin, CSRF и admin-cookie.
+Префикс тот же `/api[/u/username]/admin/`. Chat-роль этих методов не получает.
+После ожидания QR роль и блокировка аккаунта проверяются повторно.
+QR не кешируется; cookie и профиль Chromium никогда не выдаются.
+
 Web Push: [методы подписки, проверки и отзыва](notifications.md).
 
 Публичный Origin: `https://msg.zai.su:8443`. Backend принимает точный Host,

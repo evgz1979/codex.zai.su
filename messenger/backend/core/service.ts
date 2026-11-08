@@ -92,12 +92,22 @@ export class MessengerService {
     try {
       const conversations: Conversation[] = [];
       const catalogs:{sourceId:string;conversations:Conversation[]}[]=[];
+      let failed=false;let connected=0;let failure:unknown;
       for (const adapter of this.adapters) {
-        await adapter.connect();
-        catalogs.push({sourceId:adapter.source.id,conversations:await adapter.listConversations(id=>this.selection.allows(id))});
+        try{
+          const pause=Number(this.store.get(`sync.sourcePause.${adapter.source.id}`)||0);if(pause>Date.now())throw new AppError(503,'Источник временно недоступен.',Math.ceil((pause-Date.now())/1000));
+          await adapter.connect();
+          catalogs.push({sourceId:adapter.source.id,conversations:await adapter.listConversations(id=>this.selection.allows(id))});
+          if(adapter.source.connected)connected++;else if(adapter.canDiscoverContacts?.())failed=true;
+        }catch(error){
+          failure??=error;const seconds=(error instanceof AppError?error.retryAfterSeconds:undefined)||telegramAuthIssue(error).retryAfterSeconds;if(this.adapters.length>1&&seconds)this.store.set(`sync.sourcePause.${adapter.source.id}`,String(Date.now()+seconds*1000));
+          failed=true;adapter.source.connected=false;
+          catalogs.push({sourceId:adapter.source.id,conversations:this.store.loadCache().conversations.filter(c=>c.sourceId===adapter.source.id)});
+        }
       }
+      if(failed&&!connected)throw failure||new Error('Sources unavailable');
       if (revision !== this.selection.revision) return this.snapshot();
-      for(const catalog of catalogs){if(this.registry.get(catalog.sourceId).canDiscoverContacts?.())this.selection.observe(catalog.sourceId,catalog.conversations);conversations.push(...catalog.conversations.filter(c=>this.selection.allows(c.id)));}
+      for(const catalog of catalogs){const adapter=this.registry.get(catalog.sourceId);if(adapter.source.connected&&adapter.canDiscoverContacts?.())this.selection.observe(catalog.sourceId,catalog.conversations);conversations.push(...catalog.conversations.filter(c=>this.selection.allows(c.id)));}
       for(const c of conversations){
         const current=this.store.conversation(c.id);if(!current)continue;
         if(c.avatarVersion&&c.avatarVersion===current.avatarVersion&&!c.avatarThumbnail)c.avatarThumbnail=current.avatarThumbnail;
@@ -106,7 +116,7 @@ export class MessengerService {
         if(newer||readRevision!==this.readRevision)c.unreadCount=current.unreadCount;
         if(newer)c.updatedAt=current.updatedAt;
       }
-      this.store.saveCache({conversations,messages:[],sources:this.registry.sources(),refreshedAt:new Date().toISOString(),stale:false});this.state.stale=false;
+      this.store.saveCache({conversations,messages:[],sources:this.registry.sources(),refreshedAt:new Date().toISOString(),stale:failed});this.state.stale=failed;
       return this.snapshot();
     } catch (error) {
       this.state.stale = true;

@@ -1,5 +1,26 @@
 # Развёртывание на LightNode
 
+## Браузерный WhatsApp
+
+`zai-whatsapp.service` работает отдельным пользователем `zai-whatsapp`.
+Unix socket `/run/zai-whatsapp/control.sock` имеет 0660, группу Messenger;
+профили `/var/lib/zai-whatsapp/<server-key>` имеют 0700. TCP-портов нет.
+MemoryHigh — 512 МБ, MemoryMax — 640 МБ, MemorySwapMax — 0, CPUQuota — 35%,
+TasksMax — 256. При сбое завершается весь браузерный cgroup; Messenger/Telegram
+работают отдельно. На данном VPS доступна одна активная WhatsApp-сессия.
+
+`install-browser.sh` получает Chrome с официального HTTPS-источника Google,
+скачивает зависимости через `apt-get --download-only` и извлекает через
+`dpkg-deb -x` в `/opt/zai-whatsapp/runtime`. Установки пакетов, maintainer scripts,
+изменения firewall/sysctl и рестарта сторонних сервисов нет. Chromium использует
+штатный профиль AppArmor `chrome` для `/opt/google/chrome/chrome` и включённый
+sandbox. При недоступности sandbox запуск прекращается; `--no-sandbox` запрещён.
+
+Браузерные файлы сохраняются между релизами. Deploy сохраняет и восстанавливает
+worker-unit вместе с приложением, сравнивает VPN snapshot до/после. Первую
+привязку выполняет владелец QR-кодом в личной админке. Сообщения и восстановление
+связанного аккаунта проверяются после этой привязки, отдельно от проверок QR.
+
 Сервер: Ubuntu 24.04, 38.60.254.194, Node.js 22, 1 vCPU/2 ГБ RAM.
 Выполняется только `deploy/messenger/deploy.sh` с MacBook после коммита исходников.
 [Инструкции и файлы установки](../../deploy/messenger/README.md).

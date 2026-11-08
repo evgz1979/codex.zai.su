@@ -71,6 +71,7 @@
 - [test/browser/updates.spec.ts](../../test/browser/updates.spec.ts): обновления: новая сборка не перезагружает чат, отмена сохраняет черновик, применение сохраняет вход
 - [test/browser/updates.spec.ts](../../test/browser/updates.spec.ts): обновления: черновик, начатый во время проверки версии, тоже требует подтверждения
 - [test/browser/users.spec.ts](../../test/browser/users.spec.ts): личный Messenger: владелец создаёт ссылку, имя видно на главной, вход только паролем и чужие чаты закрыты
+- [test/browser/whatsapp.spec.ts](../../test/browser/whatsapp.spec.ts): WhatsApp в админке: серверный QR, готовность, выбор; QR не сохраняется локально
 - [test/core.test.ts](../../test/core.test.ts): SQLite сохраняет всю историю, ограничивает снимок и сохраняет исключённый архив
 - [test/core.test.ts](../../test/core.test.ts): единая лента объединяет источники и сохраняет хронологию
 - [test/core.test.ts](../../test/core.test.ts): идентификаторы не конфликтуют между источниками, типами и строками
@@ -154,3 +155,9 @@
 - [test/transcription.test.ts](../../test/transcription.test.ts): расшифровка: поздний результат после исключения, замены или удаления не сохраняется
 - [test/transcription.test.ts](../../test/transcription.test.ts): расшифровка: точный маршрут, сохранение после синхронизации и перезапуска без нового RPC
 - [test/transcription.test.ts](../../test/transcription.test.ts): расшифровка: чужие маршруты, preview, обычное аудио и исключение не вызывают источник
+- [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp HTTP: QR только admin своего аккаунта, POST защищён CSRF, общий status без QR
+- [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: адаптер проверяет текущий выбор и точный маршрут, ключи аккаунтов независимы
+- [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: браузер изолирует QR и слот, не отключает чужую сессию, сохраняет sandbox
+- [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: выбор и отключение одного источника сохраняют Telegram и архив
+- [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: закрытый протокол отклоняет RPC, путь профиля и невыбранного получателя
+- [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: отсутствие Telegram-входа не блокирует метаданные подключённого WhatsApp

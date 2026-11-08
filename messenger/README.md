@@ -1,10 +1,10 @@
 # Z AI Messenger
 
 Личный мессенджер с закрытыми аккаунтами семьи и друзей. React + TypeScript, Node.js 22,
-teleproto, SQLite. Рабочий источник MVP — личный Telegram. Лента и поле ввода
+teleproto, SQLite. Источники — личный Telegram и браузерный WhatsApp Web. Лента и поле ввода
 общие; источники подключаются через `SourceAdapter`.
 
-Версия приложения: `0.15.0`. [Оглавление документации](docs/README.md).
+Версия приложения: `0.16.0`. [Оглавление документации](docs/README.md).
 
 ## Рабочие адреса и обновление
 
@@ -30,6 +30,7 @@ bash deploy/messenger/deploy.sh
 | --- | --- |
 | [Эксплуатация](docs/operations.md) | Node.js, сборка, запуск, остановка, диагностика |
 | [Telegram и папки](docs/telegram.md) | Подключение, код/2FA, закладки и общий выбор диалогов |
+| [WhatsApp Web](docs/whatsapp.md) | Серверный браузер, QR, выбор чатов и ограничения |
 | [Уведомления](docs/notifications.md) | Установка на iPhone, включение и проверка Web Push |
 | [Архитектура](docs/architecture.md) | SourceAdapter, единая лента, маршруты и лимиты MVP |
 | [Сценарии](docs/flows.md) | Авторизация, обновление, выбор адресата, отправка, выход |

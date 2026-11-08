@@ -159,7 +159,11 @@ export function destinationFor(c: Conversation): Destination {
 export type TelegramAuthStage = 'idle' | 'connecting' | 'code' | 'password' | 'connected' | 'error';
 //: Возвращает готовность источника и число разрешённых диалогов.
 //: Секреты и пользовательские сообщения в модель не входят.
-export interface AdminStatus { telegram: { configured: boolean; connected: boolean; stage: TelegramAuthStage; issue?: TelegramAuthIssue }; selectedCount: number }
+export interface AdminStatus { telegram: { configured: boolean; connected: boolean; stage: TelegramAuthStage; issue?: TelegramAuthIssue }; whatsapp?:WhatsAppStatus; selectedCount: number }
+
+//: Передаёт состояние серверного WhatsApp Web в личную админку.
+//: QR временный и не сохраняется frontend; cookie и профиль Chromium никогда не возвращаются.
+export interface WhatsAppStatus {stage:'idle'|'starting'|'qr'|'connected'|'error'|'unavailable'|'busy';connected:boolean;qrDataUrl?:string;expiresAt?:number;issue?:string}
 
 //: Перечисляет разрешённые категории отказа Telegram.
 //: Произвольный текст исключений и введённые реквизиты не входят в контракт.

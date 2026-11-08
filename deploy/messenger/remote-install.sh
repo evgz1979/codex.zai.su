@@ -24,6 +24,8 @@ cp -a "$caddy_dir/Caddyfile" "$stage_dir/backup/Caddyfile"
 if test -e /etc/systemd/system/codex-zai-https.service.d/messenger.conf; then cp -a /etc/systemd/system/codex-zai-https.service.d/messenger.conf "$stage_dir/backup/messenger.conf"; fi
 if test -e /etc/systemd/system/zai-messenger.service; then cp -a /etc/systemd/system/zai-messenger.service "$stage_dir/backup/zai-messenger.service"; fi
 cp -a "$root/caddy_guard.py" "$stage_dir/backup/caddy_guard.py" 2>/dev/null || true
+if test -e /etc/systemd/system/zai-whatsapp.service; then cp -a /etc/systemd/system/zai-whatsapp.service "$stage_dir/backup/zai-whatsapp.service"; fi
+systemctl is-enabled --quiet zai-whatsapp.service 2>/dev/null && touch "$stage_dir/backup/whatsapp-enabled" || true
 caddy_changed=0
 activated=0
 rollback() {
@@ -39,10 +41,12 @@ rollback() {
   systemctl restart codex-zai-https.service
  fi
  if test -e "$stage_dir/backup/zai-messenger.service"; then cp -a "$stage_dir/backup/zai-messenger.service" /etc/systemd/system/zai-messenger.service; systemctl daemon-reload; fi
+ if test -e "$stage_dir/backup/zai-whatsapp.service"; then cp -a "$stage_dir/backup/zai-whatsapp.service" /etc/systemd/system/zai-whatsapp.service; else systemctl disable --now zai-whatsapp.service 2>/dev/null || true; rm -f /etc/systemd/system/zai-whatsapp.service; fi
  if test "$activated" -eq 1; then
   if test -n "$old_release" && test -d "$old_release"; then ln -sfn "$old_release" "$root/current"; systemctl restart zai-messenger.service;
   else systemctl disable --now zai-messenger.service || true; fi
  fi
+ if test -e "$stage_dir/backup/whatsapp-enabled"; then systemctl daemon-reload; systemctl restart zai-whatsapp.service; fi
  python3 /opt/codex-zai-https/vpn_snapshot.py > "$stage_dir/vpn-rollback.json"
  exit "$result"
 }
@@ -56,11 +60,17 @@ find "$release" -type f -exec chmod 0644 {} +
 if test -f "$stage_dir/bootstrap.json"; then
  runuser -u zai-messenger -- env NODE_ENV=production MESSENGER_DATA_DIR=/var/lib/zai-messenger MESSENGER_PUBLIC_ORIGIN=https://msg.zai.su:8443 /usr/local/bin/node "$release/dist/server/backend/cli.js" bootstrap < "$stage_dir/bootstrap.json"
 fi
+bash "$stage_dir/install-browser.sh" "$stage_dir"
+getent passwd zai-whatsapp >/dev/null || useradd --system --no-create-home --gid zai-messenger --home-dir /var/lib/zai-whatsapp --shell /usr/sbin/nologin zai-whatsapp
+install -m 0644 "$stage_dir/zai-whatsapp.service" /etc/systemd/system/zai-whatsapp.service
+systemd-analyze verify /etc/systemd/system/zai-whatsapp.service
 install -m 0644 "$stage_dir/zai-messenger.service" /etc/systemd/system/zai-messenger.service
 systemd-analyze verify /etc/systemd/system/zai-messenger.service
 ln -sfn "$release" "$root/current"
 activated=1
 systemctl daemon-reload
+systemctl enable --now zai-whatsapp.service
+systemctl restart zai-whatsapp.service
 systemctl enable --now zai-messenger.service
 systemctl restart zai-messenger.service
 for attempt in $(seq 1 20); do

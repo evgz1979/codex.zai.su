@@ -8,6 +8,7 @@ import {AutoSyncService} from './core/sync.js';
 import {PushService} from './core/push.js';
 import {AttachmentService} from './core/attachments.js';
 import {MediaPreloadService} from './core/media-preload.js';
+import {WhatsAppAdapter} from './connectors/whatsapp/adapter.js';
 
 //: Объединяет изолированные сервисы одного личного аккаунта.
 //: Каждый экземпляр использует собственные БД, Telegram, пароли, кеш и фоновые задачи.
@@ -22,8 +23,9 @@ export function createAccountRuntime(directory:string,origin:string):AccountRunt
   const store=new Store(directory);
   const vault=new SecretVault(directory);
   const telegram=new TelegramAdapter(vault);
-  const service=new MessengerService([telegram],store);
-  const admin=new AdminService(service,telegram,vault,store);
+  const whatsapp=new WhatsAppAdapter(directory,store);
+  const service=new MessengerService([telegram,whatsapp],store);
+  const admin=new AdminService(service,telegram,vault,store,undefined,whatsapp);
   const sync=new AutoSyncService(service,store);
   const push=new PushService(service,store,origin);
   const attachments=new AttachmentService(service,directory);

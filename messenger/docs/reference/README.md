@@ -5,7 +5,7 @@
 | Исходник | Назначение | Объявлений |
 | --- | --- | --- |
 | [backend/accounts.ts](backend--accounts.md) | Закрытый реестр личных пользователей, персональные ссылки, блокировки и независимые серверные экземпляры. | 16 |
-| [backend/admin/service.ts](backend--admin--service.md) | Настройки, метаданные Telegram и права выбора диалогов. | 8 |
+| [backend/admin/service.ts](backend--admin--service.md) | Настройки, метаданные Telegram и права выбора диалогов. | 12 |
 | [backend/auth/auth.ts](backend--auth--auth.md) | Argon2id-пароли ролей admin/chat, веб-сессии в памяти и ограничение попыток входа. | 17 |
 | [backend/auth/prompt.ts](backend--auth--prompt.md) | Скрытый интерактивный ввод в TTY без отражения символов. | 3 |
 | [backend/auth/telegram-issue.ts](backend--auth--telegram-issue.md) | Allowlist-классификация отказов Telegram без раскрытия исходных исключений. | 1 |
@@ -16,6 +16,11 @@
 | [backend/connectors/telegram/client.ts](backend--connectors--telegram--client.md) | Создание teleproto-клиента с приватной сессией, дедлайном RPC и выключенными логами. | 5 |
 | [backend/connectors/telegram/folders.ts](backend--connectors--telegram--folders.md) | Преобразование папок и правил Telegram в общий административный каталог. | 4 |
 | [backend/connectors/telegram/media.ts](backend--connectors--telegram--media.md) | Безопасные общие метаданные фото и документов Telegram без native references. | 4 |
+| [backend/connectors/whatsapp/adapter.ts](backend--connectors--whatsapp--adapter.md) | Личный SourceAdapter WhatsApp Web, административный QR, выбранная история и отправка текста. | 16 |
+| [backend/connectors/whatsapp/bridge.ts](backend--connectors--whatsapp--bridge.md) | Ограниченный клиент приватного браузерного worker без TCP и универсального RPC. | 2 |
+| [backend/connectors/whatsapp/browser.ts](backend--connectors--whatsapp--browser.md) | Одна изолированная Chromium-сессия с sandbox, временным QR и выбранной историей. | 14 |
+| [backend/connectors/whatsapp/protocol.ts](backend--connectors--whatsapp--protocol.md) | Закрытый протокол Unix socket и проверка выбранного получателя WhatsApp. | 4 |
+| [backend/connectors/whatsapp/worker.ts](backend--connectors--whatsapp--worker.md) | Последовательный Unix socket worker браузера с дедлайнами и безопасными отказами. | 3 |
 | [backend/core/attachments.ts](backend--core--attachments.md) | Защищённая потоковая загрузка вложений и ограниченный приватный кеш байтов. | 9 |
 | [backend/core/errors.ts](backend--core--errors.md) | Безопасная прикладная ошибка HTTP API. | 2 |
 | [backend/core/inbox.ts](backend--core--inbox.md) | Формирование ленты только выбранных диалогов. | 3 |
@@ -46,6 +51,7 @@
 | [frontend/src/admin/AdminApp.tsx](frontend--src--admin--AdminApp.md) | Отдельная административная страница с собственным входом и формами. | 11 |
 | [frontend/src/admin/ConversationPicker.tsx](frontend--src--admin--ConversationPicker.md) | Закладки папок, поиск и независимый от текущей папки выбор диалогов. | 3 |
 | [frontend/src/admin/UsersPanel.tsx](frontend--src--admin--UsersPanel.md) | Добавление личных пользователей владельцем, персональные ссылки и блокировка доступа. | 5 |
+| [frontend/src/admin/WhatsAppPanel.tsx](frontend--src--admin--WhatsAppPanel.md) | Временный серверный QR и независимый выбор чатов WhatsApp в личной админке. | 4 |
 | [frontend/src/api.ts](frontend--src--api.md) | Same-origin fetch, CSRF в памяти и безопасная ошибка API. | 16 |
 | [frontend/src/main.tsx](frontend--src--main.md) | Создание React root и подключение локальной таблицы стилей. | 0 |
 | [frontend/src/offline-cache.ts](frontend--src--offline-cache.md) | Ограниченный личный кеш просмотренных сообщений в IndexedDB без паролей и токенов. | 14 |
@@ -65,4 +71,4 @@
 | [scripts/start.sh](scripts--start-sh.md) | Запуск собранного сервера по абсолютному пути для безопасной проверки PID. | 0 |
 | [scripts/stop.mjs](scripts--stop.md) | Проверка PID и команды процесса перед SIGTERM только Messenger. | 0 |
 | [scripts/stop.sh](scripts--stop-sh.md) | Выбор Node.js и запуск штатного stop.mjs. | 0 |
-| [shared/types.ts](shared--types.md) | Общие DTO ленты и каталога, статусы веб-авторизации, лимиты, ID и Destination. | 39 |
+| [shared/types.ts](shared--types.md) | Общие DTO ленты и каталога, статусы веб-авторизации, лимиты, ID и Destination. | 40 |

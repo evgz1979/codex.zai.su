@@ -49,7 +49,7 @@ async close()
 Тестовая фабрика авторизации не используется production-точкой входа.
 
 ```typescript
-constructor(private core: MessengerService, private telegram: TelegramAdapter, private vault: SecretVault, private store: Store, login?: TelegramLogin)
+constructor(private core: MessengerService, private telegram: TelegramAdapter, private vault: SecretVault, private store: Store, login?: TelegramLogin, readonly whatsapp?: WhatsAppAdapter)
 ```
 
 <a id="symbol-AdminService.dialogs"></a>
@@ -76,6 +76,18 @@ async dialogs(): Promise<AdminDialogCatalog>
 async disconnect()
 ```
 
+<a id="symbol-AdminService.disconnectWhatsApp"></a>
+
+## AdminService.disconnectWhatsApp
+
+Отзывает WhatsApp-сессию без отключения Telegram.
+
+Сохранённая история остаётся на сервере, QR исчезает из админки.
+
+```typescript
+async disconnectWhatsApp()
+```
+
 <a id="symbol-AdminService.select"></a>
 
 ## AdminService.select
@@ -88,6 +100,18 @@ async disconnect()
 select(ids: string[])
 ```
 
+<a id="symbol-AdminService.selectWhatsApp"></a>
+
+## AdminService.selectWhatsApp
+
+Заменяет выбор только в полученном каталоге WhatsApp.
+
+Чужие источники и исключённый архив SQLite не удаляются.
+
+```typescript
+selectWhatsApp(ids: string[])
+```
+
 <a id="symbol-AdminService.status"></a>
 
 ## AdminService.status
@@ -98,4 +122,28 @@ select(ids: string[])
 
 ```typescript
 status(): AdminStatus
+```
+
+<a id="symbol-AdminService.unselect"></a>
+
+## AdminService.unselect
+
+Снимает разрешения только указанного источника.
+
+Не затрагивает выбор и историю другого подключённого мессенджера.
+
+```typescript
+private unselect(sourceId: string)
+```
+
+<a id="symbol-AdminService.whatsappDialogs"></a>
+
+## AdminService.whatsappDialogs
+
+Получает отдельный каталог WhatsApp без истории и превью.
+
+Выбор Telegram сохраняется независимо от текущего экрана источника.
+
+```typescript
+async whatsappDialogs(): Promise<AdminDialogCatalog>
 ```

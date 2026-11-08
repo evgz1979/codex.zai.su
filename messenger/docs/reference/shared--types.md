@@ -64,6 +64,7 @@ export interface AdminStatus {
         stage: TelegramAuthStage;
         issue?: TelegramAuthIssue;
     };
+    whatsapp?: WhatsAppStatus;
     selectedCount: number;
 }
 ```
@@ -591,5 +592,23 @@ pending означает промежуточный текст; native ID зад
 export interface VoiceTranscription {
     text: string;
     pending: boolean;
+}
+```
+
+<a id="symbol-WhatsAppStatus"></a>
+
+## WhatsAppStatus
+
+Передаёт состояние серверного WhatsApp Web в личную админку.
+
+QR временный и не сохраняется frontend; cookie и профиль Chromium никогда не возвращаются.
+
+```typescript
+export interface WhatsAppStatus {
+    stage: 'idle' | 'starting' | 'qr' | 'connected' | 'error' | 'unavailable' | 'busy';
+    connected: boolean;
+    qrDataUrl?: string;
+    expiresAt?: number;
+    issue?: string;
 }
 ```
