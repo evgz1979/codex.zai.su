@@ -446,6 +446,7 @@ export interface SessionInfo {
     setupRequired: boolean;
     csrfToken?: string;
     account?: AccountInfo;
+    expiresAt?: number;
 }
 ```
 

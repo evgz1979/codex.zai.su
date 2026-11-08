@@ -13,9 +13,10 @@
 Запуск явный; ожидающее задание возобновляется из кеша, уход отменяет HTTP-опрос.
 
 ```typescript
-VoiceTranscription({ request, value, onUnauthorized }: {
+VoiceTranscription({ request, value, offline = false, onUnauthorized }: {
     request: AttachmentRequest;
     value?: Transcript;
+    offline?: boolean;
     onUnauthorized(error: ApiError): void;
 })
 ```

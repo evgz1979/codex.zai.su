@@ -258,6 +258,8 @@ svg { width: 21px; height: 21px; flex-shrink: 0; }
 .bubble .transcription-empty, .bubble .transcription-error { margin-top: 4px; font-size: 12px; }
 .transcription-empty { color: var(--muted); }
 .transcription-error { color: #ae493e; }
+.status-dot.offline-dot { background: #c28a32; }
+.settings-link[aria-disabled=true] { opacity: .55; }
 .media-viewer { width: min(96vw, 1000px); max-height: 94vh; max-height: 94dvh; padding: 0; border: 0; border-radius: 12px; background: var(--surface); color: #17212b; }
 .media-viewer[open] { display: flex; flex-direction: column; }
 .media-viewer::backdrop { background: #101b29cf; }

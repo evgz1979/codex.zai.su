@@ -52,6 +52,12 @@
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): список чатов: поиск, фильтр, возврат браузером и отдельные черновики
 - [test/browser/notifications.spec.ts](../../test/browser/notifications.spec.ts): уведомления: iPhone получает инструкцию установки на экран Домой
 - [test/browser/notifications.spec.ts](../../test/browser/notifications.spec.ts): уведомления: явное включение, проверка и выключение без повторного запроса разрешения
+- [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: 503 использует сохранённое чтение, 401 очищает его
+- [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: кеши владельца и личной ссылки изолированы, выход гостя не очищает владельца
+- [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: локальный выход очищает сообщения, повторный запуск не восстанавливает старую cookie
+- [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: отзыв сессии очищает локальные данные при возвращении связи
+- [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: просмотренные чаты и расшифровки доступны после закрытия окна, без отправок
+- [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: просроченный кеш не открывает переписку, недоступное хранилище не мешает входу
 - [test/browser/paging.spec.ts](../../test/browser/paging.spec.ts): автокеш: прокрутка без кнопок, обновления и удаления, быстрый переход
 - [test/browser/reads.spec.ts](../../test/browser/reads.spec.ts): просмотр: видимая активная лента снимает счётчик, скрытые сообщения ждут просмотра
 - [test/browser/transcription.spec.ts](../../test/browser/transcription.spec.ts): голосовое: pending обновляется, повтор клика заблокирован, текст безопасен

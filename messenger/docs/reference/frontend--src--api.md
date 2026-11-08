@@ -8,9 +8,9 @@ Same-origin fetch, CSRF в памяти и безопасная ошибка API
 
 ## api
 
-Выполняет same-origin JSON-запрос к фиксированному /api пути.
+Использует сеть для всех действий и ограниченный кеш только для чтения без связи.
 
-Передаёт cookie/CSRF, запрещает кеш и принимает AbortSignal для смены адресата.
+Отказы доступа не подменяются кешем; отправка, прочтение и расшифровка offline не выполняются.
 
 ```typescript
 async api<T>(path: string, input?: unknown, signal?: AbortSignal): Promise<T>
@@ -103,6 +103,78 @@ async avatarData(conversationId: string, signal: AbortSignal, refresh = false): 
 abort()
 ```
 
+<a id="symbol-clearOffline"></a>
+
+## clearOffline
+
+Очищает кеш при выходе или отзыве входа во всех окнах одного аккаунта.
+
+В соседние окна передаётся только API-префикс, без переписки и реквизитов.
+
+```typescript
+async clearOffline(logoutPending = false)
+```
+
+<a id="symbol-connection"></a>
+
+## connection
+
+Переключает режим связи после сетевого ответа или отказа транспорта.
+
+Данные текущей переписки остаются в интерфейсе при потере соединения.
+
+```typescript
+connection(value: boolean)
+```
+
+<a id="symbol-isOffline"></a>
+
+## isOffline
+
+Сообщает фактическую недоступность сервера для режима чтения.
+
+Возврат navigator.onLine сам по себе ещё не подтверждает связь с Messenger.
+
+```typescript
+isOffline()
+```
+
+<a id="symbol-network"></a>
+
+## network
+
+Выполняет same-origin JSON-запрос к фиксированному /api пути.
+
+Передаёт cookie/CSRF, запрещает кеш и принимает AbortSignal для смены адресата.
+
+```typescript
+async network<T>(role: 'admin' | 'chat', path: string, input?: unknown, signal?: AbortSignal): Promise<T>
+```
+
+<a id="symbol-network.abort"></a>
+
+## network.abort
+
+Передаёт отмену владельца HTTP-запросу, не считая её потерей связи.
+
+Дедлайн применяется только к чтению; отправки не повторяются автоматически.
+
+```typescript
+abort()
+```
+
+<a id="symbol-reconnect"></a>
+
+## reconnect
+
+Восстанавливает CSRF и проверяет серверный вход перед выходом из offline-режима.
+
+Отложенный локальный выход отзывает cookie прежде, чем разрешается загрузка переписки.
+
+```typescript
+async reconnect()
+```
+
 <a id="symbol-setCsrf"></a>
 
 ## setCsrf
@@ -113,4 +185,16 @@ abort()
 
 ```typescript
 setCsrf(value: string)
+```
+
+<a id="symbol-subscribeConnection"></a>
+
+## subscribeConnection
+
+Подписывает интерфейс на смену состояния связи.
+
+Состояние не сохраняется в localStorage и не содержит данные аккаунта.
+
+```typescript
+subscribeConnection(listener: () => void)
 ```

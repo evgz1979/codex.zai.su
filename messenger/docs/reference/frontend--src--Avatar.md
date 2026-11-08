@@ -13,8 +13,9 @@
 Новая версия заменяет старую после декодирования; уход отменяет запросы и таймеры.
 
 ```typescript
-Avatar({ conversation, onUnauthorized }: {
+Avatar({ conversation, paused = false, onUnauthorized }: {
     conversation: Conversation;
+    paused?: boolean;
     onUnauthorized(error: unknown): void;
 })
 ```

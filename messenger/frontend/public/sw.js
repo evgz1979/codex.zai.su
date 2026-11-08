@@ -1,8 +1,35 @@
-/* Только доставка push: без fetch-handler, кеша переписки и токенов. */
-self.addEventListener('install',()=>self.skipWaiting());
-self.addEventListener('activate',event=>event.waitUntil(self.clients.claim()));
+/* Offline-кеш только оболочки приложения; API, переписку и токены worker не кеширует. */
 const workerBase=self.registration?.scope?new URL(self.registration.scope).pathname.replace(/\/$/,''):'';
 const workerApiBase=workerBase?`/api/u/${workerBase.split('/').pop()}`:'/api';
+const shellCache=`messenger-shell-v1:${workerBase||'owner'}`;
+//: Сохраняет HTML личного чата только вместе с файлами той же сборки.
+//: Админка, API и ответы с реквизитами не попадают в Cache Storage.
+async function saveShell(response){
+  if(!response.ok||!response.headers.get('content-type')?.includes('text/html'))return;
+  const html=await response.clone().text();const assets=[...html.matchAll(/(?:src|href)="(\/assets\/[a-zA-Z0-9_.-]+\.(?:js|css))"/g)].map(match=>match[1]);
+  if(!assets.length)return;
+  const loaded=await Promise.all(assets.map(async path=>{const resource=await fetch(path,{cache:'reload'});if(!resource.ok)throw new Error('Shell asset unavailable');return [path,resource];}));
+  const cache=await caches.open(shellCache);for(const [path,resource] of loaded)await cache.put(path,resource);await cache.put(`${workerBase}/`,response);
+  const keep=new Set([`${workerBase}/`,...assets]);for(const key of await cache.keys())if(!keep.has(new URL(key.url).pathname))await cache.delete(key);
+}
+//: Готовит оболочку при установке независимо от разрешения на уведомления.
+//: Если сеть недоступна, прежний кеш остаётся пригодным для запуска.
+async function warmShell(){const response=await fetch(`${workerBase}/`,{cache:'reload'});await saveShell(response);}
+self.addEventListener('install',event=>event.waitUntil(warmShell().catch(()=>{}).then(()=>self.skipWaiting())));
+self.addEventListener('activate',event=>event.waitUntil(self.clients.claim()));
+self.addEventListener('fetch',event=>{
+  const request=event.request;const url=new URL(request.url);if(request.method!=='GET'||url.origin!==self.location.origin)return;
+  if(request.mode==='navigate'&&url.pathname===`${workerBase}/`){
+    event.respondWith((async()=>{
+      const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),5000);
+      try{const response=await fetch(request,{signal:controller.signal});if(response.status>=500)throw new Error('Shell unavailable');if(response.ok)event.waitUntil(saveShell(response.clone()).catch(()=>{}));return response;}
+      catch{const saved=await (await caches.open(shellCache)).match(`${workerBase}/`);return saved||new Response('Нет связи. Откройте Messenger с интернетом перед первым автономным запуском.',{status:503,headers:{'Content-Type':'text/plain; charset=utf-8'}});}
+      finally{clearTimeout(timer);}
+    })());
+  }else if(/^\/assets\/[a-zA-Z0-9_.-]+\.(js|css)$/.test(url.pathname)){
+    event.respondWith((async()=>{const cache=await caches.open(shellCache);return await cache.match(request)||fetch(request);})());
+  }
+});
 //: Уточняет число после поздней доставки, даже когда приложение уже закрыли.
 //: Читает только защищённый счётчик; при истёкшей сессии использует число push.
 async function currentBadge(fallback){

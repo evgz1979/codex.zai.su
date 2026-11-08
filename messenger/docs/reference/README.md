@@ -35,8 +35,8 @@
 | [frontend/index.html](frontend--index.md) | HTML-точка входа, viewport и подключение React-сборки. | 0 |
 | [frontend/public/favicon.svg](frontend--public--favicon.md) | Локальная иконка приложения без внешних ресурсов. | 0 |
 | [frontend/public/manifest.webmanifest](frontend--public--manifest.webmanifest.md) | Идентичность и режим standalone для установки Messenger на экран «Домой». | 0 |
-| [frontend/public/sw.js](frontend--public--sw.js.md) | Service Worker для видимых push-уведомлений и открытия чата без кеширования переписки. | 0 |
-| [frontend/src/App.tsx](frontend--src--App.md) | Единый React-интерфейс, веб-вход, адресат, черновики и состояние операций. | 24 |
+| [frontend/public/sw.js](frontend--public--sw.js.md) | Service Worker: offline-оболочка личного чата и push, без кеширования API или переписки. | 0 |
+| [frontend/src/App.tsx](frontend--src--App.md) | Единый React-интерфейс, веб-вход, адресат, черновики и состояние операций. | 27 |
 | [frontend/src/AppUpdates.tsx](frontend--src--AppUpdates.md) | Проверка версии сборки и обновление приложения по нажатию без смены manifest и подписок. | 6 |
 | [frontend/src/AttachmentPreview.tsx](frontend--src--AttachmentPreview.md) | Ленивая миниатюра в ленте, фиксированные размеры и открытие оригинала. | 1 |
 | [frontend/src/AttachmentViewer.tsx](frontend--src--AttachmentViewer.md) | Модальный просмотр медиа по явному запросу, скачивание и отзыв Blob URL. | 2 |
@@ -46,12 +46,14 @@
 | [frontend/src/admin/AdminApp.tsx](frontend--src--admin--AdminApp.md) | Отдельная административная страница с собственным входом и формами. | 11 |
 | [frontend/src/admin/ConversationPicker.tsx](frontend--src--admin--ConversationPicker.md) | Закладки папок, поиск и независимый от текущей папки выбор диалогов. | 3 |
 | [frontend/src/admin/UsersPanel.tsx](frontend--src--admin--UsersPanel.md) | Добавление личных пользователей владельцем, персональные ссылки и блокировка доступа. | 5 |
-| [frontend/src/api.ts](frontend--src--api.md) | Same-origin fetch, CSRF в памяти и безопасная ошибка API. | 9 |
+| [frontend/src/api.ts](frontend--src--api.md) | Same-origin fetch, CSRF в памяти и безопасная ошибка API. | 16 |
 | [frontend/src/main.tsx](frontend--src--main.md) | Создание React root и подключение локальной таблицы стилей. | 0 |
+| [frontend/src/offline-cache.ts](frontend--src--offline-cache.md) | Ограниченный личный кеш просмотренных сообщений в IndexedDB без паролей и токенов. | 14 |
 | [frontend/src/previews.ts](frontend--src--previews.md) | Последовательная очередь и ограниченный оперативный кеш миниатюр без хранилища браузера. | 2 |
 | [frontend/src/styles.css](frontend--src--styles.md) | Компактная светлая палитра Telegram, общая лента и отдельная админка; safe-area и короткий viewport. | 0 |
 | [frontend/src/useAppBadge.ts](frontend--src--useAppBadge.md) | Согласование значка приложения и уведомлений при чтении, возврате фокуса и позднем push. | 4 |
 | [frontend/src/useConversationArrival.ts](frontend--src--useConversationArrival.md) | Отменяемое открытие свежего непрочитанного при запуске и возврате, точного диалога по уведомлению. | 7 |
+| [frontend/src/useOffline.ts](frontend--src--useOffline.md) | Режим локального чтения после потери связи и подтверждённого восстановления сервера. | 1 |
 | [frontend/src/useVisibleReads.ts](frontend--src--useVisibleReads.md) | Подтверждение просмотра реально видимых сообщений после остановки прокрутки в активной ленте. | 4 |
 | [frontend/vite.config.ts](frontend--vite.config.md) | React/Vite-сборка в dist/client без отдельного production-порта. | 1 |
 | [playwright.config.ts](playwright.config.md) | Три браузерные конфигурации и изолированный сервер синтетических данных. | 0 |

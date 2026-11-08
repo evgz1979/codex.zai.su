@@ -64,6 +64,18 @@ backToList()
 cancelView()
 ```
 
+<a id="symbol-App.check"></a>
+
+## App.check
+
+Проверяет веб-вход при запуске и при восстановлении сети.
+
+Без связи API возвращает только ранее разрешённое локальное чтение.
+
+```typescript
+check()
+```
+
 <a id="symbol-App.checkAccess"></a>
 
 ## App.checkAccess
@@ -112,6 +124,18 @@ enterChat(id: string, push = true)
 escape(event: KeyboardEvent)
 ```
 
+<a id="symbol-App.expire"></a>
+
+## App.expire
+
+Завершает локальное чтение по фактическому сроку ранее подтверждённого входа.
+
+Проверка при возврате учитывает приостановленные фоновые таймеры телефона.
+
+```typescript
+expire()
+```
+
 <a id="symbol-App.fail"></a>
 
 ## App.fail
@@ -134,6 +158,18 @@ fail(e: unknown)
 
 ```typescript
 async loadView(conversation?: Conversation, older = false)
+```
+
+<a id="symbol-App.localLogout"></a>
+
+## App.localLogout
+
+Очищает интерфейс при выходе в другом окне того же личного аккаунта.
+
+Событие не переносит тексты или токены между окнами.
+
+```typescript
+localLogout()
 ```
 
 <a id="symbol-App.login"></a>
@@ -232,7 +268,7 @@ showList()
 Сохраняет старые страницы и не прерывает явный выбор или прокрутку.
 
 ```typescript
-async updateFromCache(revision: number)
+async updateFromCache(revision: number, reconnecting = false)
 ```
 
 <a id="symbol-Brand"></a>

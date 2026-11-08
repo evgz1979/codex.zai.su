@@ -12,7 +12,10 @@ React `useState` хранит снимок, веб-вход, `targetId` и сл�
 прокруткой, историей переходов и Escape-listener. Административный AdminApp загружается отдельным lazy chunk по /admin.
 Роли и API не зависят от размера экрана. Анонимные async-callback выполняются в контексте
 именованного владельца; компонент не читает SQLite или MTProto напрямую.
-Fetch-функция `api` передаёт cookie и CSRF только своему origin.
+Fetch-функция `api` передаёт cookie и CSRF только своему origin. Для chat API она
+использует `OfflineCache`: IndexedDB хранит ограниченное локальное чтение без
+реквизитов, а `useOffline` сообщает интерфейсу о потере и восстановлении связи.
+Service Worker запускается независимо от Web Push и кеширует только оболочку.
 
 Активная MessagePage хранится отдельно от Snapshot общей ленты. Номер запроса
 и AbortController в useRef защищают быстрый переход между адресатами от позднего
@@ -62,6 +65,11 @@ CSS задаёт первый экран со списком чатов и от�
 
 
 ## Исходники и справочник
+
+В обычных браузерных сценариях Service Worker блокируется, чтобы проверки
+маршрутов через page.route оставались изолированными. `browser/offline.spec.ts`
+явно включает настоящий worker и IndexedDB во всех трёх конфигурациях,
+использует context.setOffline и настоящий loopback API без подмены чтения.
 
 ```bash
 bash messenger/scripts/npm.sh run docs:build

@@ -3,7 +3,7 @@ import type {AttachmentRequest,VoiceTranscription as Transcript} from '../../sha
 import {api,ApiError} from './api';
 //: Показывает кнопку голосового и полученный текст под сообщением.
 //: Запуск явный; ожидающее задание возобновляется из кеша, уход отменяет HTTP-опрос.
-export default function VoiceTranscription({request,value,onUnauthorized}:{request:AttachmentRequest;value?:Transcript;onUnauthorized(error:ApiError):void}){
+export default function VoiceTranscription({request,value,offline=false,onUnauthorized}:{request:AttachmentRequest;value?:Transcript;offline?:boolean;onUnauthorized(error:ApiError):void}){
   const [transcription,setTranscription]=useState(value);
   const [attempt,setAttempt]=useState(value?.pending?1:0);
   const [busy,setBusy]=useState(!!value?.pending);
@@ -11,7 +11,7 @@ export default function VoiceTranscription({request,value,onUnauthorized}:{reque
   const key=JSON.stringify([request.conversationId,request.messageId,request.attachmentId]);
   useEffect(()=>{if(value){setTranscription(previous=>previous?.pending===false&&value.pending?previous:value);if(!value.pending){setError('');setBusy(false);}}},[value?.text,value?.pending]);
   useEffect(()=>{
-    if(!attempt||value?.pending===false)return;
+    if(offline){setBusy(false);return;}if(!attempt||value?.pending===false)return;
     const controller=new AbortController();let timer:ReturnType<typeof setTimeout>|undefined;const started=Date.now();
     setBusy(true);setError('');
     //: Читает состояние только выбранного голосового, пока Telegram готовит текст.
@@ -31,9 +31,9 @@ export default function VoiceTranscription({request,value,onUnauthorized}:{reque
       }
     }
     void poll();return()=>{controller.abort();clearTimeout(timer);};
-  },[attempt,key,value?.pending===false]);
+  },[attempt,key,value?.pending===false,offline]);
   return <div className="voice-transcription" aria-label="Расшифровка голосового">
-    {(!transcription||transcription.pending)&&<button type="button" className="transcribe-button" disabled={busy} onClick={()=>setAttempt(old=>old+1)}>{busy?'Расшифровка…':error?'Повторить расшифровку':'Расшифровать'}</button>}
+    {(!transcription||transcription.pending)&&<button type="button" className="transcribe-button" disabled={busy||offline} onClick={()=>setAttempt(old=>old+1)}>{busy?'Расшифровка…':error?'Повторить расшифровку':'Расшифровать'}</button>}
     <div aria-live="polite" aria-atomic="true">
       {transcription&&(transcription.text?<><span className="transcription-caption">Расшифровка</span><p className="transcription-text">{transcription.text}</p></>:!transcription.pending&&<p className="transcription-empty">Речь не распознана.</p>)}
       {error&&<p className="transcription-error" role="alert">{error}</p>}

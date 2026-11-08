@@ -23,7 +23,7 @@ function queuedPhoto(id:string,version:string,signal:AbortSignal,refresh=false){
 }
 //: Показывает фото возле видимой области, повторяет временные ошибки и сохраняет готовое фото.
 //: Новая версия заменяет старую после декодирования; уход отменяет запросы и таймеры.
-export default function Avatar({conversation,onUnauthorized}:{conversation:Conversation;onUnauthorized(error:unknown):void}){
+export default function Avatar({conversation,paused=false,onUnauthorized}:{conversation:Conversation;paused?:boolean;onUnauthorized(error:unknown):void}){
   const element=useRef<HTMLSpanElement>(null);const [source,setSource]=useState<{id:string;url:string}>();
   const fail=useRef(onUnauthorized);fail.current=onUnauthorized;
   const {id,title,avatarVersion,avatarThumbnail}=conversation;
@@ -33,6 +33,7 @@ export default function Avatar({conversation,onUnauthorized}:{conversation:Conve
   const initials=title.trim().split(/\s+/u).slice(0,2).map(word=>[...word][0]).join('').toLocaleUpperCase();
   useEffect(()=>()=>{if(source)URL.revokeObjectURL(source.url);},[source]);
   useEffect(()=>{
+    if(paused)return;
     if(!avatarVersion||!element.current){setSource(undefined);return;}
     const controller=new AbortController();let refresh=force.current;force.current=false;let running=false;let visible=false;let loaded=false;let terminal=false;let attempts=0;let retry:ReturnType<typeof setTimeout>|undefined;
     //: Загружает и декодирует фотографию до смены видимого изображения.
@@ -60,7 +61,7 @@ export default function Avatar({conversation,onUnauthorized}:{conversation:Conve
     },{rootMargin:'100px'});observer.observe(element.current);
     window.addEventListener('online',resume);window.addEventListener('focus',resume);document.addEventListener('visibilitychange',resume);
     return()=>{observer.disconnect();controller.abort();clearTimeout(retry);window.removeEventListener('online',resume);window.removeEventListener('focus',resume);document.removeEventListener('visibilitychange',resume);};
-  },[id,avatarVersion,reload]);
+  },[id,avatarVersion,reload,paused]);
   const display=source?.id===id?source.url:thumbnail;
   return <span ref={element} className={`avatar tone-${tone}`}><span aria-hidden="true">{initials}</span>{display&&<img src={display} alt={`Фото: ${title}`} onError={()=>{if(display===thumbnail)setBadThumbnail(avatarThumbnail);else{photos.delete(`${id}/${avatarVersion}`);force.current=true;setSource(undefined);setReload(value=>value+1);}}}/>}</span>;
 }

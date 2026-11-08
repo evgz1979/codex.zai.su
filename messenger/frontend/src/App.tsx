@@ -7,7 +7,8 @@ import {clearPreviews} from './previews';
 import AttachmentViewer from './AttachmentViewer';
 import VoiceTranscription from './VoiceTranscription';
 import type {AttachmentRequest} from '../../shared/types';
-import { api, ApiError, setCsrf,appBase } from './api';
+import { api, ApiError, setCsrf,appBase,isOffline } from './api';
+import {useOffline} from './useOffline';
 import Notifications,{notificationEndpoint,unsubscribeNotifications} from './Notifications';
 import {useVisibleReads} from './useVisibleReads';
 import {useAppBadge} from './useAppBadge';
@@ -37,6 +38,7 @@ function Brand() { return <div className="brand"><span className="monogram">Z</s
 //: Отображает вход, список чатов и отдельную переписку с явным адресатом.
 //: Держит снимок и черновики в памяти React, без хранилища браузера.
 export function App() {
+  const offline=useOffline();
   const updates=useAppUpdates();
   const [session, setSession] = useState<SessionInfo>();
   const [snapshot, setSnapshot] = useState<Snapshot>();
@@ -73,7 +75,7 @@ export function App() {
   const unread = snapshot?.conversations.reduce((n,c) => n + c.unreadCount, 0) || 0;
   const connected = snapshot?.sources.some(s => s.connected);
   useAppBadge(unread,!!session?.authenticated&&!!snapshot);
-  useVisibleReads(feed,messages,!!session?.authenticated&&!pending&&chatOpen&&!attachmentTarget,async message=>{
+  useVisibleReads(feed,messages,!!session?.authenticated&&!offline&&!pending&&chatOpen&&!attachmentTarget,async message=>{
     const result=await api<Snapshot>('read',{conversationId:message.conversationId,messageId:message.id});
     const conversation=result.conversations.find(c=>c.id===message.conversationId);
     if(conversation)setSnapshot(old=>old?{...old,conversations:old.conversations.map(c=>c.id===conversation.id?{...c,unreadCount:conversation.unreadCount}:c)}:old);
@@ -81,14 +83,32 @@ export function App() {
 
   //: Применяет состояние веб-входа и CSRF в памяти.
   //: Не читает и не получает Telegram credentials.
-  const acceptSession = (info: SessionInfo) => { setCsrf(info.csrfToken || ''); setSession(previous=>({...info,account:info.account||previous?.account}));if(info.account)document.title=`${info.account.displayName} · Z AI Messenger`; };
+  const acceptSession = (info: SessionInfo) => { setCsrf(info.csrfToken || ''); setSession(previous=>({...info,account:info.account||previous?.account}));if(info.account)document.title=`${info.account.displayName} · Z AI Messenger`;if(!info.authenticated){clearPreviews();clearAvatars();cancelView();setSnapshot(undefined);setPage(undefined);setDrafts({});setTargetId(undefined);setChatOpen(false);viewOpen.current=false;setAttachmentTarget(undefined);} };
   //: Показывает ошибку операции и обрабатывает потерю входа.
   //: При 401 очищает снимок, адресата и черновики.
   function fail(e: unknown) {
+    if(e instanceof ApiError&&e.status===0){setError(session?.authenticated?'':'Для входа нужна связь.');return;}
     if (e instanceof ApiError && e.status === 401) { clearPreviews();clearAvatars();setChatOpen(false);setAttachmentTarget(undefined);cancelView();acceptSession({ authenticated: false, setupRequired: false }); setSnapshot(undefined); setPage(undefined);setDrafts({}); setTargetId(undefined); }
     setError(e instanceof Error ? e.message : 'Нет связи с локальным сервером.');
   }
-  useEffect(() => { api<SessionInfo>('session').then(acceptSession).catch(fail); }, []);
+  useEffect(() => {
+    //: Проверяет веб-вход при запуске и при восстановлении сети.
+    //: Без связи API возвращает только ранее разрешённое локальное чтение.
+    const check=()=>{void api<SessionInfo>('session').then(acceptSession).catch(e=>{if(e instanceof ApiError&&e.status===0)setError('Нет связи. Откройте приложение с интернетом, чтобы сохранить сообщения.');else fail(e);});};
+    //: Очищает интерфейс при выходе в другом окне того же личного аккаунта.
+    //: Событие не переносит тексты или токены между окнами.
+    const localLogout=()=>fail(new ApiError(401,'Войдите в приложение.'));
+    check();window.addEventListener('online',check);window.addEventListener('messenger:local-logout',localLogout);
+    return()=>{window.removeEventListener('online',check);window.removeEventListener('messenger:local-logout',localLogout);};
+  }, []);
+  useEffect(()=>{
+    if(!session?.authenticated||!session.expiresAt)return;
+    //: Завершает локальное чтение по фактическому сроку ранее подтверждённого входа.
+    //: Проверка при возврате учитывает приостановленные фоновые таймеры телефона.
+    const expire=()=>{if(Date.now()>=session.expiresAt!)void logout();};
+    const timer=setTimeout(expire,Math.max(0,session.expiresAt-Date.now()));document.addEventListener('visibilitychange',expire);
+    return()=>{clearTimeout(timer);document.removeEventListener('visibilitychange',expire);};
+  },[session?.authenticated,session?.expiresAt]);
   useEffect(() => {
     if (!session?.authenticated) return;
     let disposed = false;
@@ -96,7 +116,8 @@ export function App() {
     //: Получает разрешения и ревизию SQLite без запросов к Telegram.
     //: Изменения и удаления автоматически применяются только к разрешённой ленте.
     async function checkAccess() {
-      if(checking||document.hidden||arrivalOpening.current)return;checking=true;
+      if(checking||document.hidden||arrivalOpening.current||navigator.onLine===false)return;checking=true;
+      const reconnecting=isOffline();
       try {
         const result=await api<{ids:string[];revision?:number;deletedIds?:string[];reset?:boolean;sync?:SyncStatus}>(`access?since=${seenRevision.current}`);
         if(disposed)return;
@@ -112,12 +133,12 @@ export function App() {
         if(result.sync)setSyncStatus(result.sync);
         if(typeof result.revision==='number'){
           seenRevision.current=result.revision;setCacheRevision(result.revision);
-          if(result.revision!==appliedRevision.current||live.current.uncertain)await updateFromCache(result.revision);
+          if(reconnecting||result.revision!==appliedRevision.current||live.current.uncertain)await updateFromCache(result.revision,reconnecting);
         }
       }catch(e){if(!disposed)fail(e);}finally{checking=false;}
     }
-    void checkAccess();const timer=window.setInterval(checkAccess,2000);document.addEventListener('visibilitychange',checkAccess);
-    return()=>{disposed=true;window.clearInterval(timer);document.removeEventListener('visibilitychange',checkAccess);};
+    void checkAccess();const timer=window.setInterval(checkAccess,2000);document.addEventListener('visibilitychange',checkAccess);window.addEventListener('online',checkAccess);
+    return()=>{disposed=true;window.clearInterval(timer);document.removeEventListener('visibilitychange',checkAccess);window.removeEventListener('online',checkAccess);};
   },[session?.authenticated]);
   useLayoutEffect(()=>{
     const element=feed.current;const plan=scrollPlan.current;if(!element||!plan)return;
@@ -166,7 +187,7 @@ export function App() {
   }
   //: Автоматически перечитывает изменившийся кеш без ожидания MTProto.
   //: Сохраняет старые страницы и не прерывает явный выбор или прокрутку.
-  async function updateFromCache(revision:number){
+  async function updateFromCache(revision:number,reconnecting=false){
     if(live.current.pending||cacheUpdate.current)return;cacheUpdate.current=true;
     const id=live.current.targetId;const generation=request.current.id;
     try{
@@ -179,7 +200,7 @@ export function App() {
         const fresh=result.page;if(!old||old.conversationId!==fresh.conversationId)return fresh;
         if(!fresh.messages.length)return fresh;
         const boundary=fresh.messages[0];const older=old.messages.filter(m=>m.date<boundary.date||(m.date===boundary.date&&m.id<boundary.id));
-        return {...fresh,messages:[...older,...fresh.messages],oldestCursor:older.length?old.oldestCursor:fresh.oldestCursor,nextCursor:older.length?(old.nextCursor||(!fresh.historyComplete?old.oldestCursor||null:null)):fresh.nextCursor};
+        return {...fresh,messages:[...older,...fresh.messages],oldestCursor:older.length?old.oldestCursor:fresh.oldestCursor,nextCursor:older.length?(old.nextCursor||(reconnecting||!fresh.historyComplete?old.oldestCursor||null:null)):fresh.nextCursor};
       });
       if(result?.page.sourceUpdatedAt&&result.page.sourceUpdatedAt>uncertainAt.current)setUncertain(false);
       appliedRevision.current=revision;
@@ -247,7 +268,7 @@ export function App() {
   //: Очищает только отправленный черновик; ошибка требует ручной сверки ленты.
   async function send(e: FormEvent) {
     e.preventDefault();
-    if (!target || !draft.trim() || pending || uncertain) return;
+    if (!target || !draft.trim() || pending || uncertain || offline) return;
     const destination = destinationFor(target);
     const text = draft;
     setBusy(true); setError('');
@@ -262,7 +283,7 @@ export function App() {
   //: Отправляет явную отметку прочитанного для выбранного диалога.
   //: Снимок заменяется только после ответа API.
   async function read() {
-    if (!target) return;
+    if (!target||offline) return;
     setBusy(true); setError('');
     try { setSnapshot(await api<Snapshot>('read', { conversationId: target.id })); }
     catch (e) { fail(e); } finally { setBusy(false); }
@@ -294,28 +315,28 @@ export function App() {
   const conversations=snapshot?.conversations.filter(c=>(!onlyUnread||c.unreadCount>0)&&c.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())).sort(compareConversations)||[];
   return <main className={`workspace ${chatOpen?'chat-screen':'list-screen'}`}>
     <aside className="sidebar" aria-label="Чаты" hidden={chatOpen}>
-      <header className="list-header"><a href={`${appBase}/admin`} className="settings-link">Настройки</a><div><h1>Чаты</h1><p role="status">{arrival.opening&&!snapshot?'Соединение…':syncStatus?.pausedUntil?'Синхронизация приостановлена':connected?'Подключено':'Нет подключения'}</p></div><button className="icon-button inbox-button" aria-label="Общая лента" disabled={busy} onClick={()=>void openInbox()}><Icon name="inbox" /></button></header>
+      <header className="list-header"><a href={`${appBase}/admin`} className="settings-link" aria-disabled={offline} onClick={e=>{if(offline)e.preventDefault();}}>Настройки</a><div><h1>Чаты</h1><p role="status">{offline?'Без сети · сохранённые сообщения':arrival.opening&&!snapshot?'Соединение…':syncStatus?.pausedUntil?'Синхронизация приостановлена':connected?'Подключено':'Нет подключения'}</p></div><button className="icon-button inbox-button" aria-label="Общая лента" disabled={busy} onClick={()=>void openInbox()}><Icon name="inbox" /></button></header>
       <label className="search"><Icon name="search" /><input aria-label="Поиск диалогов" placeholder="Поиск" value={query} onChange={e=>setQuery(e.target.value)} /></label>
       <div className="chat-filters" role="group" aria-label="Фильтр чатов"><button aria-pressed={!onlyUnread} onClick={()=>setOnlyUnread(false)}>Все</button><button aria-pressed={onlyUnread} onClick={()=>setOnlyUnread(true)}>Непрочитанные{unread>0&&<span>{unread}</span>}</button></div>
       {error&&<div className="error-banner" role="alert">{error}</div>}
       <nav className="conversation-list" aria-label="Получатели" aria-busy={!snapshot}>
         {conversations.map(c=><button key={c.id} className="conversation" disabled={busy} onClick={()=>void choose(c)}>
-          <Avatar conversation={c} onUnauthorized={fail}/>
+          <Avatar conversation={c} paused={offline} onUnauthorized={fail}/>
           <span className="conversation-copy"><span className="conversation-title"><span className="conversation-name" title={c.title}>{c.title}</span><time dateTime={c.updatedAt}>{c.updatedAt&&conversationTime(c.updatedAt)}</time></span><span className="preview">{drafts[c.id]?<><span className="draft-caption">Черновик: </span>{drafts[c.id]}</>:c.preview||(Date.parse(c.updatedAt)>0?'Загрузка сообщения…':'Нет сообщений')}</span></span>
           {c.unreadCount>0&&<span className="badge" aria-label={`${c.unreadCount} непрочитанных`}>{c.unreadCount}</span>}
         </button>)}
         {!conversations.length&&<p className="list-empty">{!snapshot?'Загрузка чатов…':query.trim()?'Чаты не найдены':onlyUnread?'Нет непрочитанных чатов':'Здесь появятся ваши диалоги после подключения аккаунта и выбора в админке.'}</p>}
       </nav>
-      <Notifications />
+      {!offline&&<Notifications />}
       <div className="sidebar-footer"><span>{session.account?.displayName||'Messenger'} · {unread} непрочитанных</span><div className="footer-actions"><AppUpdates updates={updates} busy={pending||!!attachmentTarget} hasDrafts={Object.values(drafts).some(Boolean)}/><button className="icon-button" aria-label="Выйти" onClick={logout} disabled={busy}><Icon name="logout" /></button></div></div>
     </aside>
     <section className="chat" aria-label="Единая лента сообщений" hidden={!chatOpen}>
-      <header className="chat-header"><button className="back-button" aria-label="Назад к чатам" disabled={busy} onClick={backToList}><Icon name="back"/><span>Чаты</span></button><div className="chat-heading"><div className="header-title"><h1>{target?.title||'Общая лента'}</h1></div><p>{target?snapshot?.sources.find(s=>s.id===target.sourceId)?.name:`${unread} непрочитанных`}</p></div>{target&&<Avatar key={target.id} conversation={target} onUnauthorized={fail}/>}</header>
-      <div className="feed-info"><span className="status-dot" />{syncStatus?.pausedUntil?'Синхронизация временно приостановлена':syncStatus?.pendingConversations?'История синхронизируется в фоне':'Автоматическая синхронизация'}<span className="feed-limit">Сообщения из локального кеша</span></div>
+      <header className="chat-header"><button className="back-button" aria-label="Назад к чатам" disabled={busy} onClick={backToList}><Icon name="back"/><span>Чаты</span></button><div className="chat-heading"><div className="header-title"><h1>{target?.title||'Общая лента'}</h1></div><p>{target?snapshot?.sources.find(s=>s.id===target.sourceId)?.name:`${unread} непрочитанных`}</p></div>{target&&<Avatar key={target.id} conversation={target} paused={offline} onUnauthorized={fail}/>}</header>
+      <div className="feed-info"><span className={`status-dot ${offline?'offline-dot':''}`} />{offline?'Без сети · сохранённые сообщения':syncStatus?.pausedUntil?'Синхронизация временно приостановлена':syncStatus?.pendingConversations?'История синхронизируется в фоне':'Автоматическая синхронизация'}<span className="feed-limit">{offline?'Кеш этого устройства':'Сообщения из локального кеша'}</span></div>
       {error && <div className="error-banner" role="alert">{error}</div>}
       <div className="feed" ref={feed} tabIndex={0} aria-label="Сообщения" aria-busy={pending}>
         <div ref={sentinel} className="history-sentinel" aria-hidden="true" />
-        {!messages.length ? <div className="empty-state"><h2>{loading?'Загрузка сообщений…':'Нет загруженных сообщений'}</h2></div> : <div className="message-stream">{messages.map((m,i,messages) => {
+        {!messages.length ? <div className="empty-state"><h2>{loading?'Загрузка сообщений…':offline?'В этом чате ещё нет сохранённых сообщений':'Нет загруженных сообщений'}</h2></div> : <div className="message-stream">{messages.map((m,i,messages) => {
           const c = snapshot?.conversations.find(c => c.id === m.conversationId);
           const voice=m.attachments.find(a=>a.kind==='audio'&&a.isVoice&&a.downloadable!==false);
           return <div key={m.id}>{(i === 0 || day(messages[i-1].date) !== day(m.date)) && <div className="date-divider"><span>{day(m.date)}</span></div>}
@@ -323,8 +344,8 @@ export function App() {
               <div className="bubble">
                 {!target&&<div className="message-context"><strong>{c?.title || 'Диалог'}</strong><span className="source-label">{snapshot?.sources.find(s => s.id === m.sourceId)?.name || 'Источник'}</span></div>}
                 {!m.outgoing && c?.kind === 'group' && <strong className="sender-name">{m.sender.name}</strong>}
-                {m.text && <p>{m.text}</p>}{m.attachments.map(a => a.downloadable===false?<div key={a.id} className="attachment">{a.name}</div>:<AttachmentPreview key={a.id} attachment={a} request={{conversationId:m.conversationId,messageId:m.id,attachmentId:a.id}} version={m.editedAt||m.date} paused={!!attachmentTarget} onOpen={()=>setAttachmentTarget({conversationId:m.conversationId,messageId:m.id,attachmentId:a.id})} onUnauthorized={fail}/>)}
-                {voice&&chatOpen&&<VoiceTranscription key={m.editedAt||m.date} request={{conversationId:m.conversationId,messageId:m.id,attachmentId:voice.id}} value={m.voiceTranscription} onUnauthorized={fail}/>}
+                {m.text && <p>{m.text}</p>}{m.attachments.map(a => a.downloadable===false?<div key={a.id} className="attachment">{a.name}</div>:<AttachmentPreview key={a.id} attachment={a} request={{conversationId:m.conversationId,messageId:m.id,attachmentId:a.id}} version={m.editedAt||m.date} paused={offline||!!attachmentTarget} onOpen={()=>{if(offline)setError('Для загрузки вложения нужна связь.');else setAttachmentTarget({conversationId:m.conversationId,messageId:m.id,attachmentId:a.id});}} onUnauthorized={fail}/>)}
+                {voice&&chatOpen&&<VoiceTranscription key={m.editedAt||m.date} request={{conversationId:m.conversationId,messageId:m.id,attachmentId:voice.id}} value={m.voiceTranscription} offline={offline} onUnauthorized={fail}/>}
                 <div className="message-meta">{!target&&c?.canSend&&<button className="reply-button" disabled={busy} onClick={() => choose(c)}>Ответить <span aria-hidden="true">↗</span></button>}<time dateTime={m.date}>{time(m.date)}</time>{m.outgoing && <span aria-label="Отправлено">✓</span>}</div>
               </div>
             </article></div>;
@@ -332,8 +353,8 @@ export function App() {
       </div>
       <div className="composer-area">
         <div className="destination">{target ? <><span className="destination-recipient" title={target.title}>Кому: <strong>{target.title}</strong><span className="destination-source"> · {snapshot?.sources.find(s => s.id === target.sourceId)?.name}</span></span><button disabled={busy} onClick={backToList}>Изменить</button></> : <><span>Адресат не выбран</span><button onClick={backToList}>Выбрать <span aria-hidden="true">↗</span></button></>}</div>
-        <form className="composer" onSubmit={send}><textarea ref={composerInput} aria-label="Сообщение" placeholder={target ? target.canSend ? 'Написать сообщение…' : 'Этот диалог доступен только для чтения' : 'Сначала выберите адресата'} rows={1} value={draft} maxLength={LIMITS.text} disabled={!target?.canSend || pending} onChange={e => target && setDrafts(old => ({ ...old, [target.id]: e.target.value }))} /><button className="send-button" type="submit" aria-label={target ? `Отправить: ${target.title}` : 'Отправить сообщение'} disabled={!target?.canSend || !draft.trim() || pending || uncertain}><Icon name="send" /></button></form>
-        {(uncertain||(target&&target.unreadCount>0)||draft.length>3500)&&<div className="composer-note">{uncertain && <span>Дождитесь синхронизации и проверьте отправку перед повтором</span>}{target && target.unreadCount > 0 && <button disabled={pending} onClick={read}>Отметить прочитанным</button>}{draft.length > 3500 && <span>{draft.length}/{LIMITS.text}</span>}</div>}
+        <form className="composer" onSubmit={send}><textarea ref={composerInput} aria-label="Сообщение" placeholder={offline?'Для отправки нужна связь':target ? target.canSend ? 'Написать сообщение…' : 'Этот диалог доступен только для чтения' : 'Сначала выберите адресата'} rows={1} value={draft} maxLength={LIMITS.text} disabled={!target?.canSend || pending || offline} onChange={e => target && setDrafts(old => ({ ...old, [target.id]: e.target.value }))} /><button className="send-button" type="submit" aria-label={target ? `Отправить: ${target.title}` : 'Отправить сообщение'} disabled={!target?.canSend || !draft.trim() || pending || uncertain || offline}><Icon name="send" /></button></form>
+        {(uncertain||(target&&target.unreadCount>0)||draft.length>3500)&&<div className="composer-note">{uncertain && <span>Дождитесь синхронизации и проверьте отправку перед повтором</span>}{target && target.unreadCount > 0 && <button disabled={pending||offline} onClick={read}>Отметить прочитанным</button>}{draft.length > 3500 && <span>{draft.length}/{LIMITS.text}</span>}</div>}
       </div>
     </section>
     {attachmentTarget&&<AttachmentViewer key={`${attachmentTarget.messageId}/${attachmentTarget.attachmentId}`} request={attachmentTarget} onClose={()=>setAttachmentTarget(undefined)} onUnauthorized={fail}/>}

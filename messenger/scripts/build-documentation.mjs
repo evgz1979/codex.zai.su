@@ -5,6 +5,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const printer = ts.createPrinter({ removeComments: true, newLine: ts.NewLineKind.LineFeed });
 const purposes = {
+  'frontend/src/offline-cache.ts':'Ограниченный личный кеш просмотренных сообщений в IndexedDB без паролей и токенов.',
+  'frontend/src/useOffline.ts':'Режим локального чтения после потери связи и подтверждённого восстановления сервера.',
   'backend/core/transcription.ts':'Явная встроенная расшифровка голосовых, приватный кеш, дедупликация и проверка обновлений источника.',
   'frontend/src/VoiceTranscription.tsx':'Кнопка расшифровки голосового, частичный текст, ручной повтор и отменяемый опрос.',
   'test/browser/updates.spec.ts':'Проверка обновления установленного приложения, предупреждения о черновиках, входа и отказа сети.',
@@ -23,7 +25,7 @@ const purposes = {
   'frontend/src/previews.ts': 'Последовательная очередь и ограниченный оперативный кеш миниатюр без хранилища браузера.',
   'backend/core/push.ts': 'Приватные подписки Web Push, VAPID и доставка нейтральных уведомлений новых входящих.',
   'frontend/src/Notifications.tsx': 'Явное включение, отключение и проверка уведомлений; инструкция установки на iPhone.',
-  'frontend/public/sw.js': 'Service Worker для видимых push-уведомлений и открытия чата без кеширования переписки.',
+  'frontend/public/sw.js': 'Service Worker: offline-оболочка личного чата и push, без кеширования API или переписки.',
   'frontend/public/manifest.webmanifest': 'Идентичность и режим standalone для установки Messenger на экран «Домой».',
   'backend/core/attachments.ts': 'Защищённая потоковая загрузка вложений и ограниченный приватный кеш байтов.',
   'backend/connectors/telegram/media.ts': 'Безопасные общие метаданные фото и документов Telegram без native references.',

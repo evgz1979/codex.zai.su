@@ -1,6 +1,6 @@
 # frontend/public/sw.js
 
-Service Worker для видимых push-уведомлений и открытия чата без кеширования переписки.
+Service Worker: offline-оболочка личного чата и push, без кеширования API или переписки.
 
 [Исходный модуль](../../frontend/public/sw.js) · [Индекс](README.md)
 

@@ -135,7 +135,8 @@ test('push worker: видимое нейтральное уведомление,
   runInNewContext(readFileSync(new URL('../frontend/public/sw.js',import.meta.url),'utf8'),{self,navigator:{setAppBadge:async(count:number)=>{badges.push(count);}},URL});
   let pending=Promise.resolve();
   listeners.get('push')!({data:{json:()=>({badge:7,title:'PRIVATE',body:'PRIVATE',url:'https://evil.example/'})},waitUntil:(promise:Promise<void>)=>{pending=promise;}});await pending;
-  assert.deepEqual(shown,[{title:'Z AI Messenger',body:'Новое сообщение'}]);assert.deepEqual(badges,[7]);assert.equal(listeners.has('fetch'),false);
+  assert.deepEqual(shown,[{title:'Z AI Messenger',body:'Новое сообщение'}]);assert.deepEqual(badges,[7]);assert.equal(listeners.has('fetch'),true);
+  for(const path of ['/api/chat/session','/api/chat/snapshot','/api/chat/attachment','/admin','/version.json','/u/anna/'])listeners.get('fetch')!({request:{url:`https://msg.zai.su:8443${path}`,method:'GET',mode:'navigate'},respondWith(){throw new Error('Private or foreign route must not be intercepted');}});
   listeners.get('push')!({data:{json:()=>{throw new Error();}},waitUntil:(promise:Promise<void>)=>{pending=promise;}});await pending;assert.equal(shown.length,2);
   listeners.get('notificationclick')!({notification:{close:()=>{}},waitUntil:(promise:Promise<void>)=>{pending=promise;}});await pending;assert.deepEqual(opened,['/']);
 });

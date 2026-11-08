@@ -116,7 +116,7 @@ export interface ConversationPageResult {page:MessagePage;snapshot:Snapshot}
 export interface SendRequest { destination: Destination; text: string; requestId: string }
 //: Передаёт состояние веб-входа и первичной настройки.
 //: CSRF возвращается после входа, Telegram-сессия сюда не входит.
-export interface SessionInfo { authenticated: boolean; setupRequired: boolean; csrfToken?: string; account?:AccountInfo }
+export interface SessionInfo { authenticated: boolean; setupRequired: boolean; csrfToken?: string; account?:AccountInfo;expiresAt?:number }
 //: Показывает имя личного Messenger без Telegram-реквизитов.
 //: Персональная ссылка публично раскрывает только выбранное владельцем имя.
 export interface AccountInfo {id:string;username:string;displayName:string;isOwner:boolean;path?:string}
