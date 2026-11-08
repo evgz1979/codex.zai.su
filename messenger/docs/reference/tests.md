@@ -31,6 +31,11 @@
 - [test/browser/admin.spec.ts](../../test/browser/admin.spec.ts): админка: отдельный вход, Telegram code/2FA и выбор галочками
 - [test/browser/admin.spec.ts](../../test/browser/admin.spec.ts): админка: папки отдельными закладками, общий выбор, поиск и клавиатура
 - [test/browser/admin.spec.ts](../../test/browser/admin.spec.ts): админка: причина отказа получения кода видна после очистки секретных полей
+- [test/browser/arrival.spec.ts](../../test/browser/arrival.spec.ts): возврат: ручной выбор отменяет запоздалое автоматическое открытие
+- [test/browser/arrival.spec.ts](../../test/browser/arrival.spec.ts): возврат: сохраняет черновик, открывает новое после возврата и принимает явный клик уведомления
+- [test/browser/arrival.spec.ts](../../test/browser/arrival.spec.ts): открытие: без непрочитанных остаётся общая лента
+- [test/browser/arrival.spec.ts](../../test/browser/arrival.spec.ts): открытие: свежайший непрочитанный выбран раньше общей ленты, количество не определяет адресата
+- [test/browser/arrival.spec.ts](../../test/browser/arrival.spec.ts): уведомление: открытое окно входа сохраняет выбранный в push диалог
 - [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: исключение диалога закрывает уже открытое изображение
 - [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: миниатюры в ленте, оригинал по нажатию, открытие PDF, скачивание и мобильные границы
 - [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: системное меню вызывается только явным нажатием, без скачивания
@@ -72,11 +77,13 @@
 - [test/paging.test.ts](../../test/paging.test.ts): страницы: отметка прочитанного работает после вытеснения из общего кеша
 - [test/push.test.ts](../../test/push.test.ts): push HTTP: приватность, CSRF, allowlist статики и отзыв при выходе
 - [test/push.test.ts](../../test/push.test.ts): push worker: видимое нейтральное уведомление, badge и переход только в свой чат
+- [test/push.test.ts](../../test/push.test.ts): push worker: клик передаёт общий ID открытому чату или в безопасный hash нового окна
 - [test/push.test.ts](../../test/push.test.ts): push worker: поздний push при закрытом чате не возвращает прочитанный badge
 - [test/push.test.ts](../../test/push.test.ts): push: HTTP 410 удаляет устройство; временный отказ сохраняет подписку и не раскрывает ошибку
 - [test/push.test.ts](../../test/push.test.ts): push: VAPID и устройства переживают рестарт; смена пароля отзывает доставку
 - [test/push.test.ts](../../test/push.test.ts): push: библиотека формирует зашифрованный aes128gcm запрос с VAPID
 - [test/push.test.ts](../../test/push.test.ts): push: новые входящие доставляются один раз без текста, история и исходящие исключены
+- [test/push.test.ts](../../test/push.test.ts): push: объединённое уведомление открывает самый свежий разрешённый диалог
 - [test/push.test.ts](../../test/push.test.ts): push: подписки проверяют провайдера, схему, порт и P-256 ключи
 - [test/push.test.ts](../../test/push.test.ts): push: пропущенная свежая голова уведомляет, история и сообщения до подписки молчат
 - [test/push.test.ts](../../test/push.test.ts): push: снятие выбора, удаление и отзыв подписки проверяются перед доставкой

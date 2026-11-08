@@ -16,6 +16,8 @@ store.set('auth.chat',await passwordHash('browser-test-password'));
 store.set('auth.admin',await passwordHash('browser-admin-password'));
 const a = new TestAdapter('fixture-a','Telegram');
 const b = new TestAdapter('fixture-b','Другой источник · тест');
+// Общая фикстура прочитана; непрочитанные и стартовый переход задаются отдельными сценариями.
+for(const conversation of [...a.conversations,...b.conversations])conversation.unreadCount=0;
 b.conversations = b.conversations.slice(0,1); b.conversations[0].title = 'Мария · другой источник';
 b.messages = b.messages.slice(0,1); b.messages[0].text = 'Это синтетическое сообщение из другого источника.';
 b.messages[0].date = '2026-11-07T10:01:30.000Z';
