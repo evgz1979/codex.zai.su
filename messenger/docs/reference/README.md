@@ -38,12 +38,12 @@
 | [frontend/src/App.tsx](frontend--src--App.md) | Единый React-интерфейс, веб-вход, адресат, черновики и состояние операций. | 24 |
 | [frontend/src/AttachmentPreview.tsx](frontend--src--AttachmentPreview.md) | Ленивая миниатюра в ленте, фиксированные размеры и открытие оригинала. | 1 |
 | [frontend/src/AttachmentViewer.tsx](frontend--src--AttachmentViewer.md) | Модальный просмотр медиа по явному запросу, скачивание и отзыв Blob URL. | 2 |
-| [frontend/src/Avatar.tsx](frontend--src--Avatar.md) | Круглые фотографии разрешённых диалогов с загрузкой возле видимой области и инициалами. | 3 |
+| [frontend/src/Avatar.tsx](frontend--src--Avatar.md) | Круглые фотографии разрешённых диалогов с загрузкой возле видимой области и инициалами. | 5 |
 | [frontend/src/Notifications.tsx](frontend--src--Notifications.md) | Явное включение, отключение и проверка уведомлений; инструкция установки на iPhone. | 7 |
 | [frontend/src/admin/AdminApp.tsx](frontend--src--admin--AdminApp.md) | Отдельная административная страница с собственным входом и формами. | 11 |
 | [frontend/src/admin/ConversationPicker.tsx](frontend--src--admin--ConversationPicker.md) | Закладки папок, поиск и независимый от текущей папки выбор диалогов. | 3 |
 | [frontend/src/admin/UsersPanel.tsx](frontend--src--admin--UsersPanel.md) | Добавление личных пользователей владельцем, персональные ссылки и блокировка доступа. | 5 |
-| [frontend/src/api.ts](frontend--src--api.md) | Same-origin fetch, CSRF в памяти и безопасная ошибка API. | 8 |
+| [frontend/src/api.ts](frontend--src--api.md) | Same-origin fetch, CSRF в памяти и безопасная ошибка API. | 9 |
 | [frontend/src/main.tsx](frontend--src--main.md) | Создание React root и подключение локальной таблицы стилей. | 0 |
 | [frontend/src/previews.ts](frontend--src--previews.md) | Последовательная очередь и ограниченный оперативный кеш миниатюр без хранилища браузера. | 2 |
 | [frontend/src/styles.css](frontend--src--styles.md) | Компактная светлая палитра Telegram, общая лента и отдельная админка; safe-area и короткий viewport. | 0 |

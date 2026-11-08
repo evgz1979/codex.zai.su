@@ -41,6 +41,8 @@
 - [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: исключение диалога закрывает уже открытое изображение
 - [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: миниатюры в ленте, оригинал по нажатию, открытие PDF, скачивание и мобильные границы
 - [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: системное меню вызывается только явным нажатием, без скачивания
+- [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): аватары: временный отказ повторяется, видимые фото загружаются без всплеска запросов
+- [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): аватары: прежнее фото остаётся видимым до готовности новой версии
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): единая лента, выбор адресата, отправка, непрочитанные, выход и мобильные границы
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): открытый чат скрывает исключённые диалоги без синхронизации истории
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): последние сообщения в списке видны до открытия чатов и не снимают непрочитанное

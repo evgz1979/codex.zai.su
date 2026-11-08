@@ -44,7 +44,15 @@ export async function attachmentData(input:AttachmentRequest,signal:AbortSignal)
 //: Получает фото только выбранного диалога через same-origin chat API.
 //: Не принимает внешний URL; 404 оставляет инициалы вместо фотографии.
 export async function avatarData(conversationId:string,signal:AbortSignal):Promise<Blob>{
-  const response=await fetch(`${appApiBase}/chat/avatar`,{method:'POST',credentials:'same-origin',cache:'no-store',signal,headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({conversationId})});
-  if(!response.ok){const result=await response.json().catch(()=>({}));throw new ApiError(response.status,result.error||'Фото недоступно.');}
-  const blob=await response.blob();if(!['image/jpeg','image/png','image/webp'].includes(blob.type)||blob.size>MEDIA_LIMITS.previewBytes)throw new Error('Фото недоступно.');return blob;
+  const controller=new AbortController();
+  //: Передаёт отмену владельца отдельному дедлайну HTTP-запроса фото.
+  //: Таймер не меняет общую сессию или запросы других изображений.
+  const abort=()=>controller.abort();if(signal.aborted)abort();else signal.addEventListener('abort',abort,{once:true});
+  const timer=setTimeout(abort,20000);
+  try{
+    const response=await fetch(`${appApiBase}/chat/avatar`,{method:'POST',credentials:'same-origin',cache:'no-store',signal:controller.signal,headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({conversationId})});
+    if(!response.ok){const result=await response.json().catch(()=>({}));throw new ApiError(response.status,result.error||'Фото недоступно.');}
+    const blob=await response.blob();if(!['image/jpeg','image/png','image/webp'].includes(blob.type)||blob.size>MEDIA_LIMITS.previewBytes)throw new ApiError(415,'Фото недоступно.');return blob;
+  }catch(error){if(controller.signal.aborted&&!signal.aborted)throw new ApiError(408,'Истекло время загрузки фото.');throw error;}
+  finally{clearTimeout(timer);signal.removeEventListener('abort',abort);}
 }

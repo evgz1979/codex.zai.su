@@ -100,3 +100,32 @@ test('последние сообщения в списке видны до от
   await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();
   await expect(page.locator('.conversation .preview')).toHaveText(previews);await expect(page.locator('.conversation > .badge')).toHaveText(['1','1','1','1']);await expect(page.getByText('Личный диалог',{exact:true})).toHaveCount(0);await page.waitForTimeout(800);expect(reads).toEqual([]);
 });
+
+test('аватары: временный отказ повторяется, видимые фото загружаются без всплеска запросов',async({page})=>{
+  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64');
+  const conversations=Array.from({length:8},(_,i)=>({id:`fixture-a:conversation:${i}`,sourceId:'fixture-a',title:`Фото ${i+1}`,kind:'direct',recipient:{id:`recipient-${i}`,name:`Фото ${i+1}`},unreadCount:0,updatedAt:'2026-11-08T10:00:00.000Z',preview:'Тест',canSend:true,avatarVersion:'photo-1'}));
+  const snapshot={conversations,messages:[],sources:[{id:'fixture-a',kind:'test',name:'Telegram',connected:true}],refreshedAt:null,stale:false};let active=0;let maximum=0;const calls=new Map<string,number>();
+  await page.route('**/api/chat/inbox',route=>route.fulfill({json:{snapshot,page:{conversationId:'inbox',messages:[],nextCursor:null,cached:true,historyComplete:true}}}));
+  await page.route('**/api/chat/access?since=*',route=>route.fulfill({json:{ids:conversations.map(c=>c.id),revision:1}}));
+  await page.route('**/api/chat/avatar',async route=>{
+    const id=route.request().postDataJSON().conversationId;const count=(calls.get(id)||0)+1;calls.set(id,count);active++;maximum=Math.max(maximum,active);
+    try{await new Promise(resolve=>setTimeout(resolve,75));if(id===conversations[0].id&&count===1)await route.fulfill({status:503,json:{error:'Временный отказ'}});else await route.fulfill({contentType:'image/png',body:png});}finally{active--;}
+  });
+  await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();
+  for(let i=0;i<3;i++){const photo=page.getByRole('img',{name:`Фото: Фото ${i+1}`,exact:true});await expect(photo).toBeVisible();await expect(photo).toHaveJSProperty('naturalWidth',1);}
+  expect(calls.get(conversations[0].id)).toBe(2);expect(maximum).toBeLessThanOrEqual(2);
+  await page.getByRole('button',{name:'Выйти',exact:true}).click();await expect(page.locator('.avatar img')).toHaveCount(0);
+});
+
+test('аватары: прежнее фото остаётся видимым до готовности новой версии',async({page})=>{
+  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64');
+  const conversation={id:'fixture-a:conversation:0',sourceId:'fixture-a',title:'Сохраняем фото',kind:'direct',recipient:{id:'recipient',name:'Сохраняем фото'},unreadCount:0,updatedAt:'2026-11-08T10:00:00.000Z',preview:'Тест',canSend:true,avatarVersion:'photo-1'};
+  const snapshot={conversations:[conversation],messages:[],sources:[{id:'fixture-a',kind:'test',name:'Telegram',connected:true}],refreshedAt:null,stale:false};let revision=1;let calls=0;let release:()=>void=()=>{};const gate=new Promise<void>(resolve=>{release=resolve;});
+  await page.route('**/api/chat/inbox',route=>route.fulfill({json:{snapshot,page:{conversationId:'inbox',messages:[],nextCursor:null,cached:true,historyComplete:true}}}));
+  await page.route('**/api/chat/access?since=*',route=>route.fulfill({json:{ids:[conversation.id],revision}}));
+  await page.route('**/api/chat/avatar',async route=>{calls++;if(calls===2){await gate;await route.fulfill({status:503,json:{error:'Временный отказ'}});}else await route.fulfill({contentType:'image/png',body:png});});
+  await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();
+  const photo=page.getByRole('img',{name:'Фото: Сохраняем фото',exact:true});await expect(photo).toBeVisible();const previous=await photo.getAttribute('src');
+  conversation.avatarVersion='photo-2';revision++;await expect.poll(()=>calls).toBe(2);await expect(photo).toHaveAttribute('src',previous!);await expect(photo).toHaveJSProperty('naturalWidth',1);
+  release();await expect(photo).toHaveAttribute('src',previous!);await expect.poll(()=>calls).toBe(3);await expect(photo).not.toHaveAttribute('src',previous!);await expect(photo).toHaveJSProperty('naturalWidth',1);
+});

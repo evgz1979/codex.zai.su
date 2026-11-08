@@ -91,6 +91,18 @@ async attachmentData(input: AttachmentRequest, signal: AbortSignal): Promise<{
 async avatarData(conversationId: string, signal: AbortSignal): Promise<Blob>
 ```
 
+<a id="symbol-avatarData.abort"></a>
+
+## avatarData.abort
+
+Передаёт отмену владельца отдельному дедлайну HTTP-запроса фото.
+
+Таймер не меняет общую сессию или запросы других изображений.
+
+```typescript
+abort()
+```
+
 <a id="symbol-setCsrf"></a>
 
 ## setCsrf
