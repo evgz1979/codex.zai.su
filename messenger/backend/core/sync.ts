@@ -54,19 +54,21 @@ export class AutoSyncService {
     }
     if(!item)return;this.priority.delete(item.id);
     const {id,state}=item;const c=this.store.conversation(id)!;const adapter=this.core.registry.get(c.sourceId);const revision=this.core.selection.revision;
-    const before=state.initialized?(history?state.historyCursor:state.newerCursor)||undefined:undefined;
+    // Прежняя пустая страница не задаёт границу новых сообщений: сначала молча заполняем архив.
+    const firstHead=!state.initialized||!state.headKeys.length&&!state.checkpointIds.length;
+    const before=firstHead?undefined:(history?state.historyCursor:state.newerCursor)||undefined;
     let page:HistoryPage;
     try{
-    if(adapter.historyPage)page=await adapter.historyPage(id,before,state.initialized&&!history&&!state.newerCursor?LIMITS.pageMessages:LIMITS.syncMessages);
+    if(adapter.historyPage)page=await adapter.historyPage(id,before,!firstHead&&!history&&!state.newerCursor?LIMITS.pageMessages:LIMITS.syncMessages);
     else if(adapter.messagePage){const result=await adapter.messagePage(id,LIMITS.pageMessages,before);page={...result,cursors:result.messages.map(m=>m.id)};}
     else{const messages=await adapter.recentMessages(id,LIMITS.pageMessages);page={conversationId:id,messages,nextCursor:null,cursors:messages.map(m=>m.id)};}
     }catch(error){if((error instanceof AppError&&error.retryAfterSeconds)||telegramAuthIssue(error).retryAfterSeconds)throw error;this.store.set(`sync.retry.${id}`,String(this.now()+30000));return;}
     this.store.remove(`sync.retry.${id}`);
     if(this.stopped||revision!==this.core.selection.revision||!this.core.selection.allows(id))return;
     if(page.conversationId!==id||page.messages.length>LIMITS.syncMessages||page.nextCursor===before||page.messages.some(m=>m.conversationId!==id||m.sourceId!==c.sourceId))throw new Error('Invalid source page');
-    this.core.cacheMessages(id,page.messages,state.initialized&&!history);
+    this.core.cacheMessages(id,page.messages,!firstHead&&!history);
     const next:SyncProgress={...state};
-    if(!state.initialized){next.initialized=true;next.historyCursor=page.nextCursor;next.historyComplete=!page.nextCursor;next.headKeys=page.cursors;next.nextHeadAt=now+15000;next.lastHeadAt=now;next.checkpointIds=page.messages.map(m=>m.id);}
+    if(firstHead){next.initialized=true;next.historyCursor=page.nextCursor;next.historyComplete=!page.nextCursor;next.headKeys=page.cursors;next.newerCursor=null;next.pendingHeadKeys=[];next.nextHeadAt=now+15000;next.lastHeadAt=now;next.checkpointIds=page.messages.map(m=>m.id);}
     else if(history){next.historyCursor=page.nextCursor;next.historyComplete=!page.nextCursor;if(page.messages.length)next.checkpointIds=page.messages.map(m=>m.id);}
     else{
       const pending=state.newerCursor?state.pendingHeadKeys:page.cursors;const overlap=page.cursors.some(cursor=>state.headKeys.includes(cursor));

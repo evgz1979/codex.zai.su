@@ -29,6 +29,20 @@ test('автокеш: перезапуск продолжает курсор и 
  const {store,adapter,id,core,sync,now}=context(t);await sync.tick();const cursor=store.progress(id).historyCursor;await sync.stop();
  const next=new AutoSyncService(core,store,3000,now);try{await next.tick();assert.equal(adapter.historyCalls.at(-1)?.before,cursor);await next.tick();assert.equal(cached(store,id).length,250);}finally{await next.stop();}
 });
+test('автокеш: ранее пустая голова начинает историю без уведомлений о старых сообщениях',async t=>{
+ const {store,adapter,id,core,sync,advance}=context(t);const messages=adapter.messages;adapter.messages=[];const incoming:Message[]=[];core.onIncoming(message=>incoming.push(message));
+ await sync.tick();assert.equal(store.progress(id).historyComplete,true);assert.deepEqual(store.progress(id).headKeys,[]);
+ adapter.messages=messages;advance(16000);await sync.tick();
+ assert.equal(store.progress(id).historyComplete,false);assert.equal(store.progress(id).newerCursor,null);assert.ok(store.progress(id).historyCursor);assert.equal(cached(store,id).length,100);assert.deepEqual(incoming,[]);
+ await sync.tick();await sync.tick();assert.equal(cached(store,id).length,250);assert.equal(store.progress(id).historyComplete,true);assert.deepEqual(incoming,[]);
+ adapter.messages.push(...history(adapter,251,251));advance(16000);await sync.tick();assert.deepEqual(incoming.map(m=>m.id),[adapter.messages.at(-1)!.id]);
+});
+test('автокеш: прежний пропуск без сохранённых ключей головы восстанавливает свежую границу',async t=>{
+ const {store,adapter,id,core,sync}=context(t);const incoming:Message[]=[];core.onIncoming(message=>incoming.push(message));
+ store.saveProgress(id,{initialized:true,historyCursor:null,historyComplete:true,headKeys:[],newerCursor:adapter.messages[100].id,pendingHeadKeys:[adapter.messages.at(-1)!.id],nextHeadAt:0,checkpointIds:[]});
+ await sync.tick();assert.equal(adapter.historyCalls.at(-1)?.before,undefined);assert.equal(store.progress(id).newerCursor,null);assert.equal(store.progress(id).historyComplete,false);assert.ok(store.progress(id).checkpointIds.length);assert.deepEqual(incoming,[]);
+ await sync.tick();await sync.tick();assert.equal(cached(store,id).length,250);assert.deepEqual(incoming,[]);
+});
 test('автокеш: пропуск более страницы после отключения догружается, живое событие не скрывает пропуск',async t=>{
  const {store,adapter,id,sync,advance}=context(t);for(let i=0;i<3;i++)await sync.tick();
  adapter.messages.push(...history(adapter,251,600));const incoming=history(adapter,601,601)[0];adapter.messages.push(incoming);adapter.listener!({type:'message',message:incoming});advance(16000);

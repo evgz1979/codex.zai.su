@@ -33,7 +33,9 @@
 - [test/auto-sync.test.ts](../../test/auto-sync.test.ts): автокеш: перезапуск продолжает курсор и не загружает начало истории заново
 - [test/auto-sync.test.ts](../../test/auto-sync.test.ts): автокеш: повреждённый старым усечением checkpoint приводит к восстановлению истории
 - [test/auto-sync.test.ts](../../test/auto-sync.test.ts): автокеш: поздняя страница не отменяет новую правку и не воскрешает удалённое
+- [test/auto-sync.test.ts](../../test/auto-sync.test.ts): автокеш: прежний пропуск без сохранённых ключей головы восстанавливает свежую границу
 - [test/auto-sync.test.ts](../../test/auto-sync.test.ts): автокеш: пропуск более страницы после отключения догружается, живое событие не скрывает пропуск
+- [test/auto-sync.test.ts](../../test/auto-sync.test.ts): автокеш: ранее пустая голова начинает историю без уведомлений о старых сообщениях
 - [test/browser/admin.spec.ts](../../test/browser/admin.spec.ts): админка: новый пароль от восьми символов, семь не принимаются формой
 - [test/browser/admin.spec.ts](../../test/browser/admin.spec.ts): админка: отдельный вход, Telegram code/2FA и выбор галочками
 - [test/browser/admin.spec.ts](../../test/browser/admin.spec.ts): админка: папки отдельными закладками, общий выбор, поиск и клавиатура
