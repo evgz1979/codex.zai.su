@@ -5,6 +5,8 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { Api, type TelegramClient } from 'teleproto';
 import { TelegramAdapter } from '../backend/connectors/telegram/adapter.js';
+import { Store } from '../backend/storage/store.js';
+import { MessengerService } from '../backend/core/service.js';
 import { SecretVault } from '../backend/storage/private-files.js';
 import {NewMessage,EditedMessage,DeletedMessage} from 'teleproto/events';
 import type {SourceEvent} from '../backend/core/source-adapter.js';
@@ -81,4 +83,23 @@ test('Telegram-аватары: маленькое фото известного 
   assert.ok(location instanceof Api.InputPeerPhotoFileLocation);assert.equal(location.peer,peer);assert.equal(location.photoId,photo.photoId);assert.equal(location.big,false);assert.equal(options?.dcId,2);assert.equal(options?.signal,signal);assert.equal(options?.limit,512*1024+1);assert.equal(chunks.length,1);
   const aborted=new AbortController();aborted.abort();await assert.rejects(adapter.openAvatar(conversation.id,aborted.signal));
  }finally{await adapter.disconnect();rmSync(dir,{recursive:true,force:true});}
+});
+
+
+test('Telegram-превью: последние сообщения выбранных чатов доступны без истории и прочтения',async t=>{
+ const dir=mkdtempSync(join(tmpdir(),'zai-previews-'));const vault=new SecretVault(dir);vault.save({apiId:123,apiHash:'test-only',session:'test-only'});const store=new Store(dir);t.after(()=>{store.close();rmSync(dir,{recursive:true,force:true});});
+ const users=Array.from({length:4},(_,i)=>new Api.User({id:BigInt(i+1) as never,firstName:`Тест ${i}`}));
+ const messages=users.map((user,i)=>new Api.Message({id:100+i,peerId:new Api.PeerUser({userId:user.id}),date:1000+i,message:i===0?'Последнее сразу':''}));
+ messages[1].media=new Api.MessageMediaPhoto({photo:new Api.Photo({id:123n as never,accessHash:456n as never,fileReference:Buffer.from([]),date:1,sizes:[],dcId:1})});
+ messages[2].media=new Api.MessageMediaDocument({document:new Api.Document({id:124n as never,accessHash:456n as never,fileReference:Buffer.from([]),date:1,size:10n as never,mimeType:'audio/ogg',dcId:1,attributes:[new Api.DocumentAttributeAudio({duration:1,voice:true})]})});
+ const rows=users.map((entity,i)=>Object.defineProperties({entity,id:entity.id,title:`Тест ${i}`,inputEntity:new Api.InputPeerSelf(),isUser:true,unreadCount:2},{date:{get:()=>messages[i].date},message:{get:()=>{if(i===3)throw new Error('Невыбранное сообщение прочитано');return messages[i];}}}));let histories=0;let reads=0;let catalogs=0;let duringList:(()=>void)|undefined;
+ const fake={connected:false,async connect(){this.connected=true;},async checkAuthorization(){return true;},async destroy(){this.connected=false;},async getDialogs(){catalogs++;duringList?.();return rows;},async getMessages(){histories++;throw new Error('История не нужна для превью');},async markAsRead(){reads++;}};
+ const adapter=new TelegramAdapter(vault,()=>fake as unknown as TelegramClient);t.after(()=>adapter.disconnect());const ids=users.map(user=>entityId(adapter.source.id,'conversation',user.id.toString()));store.select(ids.slice(0,3));const core=new MessengerService([adapter],store);
+ const snapshot=await core.refresh();assert.deepEqual(snapshot.conversations.map(c=>c.preview),['Голосовое сообщение','Фото','Последнее сразу']);assert.ok(snapshot.conversations.every(c=>c.previewMessageId));assert.deepEqual(snapshot.messages,[]);assert.equal(histories,0);assert.equal(reads,0);assert.equal(catalogs,1);assert.ok(snapshot.conversations.every(c=>c.unreadCount===2));
+ const metadata=await adapter.listConversations();assert.ok(metadata.every(c=>c.preview===''&&!c.previewMessageId));
+ store.upsertMessages([{id:entityId(adapter.source.id,'message',`${ids[0]}/90`),conversationId:ids[0],sourceId:adapter.source.id,sender:{id:'synthetic',name:'Тест'},date:new Date(500000).toISOString(),text:'Старая история',outgoing:false,status:'received',attachments:[]}]);assert.equal(core.snapshot().conversations.find(c=>c.id===ids[0])?.preview,'Последнее сразу');
+ messages[0].message='Правка последнего';await core.refresh();assert.equal(core.snapshot().conversations.find(c=>c.id===ids[0])?.preview,'Правка последнего');
+ messages[0].id=98;messages[0].date=999;messages[0].message='Предыдущее после удаления';await core.refresh();assert.equal(core.snapshot().conversations.find(c=>c.id===ids[0])?.preview,'Предыдущее после удаления');
+ duringList=()=>core.ingest({type:'message',message:{id:entityId(adapter.source.id,'message',`${ids[0]}/120`),conversationId:ids[0],sourceId:adapter.source.id,sender:{id:'synthetic',name:'Тест'},date:new Date(1200000).toISOString(),sequence:120,text:'Новое во время запроса списка',outgoing:false,status:'received',attachments:[]}});
+ await core.refresh();assert.equal(core.snapshot().conversations.find(c=>c.id===ids[0])?.preview,'Новое во время запроса списка');assert.equal(core.snapshot().conversations.find(c=>c.id===ids[0])?.unreadCount,3);
 });

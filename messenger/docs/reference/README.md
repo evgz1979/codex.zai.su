@@ -59,4 +59,4 @@
 | [scripts/start.sh](scripts--start-sh.md) | Запуск собранного сервера по абсолютному пути для безопасной проверки PID. | 0 |
 | [scripts/stop.mjs](scripts--stop.md) | Проверка PID и команды процесса перед SIGTERM только Messenger. | 0 |
 | [scripts/stop.sh](scripts--stop-sh.md) | Выбор Node.js и запуск штатного stop.mjs. | 0 |
-| [shared/types.ts](shared--types.md) | Общие DTO ленты и каталога, статусы веб-авторизации, лимиты, ID и Destination. | 35 |
+| [shared/types.ts](shared--types.md) | Общие DTO ленты и каталога, статусы веб-авторизации, лимиты, ID и Destination. | 36 |

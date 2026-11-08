@@ -10,7 +10,7 @@ export interface Source { id: EntityId; kind: string; name: string; connected: b
 export interface Recipient { id: EntityId; name: string; isSelf?: boolean }
 //: Описывает метаданные вложения общей модели.
 //: Содержимое кешируется отдельно; DTO не содержит реквизитов провайдера.
-export interface Attachment { id: EntityId; kind: 'image' | 'video' | 'file' | 'audio' | 'unsupported'; name: string; mimeType?: string; size?: number; downloadable?:boolean;hasPreview?:boolean }
+export interface Attachment { id: EntityId; kind: 'image' | 'video' | 'file' | 'audio' | 'unsupported'; name: string; mimeType?: string; size?: number; downloadable?:boolean;hasPreview?:boolean;isVoice?:boolean }
 //: Задаёт точный маршрут чтения вложения сохранённого сообщения.
 //: Сервер повторно проверяет диалог, сообщение, источник и ID вложения.
 export interface AttachmentRequest {conversationId:EntityId;messageId:EntityId;attachmentId:EntityId;variant?:'preview'}
@@ -28,7 +28,7 @@ export interface Destination {
   recipientId: EntityId;
 }
 //: Описывает личный диалог или группу независимо от провайдера.
-//: Содержит recipient, unreadCount и признак доступности записи canSend.
+//: previewMessageId связывает превью с последним сообщением независимо от загрузки истории.
 export interface Conversation {
   id: EntityId;
   sourceId: EntityId;
@@ -38,6 +38,7 @@ export interface Conversation {
   unreadCount: number;
   updatedAt: string;
   preview: string;
+  previewMessageId?: EntityId;
   canSend: boolean;
   isBot?: boolean;
   avatarVersion?: string;
@@ -66,6 +67,13 @@ export interface Message {
   sourceKey?:EntityId;
   editedAt?:string;
   sequence?:number;
+}
+//: Формирует короткое превью последнего сообщения для общего списка чатов.
+//: Текст имеет приоритет; медиа без подписи получают фактический тип или имя файла.
+export function messagePreview(message:Pick<Message,'text'|'attachments'>):string{
+  const text=message.text.trim();if(text)return [...text].slice(0,300).join('');
+  const attachment=message.attachments[0];if(!attachment)return 'Сообщение';
+  return attachment.kind==='image'?'Фото':attachment.kind==='video'?'Видео':attachment.kind==='audio'?(attachment.isVoice?'Голосовое сообщение':'Аудио'):attachment.kind==='file'?attachment.name||'Файл':attachment.name||'Вложение';
 }
 //: Сравнивает позиции сообщений одного диалога для подтверждения просмотра.
 //: При равной дате использует последовательность источника, затем общий ID.

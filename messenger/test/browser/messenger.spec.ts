@@ -89,3 +89,14 @@ test('список чатов: поиск, фильтр, возврат брау
   await page.reload();await expect(page.getByRole('heading',{name:'Чаты',exact:true})).toBeVisible();await expect(page.locator('.chat')).toBeHidden();
   await page.getByRole('button',{name:/Анна Смирнова/}).click();await page.getByRole('button',{name:'Назад к чатам'}).click();await expect(page.getByRole('heading',{name:'Чаты',exact:true})).toBeVisible();await page.goForward();await expect(page.getByRole('heading',{name:'Анна Смирнова',exact:true})).toBeVisible();
 });
+
+test('последние сообщения в списке видны до открытия чатов и не снимают непрочитанное',async({page})=>{
+  const previews=['Последнее сообщение ещё до открытия','Фото','Голосовое сообщение','Счёт.pdf'];
+  const conversations=previews.map((preview,i)=>({id:`fixture-a:conversation:${i}`,sourceId:'fixture-a',title:`Чат ${i+1}`,kind:'direct',recipient:{id:`recipient-${i}`,name:`Чат ${i+1}`},unreadCount:1,updatedAt:'2026-11-08T10:00:00.000Z',preview,previewMessageId:`preview-${i}`,canSend:true}));
+  const snapshot={conversations,messages:[],sources:[{id:'fixture-a',kind:'test',name:'Telegram',connected:true}],refreshedAt:null,stale:false};const reads:string[]=[];
+  await page.route('**/api/chat/inbox',route=>route.fulfill({json:{snapshot,page:{conversationId:'inbox',messages:[],nextCursor:null,cached:true,historyComplete:true}}}));
+  await page.route('**/api/chat/access?since=*',route=>route.fulfill({json:{ids:conversations.map(c=>c.id),revision:1}}));
+  page.on('request',request=>{if(/\/api\/chat\/(open|older|read)$/.test(request.url()))reads.push(request.url());});
+  await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();
+  await expect(page.locator('.conversation .preview')).toHaveText(previews);await expect(page.locator('.conversation > .badge')).toHaveText(['1','1','1','1']);await expect(page.getByText('Личный диалог',{exact:true})).toHaveCount(0);await page.waitForTimeout(800);expect(reads).toEqual([]);
+});

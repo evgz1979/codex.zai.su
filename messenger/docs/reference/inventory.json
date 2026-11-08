@@ -364,6 +364,7 @@
   {"path":"shared/types.ts","name":"MEDIA_LIMITS","anchor":"symbol-MEDIA_LIMITS"},
   {"path":"shared/types.ts","name":"Message","anchor":"symbol-Message"},
   {"path":"shared/types.ts","name":"MessagePage","anchor":"symbol-MessagePage"},
+  {"path":"shared/types.ts","name":"messagePreview","anchor":"symbol-messagePreview"},
   {"path":"shared/types.ts","name":"messengerPageBase","anchor":"symbol-messengerPageBase"},
   {"path":"shared/types.ts","name":"PASSWORD_LIMITS","anchor":"symbol-PASSWORD_LIMITS"},
   {"path":"shared/types.ts","name":"positionSequence","anchor":"symbol-positionSequence"},

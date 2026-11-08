@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
-import { destinationFor,compareConversations, LIMITS, type Conversation, type ConversationPageResult, type Message, type MessagePage, type SessionInfo, type Snapshot, type SyncStatus } from '../../shared/types';
+import { destinationFor,messagePreview,compareConversations, LIMITS, type Conversation, type ConversationPageResult, type Message, type MessagePage, type SessionInfo, type Snapshot, type SyncStatus } from '../../shared/types';
 import Avatar,{clearAvatars} from './Avatar';
 import AttachmentPreview from './AttachmentPreview';
 import {clearPreviews} from './previews';
@@ -251,7 +251,7 @@ export function App() {
     try {
       const message = await api<Message>('send', { destination, text, requestId: crypto.randomUUID() });
       scrollPlan.current={mode:'bottom'};
-      setSnapshot(old => old ? { ...old, conversations: old.conversations.map(c => c.id === message.conversationId ? { ...c, preview:message.text, updatedAt:message.date } : c), messages: [...old.messages.filter(m => m.id !== message.id), message].sort((a,b) => a.date.localeCompare(b.date)).slice(-LIMITS.pageMessages) } : old);
+      setSnapshot(old => old ? { ...old, conversations: old.conversations.map(c => c.id === message.conversationId ? { ...c, preview:messagePreview(message),previewMessageId:message.id, updatedAt:message.date } : c), messages: [...old.messages.filter(m => m.id !== message.id), message].sort((a,b) => a.date.localeCompare(b.date)).slice(-LIMITS.pageMessages) } : old);
       setPage(old=>old?.conversationId===message.conversationId?{...old,messages:[...old.messages.filter(m=>m.id!==message.id),message].sort((a,b)=>a.date.localeCompare(b.date))}:old);
       setDrafts(old => ({ ...old, [destination.conversationId]: '' }));
     } catch (e) { uncertainAt.current=Date.now();setUncertain(true);fail(e); } finally { setBusy(false); }
@@ -298,7 +298,7 @@ export function App() {
       <nav className="conversation-list" aria-label="Получатели" aria-busy={!snapshot}>
         {conversations.map(c=><button key={c.id} className="conversation" disabled={busy} onClick={()=>void choose(c)}>
           <Avatar conversation={c} onUnauthorized={fail}/>
-          <span className="conversation-copy"><span className="conversation-title"><span className="conversation-name" title={c.title}>{c.title}</span><time dateTime={c.updatedAt}>{c.updatedAt&&conversationTime(c.updatedAt)}</time></span><span className="preview">{drafts[c.id]?<><span className="draft-caption">Черновик: </span>{drafts[c.id]}</>:c.preview||(c.kind==='group'?'Группа':c.kind==='channel'?'Канал':'Личный диалог')}</span></span>
+          <span className="conversation-copy"><span className="conversation-title"><span className="conversation-name" title={c.title}>{c.title}</span><time dateTime={c.updatedAt}>{c.updatedAt&&conversationTime(c.updatedAt)}</time></span><span className="preview">{drafts[c.id]?<><span className="draft-caption">Черновик: </span>{drafts[c.id]}</>:c.preview||(Date.parse(c.updatedAt)>0?'Загрузка сообщения…':'Нет сообщений')}</span></span>
           {c.unreadCount>0&&<span className="badge" aria-label={`${c.unreadCount} непрочитанных`}>{c.unreadCount}</span>}
         </button>)}
         {!conversations.length&&<p className="list-empty">{!snapshot?'Загрузка чатов…':query.trim()?'Чаты не найдены':onlyUnread?'Нет непрочитанных чатов':'Здесь появятся ваши диалоги после подключения аккаунта и выбора в админке.'}</p>}

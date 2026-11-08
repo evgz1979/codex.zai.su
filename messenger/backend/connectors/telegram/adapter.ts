@@ -3,7 +3,7 @@ import type { Dialog } from 'teleproto/tl/custom/dialog';
 import type { SourceAdapter } from '../../core/source-adapter.js';
 import { SecretVault } from '../../storage/private-files.js';
 import { telegramClient } from './client.js';
-import { entityId, LIMITS, type Conversation, type ConversationCatalog, type Destination, type Message, type MessagePage, type Source } from '../../../shared/types.js';
+import { entityId, messagePreview, LIMITS, type Conversation, type ConversationCatalog, type Destination, type Message, type MessagePage, type Source } from '../../../shared/types.js';
 import {telegramFolders,type TelegramMuteDefaults} from './folders.js';
 import {AppError} from '../../core/errors.js';
 import {NewMessage,EditedMessage,DeletedMessage,type NewMessageEvent,type DeletedMessageEvent} from 'teleproto/events';
@@ -68,9 +68,9 @@ export class TelegramAdapter implements SourceAdapter {
     if (this.client) await this.client.destroy();
   }
   //: Получает ограниченный список диалогов для общей ленты.
-  //: Папки не запрашиваются; история остаётся отдельной операцией.
-  async listConversations(): Promise<Conversation[]> {
-    return (await this.loadCatalog(false)).conversations;
+  //: Последнее сообщение преобразуется только для разрешённых ID; история отдельно.
+  async listConversations(allows?:(conversationId:string)=>boolean): Promise<Conversation[]> {
+    return (await this.loadCatalog(false,allows)).conversations;
   }
   //: Разрешает наблюдение новых личных входящих после существующего входа Telegram.
   //: Проверяет только наличие vault, не запускает интерактивную авторизацию.
@@ -81,8 +81,8 @@ export class TelegramAdapter implements SourceAdapter {
     return this.loadCatalog(true);
   }
   //: Читает метаданные и при необходимости правила папок одним каталогом.
-  //: В памяти адаптера остаются только ID и peer, без содержимого сообщений.
-  private async loadCatalog(withFolders:boolean):Promise<ConversationCatalog> {
+  //: Без allows каталог не содержит превью; сообщения не сохраняются в памяти адаптера.
+  private async loadCatalog(withFolders:boolean,allows?:(conversationId:string)=>boolean):Promise<ConversationCatalog> {
     await this.connect();
     const dialogs = await this.client!.getDialogs({ limit: LIMITS.conversations });
     this.dialogs.clear();
@@ -101,12 +101,15 @@ export class TelegramAdapter implements SourceAdapter {
       const userBanned = e instanceof Api.Channel && e.bannedRights?.sendMessages;
       const broadcast = e instanceof Api.Channel && e.broadcast && !(e.creator || e.adminRights?.postMessages);
       const forum = e instanceof Api.Channel && e.forum;
+      const top=allows?.(conversationId)?d.message:undefined;
+      const latest=top instanceof Api.Message&&entityId(this.source.id,'conversation',top.chatId?.toString()||utils.getPeerId(top.peerId))===conversationId?this.mapMessage(top,conversationId):undefined;
       const paid = e instanceof Api.User && BigInt(e.sendPaidMessagesStars?.toString() || '0') > 0n;
       result.push({
         id: conversationId, sourceId: this.source.id, title: d.title || d.name || 'Без названия',
         kind: d.isUser ? 'direct' : d.isGroup ? 'group' : 'channel', recipient: { id: entityId(this.source.id, 'recipient', native), name: d.title || d.name || 'Без названия',...(e instanceof Api.User&&e.self?{isSelf:true}:{}) },
         unreadCount: d.unreadCount, updatedAt: new Date((d.date || 0) * 1000).toISOString(),
-        preview: '',
+        preview: latest?messagePreview(latest):'',
+        ...(latest?{previewMessageId:latest.id}:{}),
         ...(photo?{avatarVersion:photo.photoId.toString()}:{}),
         canSend: !banned && !userBanned && !forum && !paid && !broadcast,
         ...(e instanceof Api.User&&e.bot?{isBot:true}:{}),

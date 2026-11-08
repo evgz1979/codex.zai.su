@@ -85,6 +85,7 @@ export interface Attachment {
     size?: number;
     downloadable?: boolean;
     hasPreview?: boolean;
+    isVoice?: boolean;
 }
 ```
 
@@ -135,7 +136,7 @@ comparePosition(a: Pick<Message, 'date' | 'id' | 'sequence'>, b: Pick<Message, '
 
 Описывает личный диалог или группу независимо от провайдера.
 
-Содержит recipient, unreadCount и признак доступности записи canSend.
+previewMessageId связывает превью с последним сообщением независимо от загрузки истории.
 
 ```typescript
 export interface Conversation {
@@ -147,6 +148,7 @@ export interface Conversation {
     unreadCount: number;
     updatedAt: string;
     preview: string;
+    previewMessageId?: EntityId;
     canSend: boolean;
     isBot?: boolean;
     avatarVersion?: string;
@@ -346,6 +348,18 @@ export interface MessagePage {
     cached?: boolean;
     sourceUpdatedAt?: number;
 }
+```
+
+<a id="symbol-messagePreview"></a>
+
+## messagePreview
+
+Формирует короткое превью последнего сообщения для общего списка чатов.
+
+Текст имеет приоритет; медиа без подписи получают фактический тип или имя файла.
+
+```typescript
+messagePreview(message: Pick<Message, 'text' | 'attachments'>): string
 ```
 
 <a id="symbol-messengerPageBase"></a>

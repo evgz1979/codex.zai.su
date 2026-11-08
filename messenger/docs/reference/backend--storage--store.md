@@ -370,7 +370,7 @@ private unreadAfter(id: string, position: Pick<Message, 'id' | 'date' | 'sequenc
 
 Записывает страницу или событие с дедупликацией и обновляет превью.
 
-Уже сохранённые одинаковые сообщения не создают лишнюю ревизию.
+Старые страницы не откатывают превью; одинаковые сообщения не создают лишнюю ревизию.
 
 ```typescript
 upsertMessages(messages: Message[], countUnread = false)

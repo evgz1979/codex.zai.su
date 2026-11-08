@@ -6,12 +6,12 @@ export type SourceEvent={type:'message';message:Message;edited?:boolean}|{type:'
 //: В браузер не передаются native location, ключи и объект клиента.
 export interface AttachmentContent {attachment:Attachment;chunks:AsyncIterable<Uint8Array>}
 //: Задаёт контракт чтения страниц, отправки и необязательного каталога папок источника.
-//: Папки содержат только метаданные и не дают доступа к истории без выбора.
+//: allows разрешает превью только выбранных ID; каталог папок остаётся без текстов.
 export interface SourceAdapter {
   readonly source: Source;
   connect(): Promise<void>;
   disconnect(): Promise<void>;
-  listConversations(): Promise<Conversation[]>;
+  listConversations(allows?:(conversationId:string)=>boolean): Promise<Conversation[]>;
   listConversationCatalog?(): Promise<ConversationCatalog>;
   recentMessages(conversationId: string, limit: number): Promise<Message[]>;
   messagePage?(conversationId:string,limit:number,before?:string):Promise<MessagePage>;

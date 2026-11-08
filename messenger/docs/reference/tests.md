@@ -43,6 +43,7 @@
 - [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: системное меню вызывается только явным нажатием, без скачивания
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): единая лента, выбор адресата, отправка, непрочитанные, выход и мобильные границы
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): открытый чат скрывает исключённые диалоги без синхронизации истории
+- [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): последние сообщения в списке видны до открытия чатов и не снимают непрочитанное
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): список чатов: поиск, фильтр, возврат браузером и отдельные черновики
 - [test/browser/notifications.spec.ts](../../test/browser/notifications.spec.ts): уведомления: iPhone получает инструкцию установки на экран Домой
 - [test/browser/notifications.spec.ts](../../test/browser/notifications.spec.ts): уведомления: явное включение, проверка и выключение без повторного запроса разрешения
@@ -57,6 +58,8 @@
 - [test/core.test.ts](../../test/core.test.ts): ошибки провайдера не выходят наружу; повтор не отправляет заново
 - [test/core.test.ts](../../test/core.test.ts): пароль хешируется; сессии отзываются; перебор ограничен
 - [test/core.test.ts](../../test/core.test.ts): по умолчанию ничего не выбрано; исключённые диалоги нельзя читать или отправлять
+- [test/core.test.ts](../../test/core.test.ts): превью: подпись, фото, видео, голосовое, аудио и имя файла без пустой заглушки
+- [test/core.test.ts](../../test/core.test.ts): превью: старая страница и удаление старого сообщения не заменяют последний текст одного времени
 - [test/core.test.ts](../../test/core.test.ts): снятие выбора во время чтения не кеширует запоздалый результат
 - [test/documentation.test.mjs](../../test/documentation.test.mjs): документация: AST не зависит от сдвига строк и обычных комментариев
 - [test/documentation.test.mjs](../../test/documentation.test.mjs): документация: check не переписывает устаревший файл и находит лишний
@@ -114,5 +117,6 @@
 - [test/telegram-media.test.ts](../../test/telegram-media.test.ts): Telegram-вложения: фото, видео, голосовое и файлы без native secrets в DTO
 - [test/telegram-media.test.ts](../../test/telegram-media.test.ts): Telegram-миниатюры: готовый размер, локальные байты, TTL и предел без оригинала
 - [test/telegram.test.ts](../../test/telegram.test.ts): Telegram-аватары: маленькое фото известного peer, его DC и отменяемый ограниченный поток
+- [test/telegram.test.ts](../../test/telegram.test.ts): Telegram-превью: последние сообщения выбранных чатов доступны без истории и прочтения
 - [test/telegram.test.ts](../../test/telegram.test.ts): Telegram-события: выбор до преобразования, правки, области ID удалений и снятие подписки
 - [test/telegram.test.ts](../../test/telegram.test.ts): Telegram: DTO, фильтр broadcast, уникальность message ID и буквальная отправка

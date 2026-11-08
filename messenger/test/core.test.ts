@@ -7,7 +7,7 @@ import { Store } from '../backend/storage/store.js';
 import { SecretVault } from '../backend/storage/private-files.js';
 import { MessengerService } from '../backend/core/service.js';
 import { Auth, passwordHash, passwordMatches } from '../backend/auth/auth.js';
-import { destinationFor, entityId, LIMITS } from '../shared/types.js';
+import { destinationFor, entityId, messagePreview, LIMITS } from '../shared/types.js';
 import { TestAdapter } from './fixtures.js';
 import {AutoSyncService} from '../backend/core/sync.js';
 
@@ -117,4 +117,18 @@ test('снятие выбора во время чтения не кешируе
  let started:()=>void=()=>{};const requested=new Promise<void>(r=>{started=r;});a.historyPage=async()=>{started();await gate;return {conversationId:a.conversations[0].id,messages:a.messages.slice(0,1),nextCursor:null,cursors:a.messages.slice(0,1).map(m=>m.id)};};
  const sync=new AutoSyncService(service,store);const pending=sync.tick();await requested;service.selection.clear();finish();await pending;await sync.stop();
  assert.equal(service.snapshot().messages.length,0);assert.equal(store.loadCache([a.conversations[0].id]).messages.length,0);
+});
+
+
+test('превью: подпись, фото, видео, голосовое, аудио и имя файла без пустой заглушки',()=>{
+ const attachment={id:'synthetic',kind:'image' as const,name:'Фото'};assert.equal(messagePreview({text:' Подпись ',attachments:[attachment]}),'Подпись');assert.equal(messagePreview({text:'',attachments:[attachment]}),'Фото');
+ assert.equal(messagePreview({text:'',attachments:[{...attachment,kind:'video'}]}),'Видео');assert.equal(messagePreview({text:'',attachments:[{...attachment,kind:'audio',isVoice:true}]}),'Голосовое сообщение');assert.equal(messagePreview({text:'',attachments:[{...attachment,kind:'audio'}]}),'Аудио');assert.equal(messagePreview({text:'',attachments:[{...attachment,kind:'file',name:'Отчёт.pdf'}]}),'Отчёт.pdf');assert.equal([...messagePreview({text:'🙂'.repeat(400),attachments:[]})].length,300);
+});
+
+test('превью: старая страница и удаление старого сообщения не заменяют последний текст одного времени',async t=>{
+ const {store}=context(t);const adapter=new TestAdapter();const c=adapter.conversations[0];const head={...adapter.messages[0],id:entityId(adapter.source.id,'message',`${c.id}/100`),sequence:100,text:'Последнее',sourceKey:'synthetic-head'};const older={...head,id:entityId(adapter.source.id,'message',`${c.id}/99`),sequence:99,text:'Предыдущее',sourceKey:'synthetic-older'};
+ store.select([c.id]);store.saveCache({sources:[],conversations:[{...c,preview:'Последнее',previewMessageId:head.id}],messages:[],refreshedAt:null,stale:false});
+ store.upsertMessages([older]);assert.equal(store.conversation(c.id)?.preview,'Последнее');assert.equal(store.conversation(c.id)?.unreadCount,c.unreadCount);
+ store.upsertMessages([head]);assert.equal(store.conversation(c.id)?.preview,'Последнее');store.deleteSourceKeys([older.sourceKey],[c.id]);assert.equal(store.conversation(c.id)?.preview,'Последнее');
+ const previous={...older,id:entityId(adapter.source.id,'message',`${c.id}/98`),sequence:98,sourceKey:'synthetic-previous'};store.upsertMessages([previous]);store.deleteSourceKeys([head.sourceKey],[c.id]);assert.equal(store.conversation(c.id)?.preview,'Предыдущее');assert.equal(store.conversation(c.id)?.previewMessageId,previous.id);
 });

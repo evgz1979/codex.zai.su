@@ -76,17 +76,24 @@ export class MessengerService {
   private async doRefresh(): Promise<Snapshot> {
     const revision = this.selection.revision;
     const readRevision=this.readRevision;
+    const cacheRevision=this.store.revision;
     if (!this.selection.ids().length&&!this.canDiscoverContacts()) return this.snapshot();
     try {
       const conversations: Conversation[] = [];
       const catalogs:{sourceId:string;conversations:Conversation[]}[]=[];
       for (const adapter of this.adapters) {
         await adapter.connect();
-        catalogs.push({sourceId:adapter.source.id,conversations:await adapter.listConversations()});
+        catalogs.push({sourceId:adapter.source.id,conversations:await adapter.listConversations(id=>this.selection.allows(id))});
       }
       if (revision !== this.selection.revision) return this.snapshot();
       for(const catalog of catalogs){if(this.registry.get(catalog.sourceId).canDiscoverContacts?.())this.selection.observe(catalog.sourceId,catalog.conversations);conversations.push(...catalog.conversations.filter(c=>this.selection.allows(c.id)));}
-      for(const c of conversations){const current=this.store.conversation(c.id);c.preview=current?.preview||'';if(current&&(current.updatedAt>c.updatedAt||readRevision!==this.readRevision)){c.unreadCount=current.unreadCount;c.updatedAt=current.updatedAt>c.updatedAt?current.updatedAt:c.updatedAt;}}
+      for(const c of conversations){
+        const current=this.store.conversation(c.id);if(!current)continue;
+        const newer=comparePosition({date:current.updatedAt,id:current.previewMessageId||''},{date:c.updatedAt,id:c.previewMessageId||''})>0&&(!c.previewMessageId||this.store.revision!==cacheRevision);
+        if(!c.previewMessageId||newer){c.preview=current.preview;c.previewMessageId=current.previewMessageId;}
+        if(newer||readRevision!==this.readRevision)c.unreadCount=current.unreadCount;
+        if(newer)c.updatedAt=current.updatedAt;
+      }
       this.store.saveCache({conversations,messages:[],sources:this.registry.sources(),refreshedAt:new Date().toISOString(),stale:false});this.state.stale=false;
       return this.snapshot();
     } catch (error) {
