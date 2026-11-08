@@ -150,6 +150,7 @@ export function createApp(options: { service:MessengerService; store:Store; auth
           }
           const admin=current.admin; if(!admin) throw new AppError(503,'Админка недоступна.');
           if(action==='status'&&req.method==='GET') return send(res,200,admin.status());
+          if(action.startsWith('whatsapp/')&&options.accounts&&!account?.info.isOwner)throw new AppError(403,'Тестирование WhatsApp пока доступно только владельцу.');
           if(action==='whatsapp/status'&&req.method==='GET'){if(!admin.whatsapp)throw new AppError(503,'WhatsApp недоступен.');const result=await admin.whatsapp.authStatus();if(!auth.session(req.headers.cookie,'admin',secure)||(account&&!options.accounts!.allows(account)))throw new AppError(401,'Войдите в приложение.');return send(res,200,result);}
           if(action==='whatsapp/begin'&&req.method==='POST'){await body(req);if(!admin.whatsapp)throw new AppError(503,'WhatsApp недоступен.');const result=await admin.whatsapp.begin();if(!auth.session(req.headers.cookie,'admin',secure)||(account&&!options.accounts!.allows(account)))throw new AppError(401,'Войдите в приложение.');return send(res,200,result);}
           if(action==='whatsapp/disconnect'&&req.method==='POST'){await body(req);await admin.disconnectWhatsApp();return send(res,200,{ok:true});}

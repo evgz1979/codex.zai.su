@@ -291,4 +291,6 @@ svg { width: 21px; height: 21px; flex-shrink: 0; }
 .app-updates-inline.update-available .icon-button { color: #0088ff; }
 .update-dot { position: absolute; top: 7px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: #0088ff; }
 .update-error { position: fixed; z-index: 40; right: 16px; bottom: calc(56px + env(safe-area-inset-bottom)); left: 16px; width: fit-content; max-width: min(600px, calc(100vw - 32px)); margin: auto; padding: 10px 14px; border: 1px solid #eed7d2; border-radius: 10px; background: #fff0ed; color: #ae493e; font-size: 12px; line-height: 1.4; box-shadow: 0 2px 10px #17212b18; }
+.whatsapp-panel{min-width:0;margin:0;padding:0;border:0}
+.whatsapp-panel:disabled{filter:grayscale(1);opacity:.65}
 .whatsapp-qr{display:block;max-width:100%;height:auto;background:white;margin:16px 0;image-rendering:pixelated}

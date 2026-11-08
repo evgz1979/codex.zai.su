@@ -52,7 +52,10 @@ ConversationPicker живёт только внутри AdminApp: локальн
 «Сохранить выбор» AdminService проверяет ID всего каталога и обновляет SQLite.
 Папка не становится отдельным разрешением или отдельной перепиской.
 
-Адаптеры: Telegram и серверный WhatsApp Web. WhatsAppAdapter обращается
+Адаптеры: Telegram и серверный WhatsApp Web (пока только у владельца).
+Accounts передаёт фабрике runtime серверный признак владельца; у остальных
+WhatsAppAdapter не создаётся и не восстанавливает прежнюю сессию.
+WhatsAppAdapter обращается
 к отдельному ограниченному Chromium-worker через приватный Unix socket.
 Codex и Email остаются будущими источниками; пустых реализаций нет.
 [WhatsApp: устройство и ограничения](whatsapp.md).

@@ -8,13 +8,14 @@
 
 ## WhatsAppPanel
 
-Показывает временный серверный QR и выбор диалогов только в личной админке.
+Показывает QR владельцу и неактивные инструкции остальным пользователям.
 
-QR не попадает в localStorage, offline cache, URL или пользовательский чат.
+Неактивная панель не вызывает API; QR не попадает в локальный кеш или чат.
 
 ```typescript
-WhatsAppPanel({ onError }: {
+WhatsAppPanel({ onError, enabled }: {
     onError: (error: unknown) => void;
+    enabled: boolean;
 })
 ```
 

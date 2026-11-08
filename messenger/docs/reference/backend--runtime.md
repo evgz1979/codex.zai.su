@@ -31,10 +31,10 @@ export interface AccountRuntime {
 
 Собирает личный Messenger в заданном приватном каталоге.
 
-Не открывает порт; остановка завершает фоновые задачи перед закрытием SQLite.
+WhatsApp создаётся только для владельца; остановка завершает задачи перед закрытием SQLite.
 
 ```typescript
-createAccountRuntime(directory: string, origin: string): AccountRuntime
+createAccountRuntime(directory: string, origin: string, isOwner = false): AccountRuntime
 ```
 
 <a id="symbol-createAccountRuntime.start"></a>

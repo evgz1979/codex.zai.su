@@ -72,6 +72,7 @@
 - [test/browser/updates.spec.ts](../../test/browser/updates.spec.ts): обновления: черновик, начатый во время проверки версии, тоже требует подтверждения
 - [test/browser/users.spec.ts](../../test/browser/users.spec.ts): личный Messenger: владелец создаёт ссылку, имя видно на главной, вход только паролем и чужие чаты закрыты
 - [test/browser/whatsapp.spec.ts](../../test/browser/whatsapp.spec.ts): WhatsApp в админке: серверный QR, готовность, выбор; QR не сохраняется локально
+- [test/browser/whatsapp.spec.ts](../../test/browser/whatsapp.spec.ts): WhatsApp у личного пользователя: видимые серые инструкции, кнопки отключены, запросов нет
 - [test/core.test.ts](../../test/core.test.ts): SQLite сохраняет всю историю, ограничивает снимок и сохраняет исключённый архив
 - [test/core.test.ts](../../test/core.test.ts): единая лента объединяет источники и сохраняет хронологию
 - [test/core.test.ts](../../test/core.test.ts): идентификаторы не конфликтуют между источниками, типами и строками
@@ -164,3 +165,4 @@
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: закрытый протокол отклоняет RPC, путь профиля и невыбранного получателя
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: история недоступного Telegram не задерживает синхронизацию WhatsApp
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: отсутствие Telegram-входа не блокирует метаданные подключённого WhatsApp
+- [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: только владелец получает адаптер и API, личный admin не обходит запрет

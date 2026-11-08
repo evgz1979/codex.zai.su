@@ -1,7 +1,7 @@
 import type { SourceAdapter } from './source-adapter.js';
 import { AppError } from './errors.js';
 //: Регистрирует рабочие источники без знания интерфейса конкретного сервиса.
-//: В production используется только Telegram, будущие адаптеры не имитируются.
+//: Telegram доступен личным аккаунтам, тестовый WhatsApp — только владельцу.
 export class ConnectorRegistry {
   //: Регистрирует список действующих адаптеров.
   //: Не создаёт заглушки будущих провайдеров.

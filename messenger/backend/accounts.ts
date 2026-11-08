@@ -13,8 +13,8 @@ export interface AccountRecord extends AccountInfo {enabled:boolean}
 //: HTTP выбирает экземпляр только по проверенному сервером имени в URL.
 export interface ActiveAccount {info:AccountRecord; runtime:AccountRuntime}
 //: Создаёт сервисы одного аккаунта без публичного порта.
-//: Подмена фабрики нужна только изолированным тестам без Telegram.
-type RuntimeFactory=(directory:string,origin:string)=>AccountRuntime;
+//: Признак владельца приходит из серверного реестра, не из запроса пользователя.
+type RuntimeFactory=(directory:string,origin:string,isOwner:boolean)=>AccountRuntime;
 
 //: Управляет закрытым списком пользователей и отдельными личными Messenger.
 //: Владелец сохраняет прежний каталог; новые аккаунты используют случайные UUID.
@@ -28,7 +28,7 @@ export class Accounts {
   //: Восстанавливает только зарегистрированные аккаунты из приватных настроек владельца.
   //: При повреждённом реестре запуск прекращается; каталоги с диска не обнаруживаются автоматически.
   constructor(private directory:string,private origin:string,private factory:RuntimeFactory=createAccountRuntime) {
-    this.owner={info:{id:'owner',username:'owner',displayName:'Владелец',isOwner:true,enabled:true,path:'/'},runtime:factory(directory,origin)};
+    this.owner={info:{id:'owner',username:'owner',displayName:'Владелец',isOwner:true,enabled:true,path:'/'},runtime:factory(directory,origin,true)};
     const saved=JSON.parse(this.owner.runtime.store.get('accounts.v1')||'[]') as AccountRecord[];
     if(!Array.isArray(saved)||saved.length>4||saved.some(a=>!a||!this.validUsername(a.username)||a.username==='owner'||typeof a.id!=='string'||!/^[a-f0-9-]{36}$/.test(a.id)||a.isOwner!==false||typeof a.enabled!=='boolean'||typeof a.displayName!=='string'||!a.displayName.trim()||a.displayName.length>80||(a.path!==undefined&&a.path!==`/u/${a.username}/`&&(a.path!==`/${a.username}/`||ACCOUNT_RESERVED_NAMES.some(name=>name===a.username))))||new Set(saved.map(a=>a.username)).size!==saved.length||new Set(saved.map(a=>a.id)).size!==saved.length)throw new Error('Invalid account registry');
     this.records=saved;
@@ -40,7 +40,7 @@ export class Accounts {
   private validUsername(value:unknown):value is string {return typeof value==='string'&&/^[a-z][a-z0-9_-]{1,31}$/.test(value);}
   //: Открывает сервисы аккаунта в каталоге с серверным UUID.
   //: Пользовательское имя никогда не становится путём файловой системы.
-  private open(info:AccountRecord){const account={info,runtime:this.factory(join(this.directory,'users',info.id),this.origin)};this.active.set(info.id,account);if(this.started)account.runtime.start();return account;}
+  private open(info:AccountRecord){const account={info,runtime:this.factory(join(this.directory,'users',info.id),this.origin,false)};this.active.set(info.id,account);if(this.started)account.runtime.start();return account;}
   //: Сохраняет только реестр имён, UUID и блокировок в БД владельца.
   //: Содержимое личных БД и секреты в реестр не включаются.
   private save(){this.owner.runtime.store.set('accounts.v1',JSON.stringify(this.records));}

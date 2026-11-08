@@ -2,7 +2,9 @@
 
 ## WhatsApp Web
 
-Только личная admin-роль; общий `status` не возвращает QR.
+Во время тестирования — только admin-роль владельца; общий `status` не возвращает QR.
+Все методы `whatsapp/*` для admin личного пользователя возвращают 403;
+браузерный источник не создаётся и не восстанавливается в его runtime.
 GET `whatsapp/status` возвращает временный PNG data URL и состояние;
 GET `whatsapp/dialogs` — метаданные. POST `whatsapp/begin`,
 `whatsapp/disconnect`, `whatsapp/selection` требуют Origin, CSRF и admin-cookie.

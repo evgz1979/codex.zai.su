@@ -11,6 +11,7 @@ import {browserRequest,type BrowserRequest,type BrowserResult} from '../backend/
 import {WhatsAppBrowser,webMessage,type WebMessage} from '../backend/connectors/whatsapp/browser.js';
 import {WhatsAppAdapter} from '../backend/connectors/whatsapp/adapter.js';
 import {browserCall} from '../backend/connectors/whatsapp/bridge.js';
+import {Accounts} from '../backend/accounts.js';
 import {Store} from '../backend/storage/store.js';
 import {MessengerService} from '../backend/core/service.js';
 import {AutoSyncService} from '../backend/core/sync.js';
@@ -98,6 +99,31 @@ test('WhatsApp HTTP: QR только admin своего аккаунта, POST �
  const status=await raw('/api/admin/whatsapp/status',undefined,ah);assert.equal(status.status,200);assert.equal(status.headers['cache-control'],'no-store');assert.match(status.body.qrDataUrl,/^data:/);
  assert.ok(!JSON.stringify((await raw('/api/admin/status',undefined,ah)).body).includes('base64'));
  assert.equal((await raw('/api/u/unknown/admin/whatsapp/status',undefined,ah)).status,404);
+});
+
+test('WhatsApp: только владелец получает адаптер и API, личный admin не обходит запрет',async t=>{
+ const root=mkdtempSync(join(tmpdir(),'wa-owner-'));const origin='http://127.0.0.1';let accounts=new Accounts(root,origin);
+ const hash=await passwordHash('owner-password-test');accounts.owner.runtime.store.set('auth.admin',hash);accounts.owner.runtime.store.set('auth.chat',hash);
+ await accounts.create({username:'guest',displayName:'Гость',password:'guest-password-test'});
+ const guest=accounts.find('guest')!;guest.runtime.store.set('whatsapp.enabled','1');
+ assert.ok(accounts.owner.runtime.admin?.whatsapp);assert.equal(guest.runtime.admin?.whatsapp,undefined);
+ assert.ok(!guest.runtime.service.registry.adapters.some(a=>a.source.id==='whatsapp'));
+ const options={...accounts.owner.runtime,accounts,clientDirectory:root,origin};const server=createApp(options);await new Promise<void>(r=>server.listen(0,'127.0.0.1',r));
+ t.after(async()=>{server.closeAllConnections();await new Promise<void>(r=>server.close(()=>r()));await accounts.stop();rmSync(root,{recursive:true,force:true});});
+ options.origin=`http://127.0.0.1:${(server.address() as {port:number}).port}`;
+ const request=(path:string,input?:unknown,headers:Record<string,string>={})=>fetch(options.origin+path,{method:input===undefined?'GET':'POST',headers:{Origin:options.origin,'Content-Type':'application/json',...headers},body:input===undefined?undefined:JSON.stringify(input)});
+ const login=async(base:string,password:string)=>{const response=await request(`${base}/login`,{password});assert.equal(response.status,200);const info=await response.json() as {csrfToken:string};return {Cookie:response.headers.get('set-cookie')!.split(';')[0],'X-CSRF-Token':info.csrfToken};};
+ const personal='/api/u/guest/admin';const owner=await login('/api/admin','owner-password-test');const headers=await login(personal,'guest-password-test');
+ for(const [action,input] of [['status',undefined],['dialogs',undefined],['begin',{}],['disconnect',{}],['selection',{ids:[id]}]] as const){
+  const response=await request(`${personal}/whatsapp/${action}`,input,headers);assert.equal(response.status,403,action);assert.match(await response.text(),/только владельцу/);
+ }
+ assert.equal((await request(`${personal}/whatsapp/status`)).status,401);
+ assert.equal((await request(`${personal}/whatsapp/status`,undefined,owner)).status,401);
+ const status=await request(`${personal}/status`,undefined,headers);assert.equal(status.status,200);assert.equal((await status.json() as any).whatsapp,undefined);
+ assert.equal((await request('/api/admin/whatsapp/selection',{ids:[]},owner)).status,200);
+ await accounts.stop();accounts=new Accounts(root,origin);
+ assert.equal(accounts.find('guest')!.runtime.store.get('whatsapp.enabled'),'1');assert.equal(accounts.find('guest')!.runtime.admin?.whatsapp,undefined);
+ assert.ok(accounts.owner.runtime.admin?.whatsapp);
 });
 
 test('WhatsApp: отсутствие Telegram-входа не блокирует метаданные подключённого WhatsApp',async t=>{

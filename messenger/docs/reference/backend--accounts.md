@@ -195,8 +195,8 @@ export interface ActiveAccount {
 
 Создаёт сервисы одного аккаунта без публичного порта.
 
-Подмена фабрики нужна только изолированным тестам без Telegram.
+Признак владельца приходит из серверного реестра, не из запроса пользователя.
 
 ```typescript
-type RuntimeFactory = (directory: string, origin: string) => AccountRuntime;
+type RuntimeFactory = (directory: string, origin: string, isOwner: boolean) => AccountRuntime;
 ```
