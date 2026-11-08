@@ -1,5 +1,11 @@
 # Архитектура
 
+Один процесс обслуживает закрытые личные аккаунты. `Accounts` выбирает
+`AccountRuntime` по имени персональной ссылки. Каждый экземпляр содержит свою
+БД, Auth, TelegramAdapter, ядро, фоновые задачи, медиа и push. Схема ниже
+применяется отдельно к каждому аккаунту; у гостей пути имеют префикс `/u/username`
+и `/api/u/username`. [Сценарий пользователей](users.md), [ADR-0009](adr/0009-personal-users.md).
+
 ```text
 /      → Chat App  → /api/chat/*  → MessengerService (MessengerCore)
 /admin → AdminApp → /api/admin/* → AdminService

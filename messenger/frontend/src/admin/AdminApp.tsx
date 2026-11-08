@@ -1,20 +1,21 @@
 import { useEffect,useState,type FormEvent } from 'react';
 import {telegramAuthIssueText,PASSWORD_LIMITS} from '../../../shared/types';
-import { api,ApiError,setCsrf } from '../api';
+import { api,ApiError,setCsrf,appBase } from '../api';
 import type { SessionInfo,AdminStatus,AdminDialogCatalog,TelegramAuthStage } from '../../../shared/types';
 import ConversationPicker from './ConversationPicker';
+import UsersPanel from './UsersPanel';
 //: Отображает отдельный административный интерфейс.
 //: Доступ к настройкам дополнительно проверяется API, а не маршрутом браузера.
 export default function AdminApp() {
   const [session,setSession]=useState<SessionInfo>(); const [status,setStatus]=useState<AdminStatus>();
   const [password,setPassword]=useState(''); const [busy,setBusy]=useState(false); const [error,setError]=useState(''); const [notice,setNotice]=useState('');
-  const [section,setSection]=useState<'telegram'|'access'>('telegram');
+  const [section,setSection]=useState<'telegram'|'access'|'users'>('telegram');
   const [apiId,setApiId]=useState(''); const [apiHash,setApiHash]=useState(''); const [phone,setPhone]=useState(''); const [value,setValue]=useState('');
   const [stage,setStage]=useState<TelegramAuthStage>('idle'); const [catalog,setCatalog]=useState<AdminDialogCatalog>(); const [selected,setSelected]=useState<string[]>([]);
   const [newPassword,setNewPassword]=useState(''); const [passwordRole,setPasswordRole]=useState<'admin'|'chat'>('chat');
   //: Применяет результат административного входа.
   //: CSRF хранится только в памяти этой страницы.
-  function accept(info:SessionInfo) { setSession(info);setCsrf(info.csrfToken||''); }
+  function accept(info:SessionInfo) { setSession(previous=>({...info,account:info.account||previous?.account}));setCsrf(info.csrfToken||''); }
   //: Показывает безопасную ошибку и обрабатывает потерю прав.
   //: При 401 очищает административные данные страницы.
   function fail(e:unknown) { setError(e instanceof Error?e.message:'Операция не выполнена.'); if(e instanceof ApiError&&e.status===401){accept({authenticated:false,setupRequired:false});setCatalog(undefined);setSelected([]);setStatus(undefined);} }
@@ -44,9 +45,9 @@ export default function AdminApp() {
   //: Отправляет значение ожидаемого шага code или 2FA.
   //: Очищает секретное поле, после успеха получает только метаданные диалогов.
   function answer(e:FormEvent) { e.preventDefault(); const input=value;setValue('');void run(async()=>{const result=await api<{stage:TelegramAuthStage}>(`telegram/${stage}`,{value:input});setStage(result.stage);await refreshStatus();if(result.stage==='connected')await loadDialogs();}); }
-  if(!session?.authenticated) return <main className="admin-login"><h1>Администрирование</h1>{!session?<p>Подключение…</p>:session.setupRequired?<p>Вход ещё не настроен на сервере.</p>:<form onSubmit={login}><label>Пароль администратора<input type="password" autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)} maxLength={512}/></label><button disabled={busy}>Войти</button></form>}{error&&<p role="alert">{error}</p>}</main>;
-  return <main className="admin-layout"><aside className="admin-nav"><strong>Z AI Messenger</strong><span>Администрирование</span><button className={section==='telegram'?'current':''} onClick={()=>setSection('telegram')}>Источники → Telegram</button><button className={section==='access'?'current':''} onClick={()=>setSection('access')}>Доступ</button><a href="/" target="_blank" rel="noreferrer">Открыть чат</a><button disabled={busy} onClick={()=>void run(logout)}>Выйти из админки</button></aside><section className="admin-content"><header><h1>{section==='telegram'?'Источники → Telegram':'Доступ'}</h1></header>{error&&<p className="admin-error" role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
-  {section==='telegram'?<><section className="admin-card"><h2>Подключение</h2><p role="status">{status?.telegram.configured?'Сессия сохранена на сервере':stage==='code'?'Ожидается код Telegram':stage==='password'?'Ожидается пароль 2FA':stage==='error'?'Вход не выполнен':stage==='connecting'?'Подключение…':'Telegram не подключён'}</p>{status?.telegram.issue&&<p className="admin-error" role="alert">{telegramAuthIssueText(status.telegram.issue)}</p>}
+  if(!session?.authenticated) return <main className="admin-login"><h1>Администрирование</h1>{session?.account&&<p className="account-name">{session.account.displayName} · @{session.account.username}</p>}{!session?<p>Подключение…</p>:session.setupRequired?<p>Вход ещё не настроен на сервере.</p>:<form onSubmit={login}><label>Пароль администратора<input type="password" autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)} maxLength={512}/></label><button disabled={busy}>Войти</button></form>}{error&&<p role="alert">{error}</p>}</main>;
+  return <main className="admin-layout"><aside className="admin-nav"><strong>Z AI Messenger</strong><span>{session.account?.displayName||'Администрирование'}</span><button className={section==='telegram'?'current':''} onClick={()=>setSection('telegram')}>Источники → Telegram</button><button className={section==='access'?'current':''} onClick={()=>setSection('access')}>Доступ</button>{session.account?.isOwner&&<button className={section==='users'?'current':''} onClick={()=>setSection('users')}>Пользователи</button>}<a href={`${appBase}/`} target="_blank" rel="noreferrer">Открыть чат</a><button disabled={busy} onClick={()=>void run(logout)}>Выйти из админки</button></aside><section className="admin-content"><header><h1>{section==='telegram'?'Источники → Telegram':section==='users'?'Пользователи':'Доступ'}</h1></header>{error&&<p className="admin-error" role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
+  {section==='users'?(session.account?.isOwner&&<UsersPanel />):section==='telegram'?<><section className="admin-card"><h2>Подключение</h2><p role="status">{status?.telegram.configured?'Сессия сохранена на сервере':stage==='code'?'Ожидается код Telegram':stage==='password'?'Ожидается пароль 2FA':stage==='error'?'Вход не выполнен':stage==='connecting'?'Подключение…':'Telegram не подключён'}</p>{status?.telegram.issue&&<p className="admin-error" role="alert">{telegramAuthIssueText(status.telegram.issue)}</p>}
   {!status?.telegram.configured&&!['code','password','connecting'].includes(stage)&&<form onSubmit={begin} autoComplete="off"><label>api_id<input required inputMode="numeric" value={apiId} onChange={e=>setApiId(e.target.value)}/></label><label>api_hash<input type="password" required autoComplete="off" value={apiHash} onChange={e=>setApiHash(e.target.value)}/></label><label>Номер телефона<input type="tel" required placeholder="+..." autoComplete="off" value={phone} onChange={e=>setPhone(e.target.value)}/></label><button disabled={busy}>Получить код</button></form>}
   {(stage==='code'||stage==='password')&&<form onSubmit={answer} autoComplete="off"><label>{stage==='code'?'Код Telegram':'Пароль 2FA'}<input type="password" required value={value} onChange={e=>setValue(e.target.value)} autoComplete="off" maxLength={512}/></label><button disabled={busy}>Подтвердить</button></form>}
   {!status?.telegram.configured&&['code','password','error','connecting'].includes(stage)&&<button disabled={busy} onClick={()=>void run(async()=>{await api('telegram/cancel',{});await refreshStatus();})}>Отменить вход</button>}

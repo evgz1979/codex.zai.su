@@ -4,6 +4,23 @@
 
 [Исходный модуль](../../shared/types.ts) · [Индекс](README.md)
 
+<a id="symbol-AccountInfo"></a>
+
+## AccountInfo
+
+Показывает имя личного Messenger без Telegram-реквизитов.
+
+Персональная ссылка публично раскрывает только выбранное владельцем имя.
+
+```typescript
+export interface AccountInfo {
+    id: string;
+    username: string;
+    displayName: string;
+    isOwner: boolean;
+}
+```
+
 <a id="symbol-AdminDialogCatalog"></a>
 
 ## AdminDialogCatalog
@@ -386,6 +403,7 @@ export interface SessionInfo {
     authenticated: boolean;
     setupRequired: boolean;
     csrfToken?: string;
+    account?: AccountInfo;
 }
 ```
 

@@ -5,6 +5,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const printer = ts.createPrinter({ removeComments: true, newLine: ts.NewLineKind.LineFeed });
 const purposes = {
+  'backend/accounts.ts': 'Закрытый реестр личных пользователей, персональные ссылки, блокировки и независимые серверные экземпляры.',
+  'backend/runtime.ts': 'Отдельные БД, Telegram, пароли, медиакеш, push и жизненный цикл личного аккаунта.',
+  'frontend/src/admin/UsersPanel.tsx': 'Добавление личных пользователей владельцем, персональные ссылки и блокировка доступа.',
   'frontend/src/useConversationArrival.ts': 'Отменяемое открытие свежего непрочитанного при запуске и возврате, точного диалога по уведомлению.',
   'frontend/src/useVisibleReads.ts': 'Подтверждение просмотра реально видимых сообщений после остановки прокрутки в активной ленте.',
   'frontend/src/useAppBadge.ts': 'Согласование значка приложения и уведомлений при чтении, возврате фокуса и позднем push.',

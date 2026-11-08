@@ -1,9 +1,9 @@
 import {useEffect,useState} from 'react';
-import {api} from './api';
+import {api,appBase} from './api';
 
 //: Получает существующую регистрацию без создания фонового кеша.
 //: Отсутствие Service Worker допускается в браузерах без Web Push.
-async function registration(){return 'serviceWorker' in navigator?await navigator.serviceWorker.getRegistration('/'):undefined;}
+async function registration(){const worker='serviceWorker' in navigator?await navigator.serviceWorker.getRegistration(`${appBase}/`):undefined;return worker?.scope&&new URL(worker.scope).pathname!==`${appBase}/`?undefined:worker;}
 //: Получает endpoint только текущего устройства для явного выхода.
 //: Значение передаётся серверу в POST, без URL, localStorage и журналов.
 export async function notificationEndpoint(){try{return (await (await registration())?.pushManager?.getSubscription())?.endpoint;}catch{return undefined;}}
@@ -25,8 +25,9 @@ export default function Notifications(){
     if(!window.isSecureContext||!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)){setState('unsupported');return;}
     if(Notification.permission==='denied'){setState('blocked');return;}
     (async()=>{
-      await navigator.serviceWorker.register('/sw.js',{scope:'/',updateViaCache:'none'});
-      const sub=await (await navigator.serviceWorker.ready).pushManager.getSubscription();
+      const worker=await navigator.serviceWorker.register(`${appBase}/sw.js`,{scope:`${appBase}/`,updateViaCache:'none'});
+      await navigator.serviceWorker.ready;
+      const sub=await worker.pushManager.getSubscription();
       const result=sub?await api<{enabled:boolean}>('push/status',{endpoint:sub.endpoint}):{enabled:false};
       if(!disposed)setState(result.enabled?'on':'off');
     })().catch(()=>{if(!disposed){setState('off');setMessage('Не удалось проверить уведомления. Повторите включение.');}});
@@ -40,8 +41,8 @@ export default function Notifications(){
       const permission=await Notification.requestPermission();
       if(permission!=='granted'){setState(permission==='denied'?'blocked':'off');return;}
       const config=await api<{publicKey:string}>('push/config');
-      await navigator.serviceWorker.register('/sw.js',{scope:'/',updateViaCache:'none'});
-      const worker=await navigator.serviceWorker.ready;
+      const worker=await navigator.serviceWorker.register(`${appBase}/sw.js`,{scope:`${appBase}/`,updateViaCache:'none'});
+      await navigator.serviceWorker.ready;
       const key=Uint8Array.from(atob(config.publicKey.replace(/-/g,'+').replace(/_/g,'/')),char=>char.charCodeAt(0));
       let sub=await worker.pushManager.getSubscription();
       if(sub&&sub.options.applicationServerKey&&!new Uint8Array(sub.options.applicationServerKey).every((byte,index)=>byte===key[index])){await sub.unsubscribe();sub=null;}

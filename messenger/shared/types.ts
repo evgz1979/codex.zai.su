@@ -102,7 +102,10 @@ export interface ConversationPageResult {page:MessagePage;snapshot:Snapshot}
 export interface SendRequest { destination: Destination; text: string; requestId: string }
 //: Передаёт состояние веб-входа и первичной настройки.
 //: CSRF возвращается после входа, Telegram-сессия сюда не входит.
-export interface SessionInfo { authenticated: boolean; setupRequired: boolean; csrfToken?: string }
+export interface SessionInfo { authenticated: boolean; setupRequired: boolean; csrfToken?: string; account?:AccountInfo }
+//: Показывает имя личного Messenger без Telegram-реквизитов.
+//: Персональная ссылка публично раскрывает только выбранное владельцем имя.
+export interface AccountInfo {id:string;username:string;displayName:string;isOwner:boolean}
 //: Задаёт ограничения выборок, кеша и длины текста MVP.
 //: Одна константа используется сервером и клиентской валидацией текста.
 export const LIMITS = { conversations: 1000, pageMessages: 10, syncMessages:100, cachedMessages: 400, text: 4096 } as const;

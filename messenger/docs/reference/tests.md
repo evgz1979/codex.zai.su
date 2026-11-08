@@ -2,6 +2,8 @@
 
 Извлечены имена test(...) без запуска. Наличие сценария не означает успешный прогон.
 
+- [test/accounts.test.ts](../../test/accounts.test.ts): личные пользователи: ссылки, пароли, cookie, роли, данные, отправки, медиа и блокировка изолированы
+- [test/accounts.test.ts](../../test/accounts.test.ts): личный worker: badge и уведомление открывают только свой Messenger среди нескольких аккаунтов
 - [test/admin.test.ts](../../test/admin.test.ts): HTTP: отдельные права и Secure cookie, отсутствие Telegram-секретов в ответах
 - [test/admin.test.ts](../../test/admin.test.ts): Telegram-вход: этапы code/2FA, сохранение сессии без кода и пароля, отмена
 - [test/admin.test.ts](../../test/admin.test.ts): админка: метаданные не синхронизируют историю; выбор сохраняется в SQLite
@@ -45,6 +47,7 @@
 - [test/browser/notifications.spec.ts](../../test/browser/notifications.spec.ts): уведомления: явное включение, проверка и выключение без повторного запроса разрешения
 - [test/browser/paging.spec.ts](../../test/browser/paging.spec.ts): автокеш: прокрутка без кнопок, обновления и удаления, быстрый переход
 - [test/browser/reads.spec.ts](../../test/browser/reads.spec.ts): просмотр: видимая активная лента снимает счётчик, скрытые сообщения ждут просмотра
+- [test/browser/users.spec.ts](../../test/browser/users.spec.ts): личный Messenger: владелец создаёт ссылку, имя видно на главной, вход только паролем и чужие чаты закрыты
 - [test/core.test.ts](../../test/core.test.ts): SQLite сохраняет всю историю, ограничивает снимок и сохраняет исключённый архив
 - [test/core.test.ts](../../test/core.test.ts): единая лента объединяет источники и сохраняет хронологию
 - [test/core.test.ts](../../test/core.test.ts): идентификаторы не конфликтуют между источниками, типами и строками

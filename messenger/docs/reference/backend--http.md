@@ -16,6 +16,8 @@
 createApp(options: {
     service: MessengerService;
     store: Store;
+    auth?: Auth;
+    accounts?: Accounts;
     admin?: AdminService;
     attachments?: AttachmentService;
     push?: PushService;
@@ -53,12 +55,12 @@ authorize()
 
 ## createApp.body
 
-Читает JSON-объект с ограничением размера.
+Повторно проверяет доступ после получения тела защищённого запроса.
 
-Парсинг не пишет тела запросов в журнал или хранилище.
+Блокировка во время медленной загрузки тела не запускает операцию личного источника.
 
 ```typescript
-async body(req: IncomingMessage, limit = 20000): Promise<Record<string, unknown>>
+async body(request: IncomingMessage, limit = 20000)
 ```
 
 <a id="symbol-createApp.cookie"></a>
@@ -70,7 +72,19 @@ async body(req: IncomingMessage, limit = 20000): Promise<Record<string, unknown>
 Использует HttpOnly, Strict, ограниченный Path и Secure в HTTPS.
 
 ```typescript
-cookie(res: ServerResponse, role: Role, token: string, maxAge: number)
+cookie(res: ServerResponse, role: Role, token: string, maxAge: number, prefix: string)
+```
+
+<a id="symbol-createApp.readBody"></a>
+
+## createApp.readBody
+
+Читает JSON-объект с ограничением размера.
+
+Парсинг не пишет тела запросов в журнал или хранилище.
+
+```typescript
+async readBody(req: IncomingMessage, limit = 20000): Promise<Record<string, unknown>>
 ```
 
 <a id="symbol-createApp.send"></a>

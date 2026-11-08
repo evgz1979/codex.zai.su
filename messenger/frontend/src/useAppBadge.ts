@@ -1,10 +1,11 @@
 import {useEffect,useRef} from 'react';
+import {appBase} from './api';
 
 //: Уточняет значок приложения и закрывает уведомления после прочтения всех входящих.
 //: Ошибки необязательных API не меняют вход, подписку и счётчики переписки.
 export async function synchronizeBadge(count:number){
   try{if(count===0&&'clearAppBadge' in navigator)await navigator.clearAppBadge();else if('setAppBadge' in navigator)await navigator.setAppBadge(count);}catch{/* Системная настройка может запрещать значок. */}
-  if(count===0&&'serviceWorker' in navigator){try{const worker=await navigator.serviceWorker.getRegistration('/');for(const notification of await worker?.getNotifications()||[])if(notification.tag!=='messenger-test')notification.close();}catch{/* API уведомлений необязателен. */}}
+  if(count===0&&'serviceWorker' in navigator){try{const worker=await navigator.serviceWorker.getRegistration(`${appBase}/`);if(worker?.scope&&new URL(worker.scope).pathname!==`${appBase}/`)return;for(const notification of await worker?.getNotifications()||[])if(notification.tag!=='messenger-test')notification.close();}catch{/* API уведомлений необязателен. */}}
 }
 //: Обновляет значок при возврате в приложение и после позднего push.
 //: Не использует устаревшее число из замыкания и не хранит переписку в worker.

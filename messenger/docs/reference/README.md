@@ -4,6 +4,7 @@
 
 | Исходник | Назначение | Объявлений |
 | --- | --- | --- |
+| [backend/accounts.ts](backend--accounts.md) | Закрытый реестр личных пользователей, персональные ссылки, блокировки и независимые серверные экземпляры. | 16 |
 | [backend/admin/service.ts](backend--admin--service.md) | Настройки, метаданные Telegram и права выбора диалогов. | 8 |
 | [backend/auth/auth.ts](backend--auth--auth.md) | Argon2id-пароли ролей admin/chat, веб-сессии в памяти и ограничение попыток входа. | 17 |
 | [backend/auth/prompt.ts](backend--auth--prompt.md) | Скрытый интерактивный ввод в TTY без отражения символов. | 3 |
@@ -25,8 +26,9 @@
 | [backend/core/service.ts](backend--core--service.md) | Единая лента, маршруты, лимиты, кеш и дедупликация отправок. | 22 |
 | [backend/core/source-adapter.ts](backend--core--source-adapter.md) | Общий контракт операций с сообщениями и необязательного каталога папок источника. | 3 |
 | [backend/core/sync.ts](backend--core--sync.md) | Автоматическое заполнение полного SQLite-кеша выбранных диалогов, события и возобновляемая история. | 7 |
-| [backend/http.ts](backend--http.md) | Фиксированный HTTP API, веб-вход, защита запросов и статические файлы. | 7 |
+| [backend/http.ts](backend--http.md) | Фиксированный HTTP API, веб-вход, защита запросов и статические файлы. | 8 |
 | [backend/index.ts](backend--index.md) | Сборка production-сервера, регистрация TelegramAdapter и остановка. | 1 |
+| [backend/runtime.ts](backend--runtime.md) | Отдельные БД, Telegram, пароли, медиакеш, push и жизненный цикл личного аккаунта. | 4 |
 | [backend/storage/private-files.ts](backend--storage--private-files.md) | Права приватных файлов и AES-256-GCM хранилище Telegram-сессии. | 9 |
 | [backend/storage/store.ts](backend--storage--store.md) | SQLite: настройки ролей, выбранные диалоги и полный кеш выбранной истории с сохранением исключённого архива. | 33 |
 | [frontend/index.html](frontend--index.md) | HTML-точка входа, viewport и подключение React-сборки. | 0 |
@@ -39,7 +41,8 @@
 | [frontend/src/Notifications.tsx](frontend--src--Notifications.md) | Явное включение, отключение и проверка уведомлений; инструкция установки на iPhone. | 7 |
 | [frontend/src/admin/AdminApp.tsx](frontend--src--admin--AdminApp.md) | Отдельная административная страница с собственным входом и формами. | 11 |
 | [frontend/src/admin/ConversationPicker.tsx](frontend--src--admin--ConversationPicker.md) | Закладки папок, поиск и независимый от текущей папки выбор диалогов. | 3 |
-| [frontend/src/api.ts](frontend--src--api.md) | Same-origin fetch, CSRF в памяти и безопасная ошибка API. | 5 |
+| [frontend/src/admin/UsersPanel.tsx](frontend--src--admin--UsersPanel.md) | Добавление личных пользователей владельцем, персональные ссылки и блокировка доступа. | 5 |
+| [frontend/src/api.ts](frontend--src--api.md) | Same-origin fetch, CSRF в памяти и безопасная ошибка API. | 6 |
 | [frontend/src/main.tsx](frontend--src--main.md) | Создание React root и подключение локальной таблицы стилей. | 0 |
 | [frontend/src/previews.ts](frontend--src--previews.md) | Последовательная очередь и ограниченный оперативный кеш миниатюр без хранилища браузера. | 2 |
 | [frontend/src/styles.css](frontend--src--styles.md) | Компактная светлая палитра Telegram, общая лента и отдельная админка; safe-area и короткий viewport. | 0 |
@@ -55,4 +58,4 @@
 | [scripts/start.sh](scripts--start-sh.md) | Запуск собранного сервера по абсолютному пути для безопасной проверки PID. | 0 |
 | [scripts/stop.mjs](scripts--stop.md) | Проверка PID и команды процесса перед SIGTERM только Messenger. | 0 |
 | [scripts/stop.sh](scripts--stop-sh.md) | Выбор Node.js и запуск штатного stop.mjs. | 0 |
-| [shared/types.ts](shared--types.md) | Общие DTO ленты и каталога, статусы веб-авторизации, лимиты, ID и Destination. | 32 |
+| [shared/types.ts](shared--types.md) | Общие DTO ленты и каталога, статусы веб-авторизации, лимиты, ID и Destination. | 33 |

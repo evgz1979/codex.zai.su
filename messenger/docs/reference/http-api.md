@@ -16,6 +16,9 @@
 | POST | `/api/admin/telegram/code` |
 | POST | `/api/admin/telegram/disconnect` |
 | POST | `/api/admin/telegram/password` |
+| GET | `/api/admin/users` |
+| POST | `/api/admin/users/access` |
+| POST | `/api/admin/users/create` |
 | GET | `/api/chat/access` |
 | POST | `/api/chat/attachment` |
 | GET | `/api/chat/badge` |

@@ -5,7 +5,9 @@ import { join } from 'node:path';
 import {AttachmentService} from '../backend/core/attachments.js';
 import {entityId} from '../shared/types.js';
 import { Store } from '../backend/storage/store.js';
-import { passwordHash } from '../backend/auth/auth.js';
+import { Auth,passwordHash } from '../backend/auth/auth.js';
+import {Accounts} from '../backend/accounts.js';
+import {createAccountRuntime} from '../backend/runtime.js';
 import { MessengerService } from '../backend/core/service.js';
 import { createApp } from '../backend/http.js';
 import { clientDirectory } from '../backend/config.js';
@@ -34,7 +36,9 @@ const attachments=new AttachmentService(service,dir);
 //: Изолирует локальный тестовый сервер от соседней рабочей копии.
 //: В production эта переменная не используется.
 const testPort=Number(process.env.MESSENGER_TEST_PORT||14318);
-const server = createApp({ store,service,attachments,clientDirectory,origin:`http://127.0.0.1:${testPort}` });
+const origin=`http://127.0.0.1:${testPort}`;
+const accounts=new Accounts(dir,origin,(directory,accountOrigin)=>directory===dir?{store,service,attachments,auth:new Auth(store),start(){},async stop(){store.close();}}:createAccountRuntime(directory,accountOrigin));
+const server = createApp({ ...accounts.owner.runtime,accounts,clientDirectory,origin });
 server.listen(testPort,'127.0.0.1');
-function stop() { server.closeAllConnections(); server.close(() => { store.close(); rmSync(dir,{recursive:true,force:true}); }); }
+function stop() { server.closeAllConnections(); server.close(() => { void accounts.stop().finally(()=>rmSync(dir,{recursive:true,force:true})); }); }
 process.on('SIGTERM',stop); process.on('SIGINT',stop);

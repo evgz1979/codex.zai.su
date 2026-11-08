@@ -39,6 +39,10 @@ svg { width: 21px; height: 21px; flex-shrink: 0; }
 .entry-brand { display: flex; align-items: center; justify-content: space-between; }
 .login-card { width: min(100%, 380px); margin: auto; padding: 28px 0; }
 .login-card h1 { font-size: 26px; font-weight: 600; margin-bottom: 20px; }
+.account-name { margin: 0 0 18px; font-size: 16px; overflow-wrap: anywhere; }
+.account-settings { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 16px; border-top: 1px solid var(--line); font-size: 13px; }
+.account-settings span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-settings a { color: var(--accent); flex-shrink: 0; }
 .login-form { display: flex; flex-direction: column; gap: 10px; }
 .login-form label { color: var(--muted); font-size: 13px; }
 .login-form input { height: 44px; padding: 0 12px; border: 1px solid #cbd6df; border-radius: 8px; background: var(--surface); font-size: 16px; }
@@ -156,6 +160,10 @@ svg { width: 21px; height: 21px; flex-shrink: 0; }
 .admin-card h2 { margin-bottom: 12px; font-size: 18px; }
 .admin-card p { margin: 10px 0; color: var(--muted); font-size: 13px; line-height: 1.4; }
 .admin-card form { max-width: 480px; }
+.user-list { list-style: none; padding: 0; }
+.user-list li { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.user-list li > div { min-width: 0; }
+.user-list a { color: var(--accent); overflow-wrap: anywhere; }
 .admin-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .admin-layout .danger { background: #c95850; }
 .admin-layout .danger:hover { background: #b54942; }

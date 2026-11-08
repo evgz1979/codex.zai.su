@@ -1,4 +1,7 @@
 import {MEDIA_LIMITS,type Attachment,type AttachmentRequest} from '../../shared/types';
+//: Выбирает путь личного Messenger из проверенного формата ссылки.
+//: Имя не берётся из localStorage; API и настройки остаются в одном аккаунте.
+export const appBase=/^\/u\/[a-z][a-z0-9_-]{1,31}(?=\/|$)/.exec(location.pathname)?.[0]||'';
 let csrf = '';
 //: Сохраняет CSRF-токен текущей веб-сессии в памяти модуля.
 //: Значение не записывается в localStorage или URL.
@@ -12,7 +15,7 @@ export class ApiError extends Error {
 //: Выполняет same-origin JSON-запрос к фиксированному /api пути.
 //: Передаёт cookie/CSRF, запрещает кеш и принимает AbortSignal для смены адресата.
 export async function api<T>(path: string, input?: unknown, signal?:AbortSignal): Promise<T> {
-  const res = await fetch(`/api/${location.pathname.startsWith('/admin') ? 'admin' : 'chat'}/${path}`, {
+  const res = await fetch(`${appBase?'/api'+appBase:'/api'}/${/\/admin\/?$/.test(location.pathname) ? 'admin' : 'chat'}/${path}`, {
     method: input === undefined ? 'GET' : 'POST', credentials: 'same-origin', cache: 'no-store', signal,
     headers: input === undefined ? {} : { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
     ...(input === undefined ? {} : { body: JSON.stringify(input) }),
@@ -25,7 +28,7 @@ export async function api<T>(path: string, input?: unknown, signal?:AbortSignal)
 //: Загружает байты одного вложения только по явному запросу через chat API.
 //: Cookie и CSRF остаются same-origin; произвольные URL и секреты источника не принимаются.
 export async function attachmentData(input:AttachmentRequest,signal:AbortSignal):Promise<{blob:Blob;attachment:Attachment}>{
-  const response=await fetch('/api/chat/attachment',{method:'POST',credentials:'same-origin',cache:'no-store',signal,headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(input)});
+  const response=await fetch(`${appBase?'/api'+appBase:'/api'}/chat/attachment`,{method:'POST',credentials:'same-origin',cache:'no-store',signal,headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(input)});
   if(!response.ok){const result=await response.json().catch(()=>({}));throw new ApiError(response.status,result.error||'Не удалось открыть вложение.');}
   const limit=input.variant==='preview'?MEDIA_LIMITS.previewBytes:MEDIA_LIMITS.fileBytes;
   if(Number(response.headers.get('content-length')||0)>limit)throw new Error('Вложение превышает 32 МБ.');

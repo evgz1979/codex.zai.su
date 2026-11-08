@@ -40,6 +40,18 @@ class ApiError extends Error
 constructor(public status: number, message: string)
 ```
 
+<a id="symbol-appBase"></a>
+
+## appBase
+
+Выбирает путь личного Messenger из проверенного формата ссылки.
+
+Имя не берётся из localStorage; API и настройки остаются в одном аккаунте.
+
+```typescript
+const appBase = /^\/u\/[a-z][a-z0-9_-]{1,31}(?=\/|$)/.exec(location.pathname)?.[0] || ''
+```
+
 <a id="symbol-attachmentData"></a>
 
 ## attachmentData

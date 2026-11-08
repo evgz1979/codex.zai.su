@@ -10,6 +10,26 @@ POST — точный Origin. Защищённые методы требуют c
 
 Полный [генерируемый список маршрутов](reference/http-api.md).
 
+## Личный аккаунт
+
+Ниже приведены пути владельца. Для гостей префикс `/api/` заменяется на
+`/api/u/username/`; все действия работают только с хранилищем аккаунта из ссылки.
+Cookie роли имеют Path `/api/u/username/chat` и `/api/u/username/admin`.
+`session` и успешный `login` дополнительно возвращают безопасный `account`:
+`{id,username,displayName,isOwner}`. Имя видно до входа, CSRF выдаётся после входа.
+В теле login по-прежнему только `{password}`. Неизвестный и заблокированный
+пользователь возвращает 404 без открытия его сервисов.
+
+Только admin владельца может использовать:
+
+| Метод | Путь | Контракт |
+| --- | --- | --- |
+| GET | /api/admin/users | `{users:[{id,username,displayName,isOwner,enabled}]}` |
+| POST | /api/admin/users/create | `{username,displayName,password}` → `{user}`; начальный пароль обеих ролей |
+| POST | /api/admin/users/access | `{id,enabled}` → `{ok:true}`; владелец не блокируется |
+
+Пароль не возвращается. Списка чужих источников, переписок и секретов нет.
+
 ## Вход обеих ролей
 
 Для `role = admin` или `chat`:

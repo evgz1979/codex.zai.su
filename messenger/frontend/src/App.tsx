@@ -4,7 +4,7 @@ import AttachmentPreview from './AttachmentPreview';
 import {clearPreviews} from './previews';
 import AttachmentViewer from './AttachmentViewer';
 import type {AttachmentRequest} from '../../shared/types';
-import { api, ApiError, setCsrf } from './api';
+import { api, ApiError, setCsrf,appBase } from './api';
 import Notifications,{notificationEndpoint,unsubscribeNotifications} from './Notifications';
 import {useVisibleReads} from './useVisibleReads';
 import {useAppBadge} from './useAppBadge';
@@ -69,7 +69,7 @@ export function App() {
 
   //: Применяет состояние веб-входа и CSRF в памяти.
   //: Не читает и не получает Telegram credentials.
-  const acceptSession = (info: SessionInfo) => { setCsrf(info.csrfToken || ''); setSession(info); };
+  const acceptSession = (info: SessionInfo) => { setCsrf(info.csrfToken || ''); setSession(previous=>({...info,account:info.account||previous?.account}));if(info.account)document.title=`${info.account.displayName} · Z AI Messenger`; };
   //: Показывает ошибку операции и обрабатывает потерю входа.
   //: При 401 очищает снимок, адресата и черновики.
   function fail(e: unknown) {
@@ -241,6 +241,7 @@ export function App() {
     <div className="entry-brand"><Brand /></div>
     <section className="login-card">
       <h1>Вход</h1>
+      {session?.account&&<p className="account-name">{session.account.displayName} · @{session.account.username}</p>}
       {!session ? <p role="status">{error || 'Подключение к серверу…'}</p> : session.setupRequired ? <p role="status">Вход ещё не настроен.</p> : <form onSubmit={login} className="login-form">
         <label htmlFor="password">Пароль</label>
         <input id="password" type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} required maxLength={512} autoFocus />
@@ -265,11 +266,12 @@ export function App() {
         </button>)}
         {!snapshot?.conversations.length && <p className="list-empty">Здесь появятся ваши диалоги после подключения аккаунта и выбора в админке.</p>}
       </nav>
+      <div className="account-settings"><span>{session.account?.displayName||'Messenger'}</span><a href={`${appBase}/admin`}>Настройки</a></div>
       <Notifications />
       <div className="sidebar-footer"><span><i className={`status-dot ${connected ? '' : 'muted'}`} />{unread} непрочитанных</span><button className="icon-button" aria-label="Выйти" onClick={logout} disabled={busy}><Icon name="logout" /></button></div>
     </aside>
     <section className="chat" aria-label="Единая лента сообщений">
-      <header className="chat-header"><button className="icon-button mobile-only" aria-label="Открыть диалоги" onClick={() => setDrawer(true)}><Icon name="menu" /></button><div><div className="header-title"><h1>{target?.title||'Общая лента'}</h1></div><p>{unread} непрочитанных</p></div></header>
+      <header className="chat-header"><button className="icon-button mobile-only" aria-label="Открыть диалоги" onClick={() => setDrawer(true)}><Icon name="menu" /></button><div><div className="header-title"><h1>{target?.title||'Общая лента'}</h1></div><p>{session.account&&`${session.account.displayName} · `}{unread} непрочитанных</p></div></header>
       <div className="feed-info"><span className="status-dot" />{syncStatus?.pausedUntil?'Синхронизация временно приостановлена':syncStatus?.pendingConversations?'История синхронизируется в фоне':'Автоматическая синхронизация'}<span className="feed-limit">Сообщения из локального кеша</span></div>
       {error && <div className="error-banner" role="alert">{error}</div>}
       <div className="feed" ref={feed} tabIndex={0} aria-label="Сообщения" aria-busy={pending}>

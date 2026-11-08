@@ -1,32 +1,15 @@
-import { Store } from './storage/store.js';
-import { SecretVault } from './storage/private-files.js';
-import { TelegramAdapter } from './connectors/telegram/adapter.js';
-import { AdminService } from './admin/service.js';
-import { Auth } from './auth/auth.js';
-import { MessengerService } from './core/service.js';
+import {Accounts} from './accounts.js';
 import { createApp } from './http.js';
-import {MediaPreloadService} from './core/media-preload.js';
-import {AttachmentService} from './core/attachments.js';
-import {AutoSyncService} from './core/sync.js';
-import {PushService} from './core/push.js';
 import { dataDirectory, clientDirectory, origin, port } from './config.js';
 import { writePrivate } from './storage/private-files.js';
 import { unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 process.umask(0o077);
-const store = new Store(dataDirectory);
-const vault = new SecretVault(dataDirectory);
-const telegram = new TelegramAdapter(vault);
-const service = new MessengerService([telegram], store);
-const admin = new AdminService(service,telegram,vault,store);
-const sync=new AutoSyncService(service,store);
-const push=new PushService(service,store,origin);
-const attachments=new AttachmentService(service,dataDirectory);
-const mediaPreload=new MediaPreloadService(store,attachments);
-if (process.env.NODE_ENV==='production' && !new Auth(store).ready()) throw new Error('Passwords must be provisioned before publication');
-const server = createApp({ store, service, admin, attachments, push, clientDirectory, origin });
+const accounts=new Accounts(dataDirectory,origin);
+if (process.env.NODE_ENV==='production' && !accounts.owner.runtime.auth.ready()) throw new Error('Passwords must be provisioned before publication');
+const server = createApp({ ...accounts.owner.runtime, accounts, clientDirectory, origin });
 server.listen(port, '127.0.0.1', () => {
-  sync.start();mediaPreload.start();
+  accounts.start();
   writePrivate(join(dataDirectory,'server.pid'),String(process.pid));
   console.log(`Z AI Messenger: ${origin}`);
 });
@@ -38,11 +21,7 @@ async function stop() {
   if (stopping) return;
   stopping = true;
   server.close();
-  await mediaPreload.stop();await sync.stop();
-  await push.stop();
-  await admin.close();
-  await service.disconnect();
-  store.close();
+  await accounts.stop();
   try { unlinkSync(join(dataDirectory,'server.pid')); } catch { /* Уже удалён. */ }
 }
 process.on('SIGINT', stop);
