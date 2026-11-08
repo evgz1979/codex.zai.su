@@ -60,6 +60,7 @@
   {"path":"backend/config.ts","name":"origin","anchor":"symbol-origin"},
   {"path":"backend/config.ts","name":"port","anchor":"symbol-port"},
   {"path":"backend/config.ts","name":"secureCookies","anchor":"symbol-secureCookies"},
+  {"path":"backend/connectors/telegram/adapter.ts","name":"avatarThumbnail","anchor":"symbol-avatarThumbnail"},
   {"path":"backend/connectors/telegram/adapter.ts","name":"TELEGRAM_SOURCE","anchor":"symbol-TELEGRAM_SOURCE"},
   {"path":"backend/connectors/telegram/adapter.ts","name":"TelegramAdapter","anchor":"symbol-TelegramAdapter"},
   {"path":"backend/connectors/telegram/adapter.ts","name":"TelegramAdapter.bindEvents","anchor":"symbol-TelegramAdapter.bindEvents"},

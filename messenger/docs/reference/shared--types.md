@@ -152,6 +152,7 @@ export interface Conversation {
     canSend: boolean;
     isBot?: boolean;
     avatarVersion?: string;
+    avatarThumbnail?: string;
 }
 ```
 

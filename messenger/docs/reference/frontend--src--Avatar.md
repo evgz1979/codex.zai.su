@@ -64,5 +64,5 @@ clearAvatars()
 Отменённая очередь не обращается к API; данные разных поколений входа не смешиваются.
 
 ```typescript
-queuedPhoto(id: string, version: string, signal: AbortSignal)
+queuedPhoto(id: string, version: string, signal: AbortSignal, refresh = false)
 ```

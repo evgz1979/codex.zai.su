@@ -12,7 +12,7 @@
 | [backend/auth/telegram-login.ts](backend--auth--telegram-login.md) | Пошаговый Telegram-вход с временными callbacks кода и 2FA. | 9 |
 | [backend/cli.ts](backend--cli.md) | Команды setup, bootstrap и clear без вывода секретов; Telegram подключается через админку. | 1 |
 | [backend/config.ts](backend--config.md) | Фиксированные loopback-порт, Origin и пути модуля для source/build. | 6 |
-| [backend/connectors/telegram/adapter.ts](backend--connectors--telegram--adapter.md) | Каталог диалогов/папок Telegram, преобразование сообщений в общие DTO и проверка назначения. | 27 |
+| [backend/connectors/telegram/adapter.ts](backend--connectors--telegram--adapter.md) | Каталог диалогов/папок Telegram, преобразование сообщений в общие DTO и проверка назначения. | 28 |
 | [backend/connectors/telegram/client.ts](backend--connectors--telegram--client.md) | Создание teleproto-клиента с приватной сессией, дедлайном RPC и выключенными логами. | 5 |
 | [backend/connectors/telegram/folders.ts](backend--connectors--telegram--folders.md) | Преобразование папок и правил Telegram в общий административный каталог. | 4 |
 | [backend/connectors/telegram/media.ts](backend--connectors--telegram--media.md) | Безопасные общие метаданные фото и документов Telegram без native references. | 4 |

@@ -75,11 +75,11 @@ test('Telegram-события: выбор до преобразования, п�
 
 test('Telegram-аватары: маленькое фото известного peer, его DC и отменяемый ограниченный поток',async()=>{
  const dir=mkdtempSync(join(tmpdir(),'zai-avatar-'));const vault=new SecretVault(dir);vault.save({apiId:123,apiHash:'test-only',session:'test-only'});
- const photo=new Api.UserProfilePhoto({photoId:456n as never,dcId:2});const user=new Api.User({id:123n as never,firstName:'Тест',photo});const peer=new Api.InputPeerUser({userId:123n as never,accessHash:789n as never});
+ const photo=new Api.UserProfilePhoto({photoId:456n as never,dcId:2,strippedThumb:Buffer.from([1,1,1,0])});const user=new Api.User({id:123n as never,firstName:'Тест',photo});const peer=new Api.InputPeerUser({userId:123n as never,accessHash:789n as never});
  let location:Api.TypeInputFileLocation|undefined;let options:{signal?:AbortSignal;dcId?:number;limit?:number}|undefined;
  const fake={connected:false,async connect(){this.connected=true;},async checkAuthorization(){return true;},async destroy(){this.connected=false;},async getDialogs(){return [{entity:user,id:user.id,title:'Тест',inputEntity:peer,isUser:true,unreadCount:0,date:123}];},iterDownload(file:Api.TypeInputFileLocation,params:typeof options){location=file;options=params;return (async function*(){yield Buffer.from([255,216,255]);})();}};
  const adapter=new TelegramAdapter(vault,()=>fake as unknown as TelegramClient);try{
-  const [conversation]=await adapter.listConversations();assert.equal(conversation.avatarVersion,'456');const signal=new AbortController().signal;const chunks=[];for await(const chunk of await adapter.openAvatar(conversation.id,signal))chunks.push(chunk);
+  const [conversation]=await adapter.listConversations();assert.equal(conversation.avatarVersion,'456');assert.equal(conversation.avatarThumbnail,undefined);const [selected]=await adapter.listConversations(()=>true);assert.ok(selected.avatarThumbnail);assert.equal(Buffer.from(selected.avatarThumbnail!,'base64')[0],255);const signal=new AbortController().signal;const chunks=[];for await(const chunk of await adapter.openAvatar(conversation.id,signal))chunks.push(chunk);
   assert.ok(location instanceof Api.InputPeerPhotoFileLocation);assert.equal(location.peer,peer);assert.equal(location.photoId,photo.photoId);assert.equal(location.big,false);assert.equal(options?.dcId,2);assert.equal(options?.signal,signal);assert.equal(options?.limit,512*1024+1);assert.equal(chunks.length,1);
   const aborted=new AbortController();aborted.abort();await assert.rejects(adapter.openAvatar(conversation.id,aborted.signal));
  }finally{await adapter.disconnect();rmSync(dir,{recursive:true,force:true});}

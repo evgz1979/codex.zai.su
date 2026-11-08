@@ -98,13 +98,13 @@ export function createApp(options: { service:MessengerService; store:Store; auth
             return send(res,200,await (action==='read'?current.service.markRead(input.conversationId,input.messageId as string|undefined):current.service.open(input.conversationId,action==='older'?input.before as string:undefined)));
           }
           if(action==='avatar'&&req.method==='POST'){
-            const input=await body(req);if(typeof input.conversationId!=='string')throw new AppError(400,'Выберите диалог.');
+            const input=await body(req);if(typeof input.conversationId!=='string'||(input.refresh!==undefined&&typeof input.refresh!=='boolean'))throw new AppError(400,'Некорректный запрос фото.');
             const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),15000);
             //: Отменяет загрузку фото при закрытии HTTP-ответа.
             //: Перед отправкой повторно проверяются роль, блокировка аккаунта и выбранность.
             const abort=()=>controller.abort();res.once('close',abort);
             try{
-              const image=await current.service.avatar(input.conversationId,controller.signal);controller.signal.throwIfAborted();
+              const image=await current.service.avatar(input.conversationId,controller.signal,input.refresh===true);controller.signal.throwIfAborted();
               if(!auth.session(req.headers.cookie,'chat',secure)||(account&&!options.accounts!.allows(account)))throw new AppError(401,'Войдите в приложение.');
               current.service.selection.require(input.conversationId);
               res.writeHead(200,{'Content-Type':image.mimeType,'Content-Length':image.bytes.length});res.end(image.bytes);return;

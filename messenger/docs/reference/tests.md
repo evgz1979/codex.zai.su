@@ -10,7 +10,9 @@
 - [test/attachments.test.ts](../../test/attachments.test.ts): HTTP вложений: chat-cookie и CSRF, закрытые файлы, безопасные заголовки и ошибки
 - [test/attachments.test.ts](../../test/attachments.test.ts): HTTP вложений: выход во время скачивания отзывает запрос и удаляет частичный файл
 - [test/attachments.test.ts](../../test/attachments.test.ts): аватары: версия обновляет кеш, неизвестные и исключённые диалоги не читают фото
+- [test/attachments.test.ts](../../test/attachments.test.ts): аватары: неполный JPEG не попадает в кеш, повтор получает полное изображение
 - [test/attachments.test.ts](../../test/attachments.test.ts): аватары: размер, неподдерживаемые байты и исключение во время загрузки не возвращают фото
+- [test/attachments.test.ts](../../test/attachments.test.ts): аватары: частичные метаданные сохраняют миниатюру только той же версии фото
 - [test/attachments.test.ts](../../test/attachments.test.ts): вложения: HTML/SVG не становятся встроенными картинками или документами
 - [test/attachments.test.ts](../../test/attachments.test.ts): вложения: LRU ограничивает диск, очистка не удаляет настройки и текстовую историю
 - [test/attachments.test.ts](../../test/attachments.test.ts): вложения: исключение во время загрузки удаляет частичный файл и закрывает итератор
@@ -42,6 +44,7 @@
 - [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: миниатюры в ленте, оригинал по нажатию, открытие PDF, скачивание и мобильные границы
 - [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: системное меню вызывается только явным нажатием, без скачивания
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): аватары: временный отказ повторяется, видимые фото загружаются без всплеска запросов
+- [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): аватары: миниатюра сохраняет лицо при отказе, повреждённый кеш перечитывается у источника
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): аватары: прежнее фото остаётся видимым до готовности новой версии
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): единая лента, выбор адресата, отправка, непрочитанные, выход и мобильные границы
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): открытый чат скрывает исключённые диалоги без синхронизации истории

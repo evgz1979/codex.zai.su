@@ -89,6 +89,7 @@ export class MessengerService {
       for(const catalog of catalogs){if(this.registry.get(catalog.sourceId).canDiscoverContacts?.())this.selection.observe(catalog.sourceId,catalog.conversations);conversations.push(...catalog.conversations.filter(c=>this.selection.allows(c.id)));}
       for(const c of conversations){
         const current=this.store.conversation(c.id);if(!current)continue;
+        if(c.avatarVersion&&c.avatarVersion===current.avatarVersion&&!c.avatarThumbnail)c.avatarThumbnail=current.avatarThumbnail;
         const newer=comparePosition({date:current.updatedAt,id:current.previewMessageId||''},{date:c.updatedAt,id:c.previewMessageId||''})>0&&(!c.previewMessageId||this.store.revision!==cacheRevision);
         if(!c.previewMessageId||newer){c.preview=current.preview;c.previewMessageId=current.previewMessageId;}
         if(newer||readRevision!==this.readRevision)c.unreadCount=current.unreadCount;
@@ -131,18 +132,19 @@ export class MessengerService {
   }
   //: Загружает ограниченное фото разрешённого диалога с приватным кешем в памяти.
   //: Проверяет выбор и версию после каждого чанка; кеш ограничен 64 фото по 512 КиБ.
-  async avatar(id:string,signal:AbortSignal){
+  async avatar(id:string,signal:AbortSignal,refresh=false){
     if(typeof id!=='string'||!id||id.length>2048)throw new AppError(400,'Выберите диалог.');
     const c=this.conversation(id);const version=c.avatarVersion;const adapter=this.adapter(c.sourceId);
     if(!version||!adapter.openAvatar)throw new AppError(404,'Фото отсутствует.');
     //: Повторно сверяет выбранность и версию фото во время загрузки.
     //: Отменённый или исключённый запрос не возвращает даже готовый кеш.
     const check=()=>{signal.throwIfAborted();if(this.conversation(id).avatarVersion!==version)throw new AppError(409,'Фото изменилось.');};
-    check();const cached=this.avatars.get(id);if(cached?.version===version){this.avatars.delete(id);this.avatars.set(id,cached);return cached;}
+    check();if(refresh)this.avatars.delete(id);const cached=this.avatars.get(id);if(cached?.version===version){this.avatars.delete(id);this.avatars.set(id,cached);return cached;}
     const parts:Buffer[]=[];let size=0;
     for await(const chunk of await adapter.openAvatar(id,signal)){check();size+=chunk.byteLength;if(size>MEDIA_LIMITS.previewBytes)throw new AppError(413,'Фото слишком большое.');parts.push(Buffer.from(chunk));}
     check();const bytes=Buffer.concat(parts);const mimeType=bytes[0]===255&&bytes[1]===216&&bytes[2]===255?'image/jpeg':bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))?'image/png':bytes.toString('ascii',0,4)==='RIFF'&&bytes.toString('ascii',8,12)==='WEBP'?'image/webp':undefined;
     if(!mimeType)throw new AppError(415,'Формат фото недоступен.');
+    if(mimeType==='image/jpeg'&&(bytes.at(-2)!==255||bytes.at(-1)!==217))throw new AppError(503,'Фото загружено не полностью.');
     const result={version,bytes,mimeType};this.avatars.delete(id);this.avatars.set(id,result);while(this.avatars.size>64)this.avatars.delete(this.avatars.keys().next().value!);return result;
   }
   //: Проверяет точный маршрут сохранённого вложения перед каждым чтением.

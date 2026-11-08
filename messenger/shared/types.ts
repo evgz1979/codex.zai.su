@@ -42,6 +42,7 @@ export interface Conversation {
   canSend: boolean;
   isBot?: boolean;
   avatarVersion?: string;
+  avatarThumbnail?: string;
 }
 //: Описывает папку источника и входящие в неё диалоги каталога.
 //: Один диалог может входить в несколько папок; членство не даёт прав чтения.

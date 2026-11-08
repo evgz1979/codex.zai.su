@@ -73,7 +73,7 @@ attachmentMetadata(input: AttachmentRequest, original: Message, attachment: Mess
 Проверяет выбор и версию после каждого чанка; кеш ограничен 64 фото по 512 КиБ.
 
 ```typescript
-async avatar(id: string, signal: AbortSignal)
+async avatar(id: string, signal: AbortSignal, refresh = false)
 ```
 
 <a id="symbol-MessengerService.avatar.check"></a>

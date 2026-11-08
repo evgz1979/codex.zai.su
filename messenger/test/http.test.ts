@@ -13,7 +13,7 @@ test('HTTP: вход, CSRF, Origin/Host, приватные API, безопас�
   const dir = mkdtempSync(join(tmpdir(),'zai-messenger-http-'));
   writeFileSync(join(dir,'version.json'),JSON.stringify({version:'0.12.3',buildId:'synthetic-build'}));
   const store = new Store(dir); store.set('auth.chat',await passwordHash('test-password-only'));store.set('auth.admin',await passwordHash('admin-password-only'));
-  const adapter = new TestAdapter();adapter.conversations[0].avatarVersion='test-photo';adapter.avatars.set(adapter.conversations[0].id,Buffer.from([255,216,255,224,0,0])); store.select(adapter.conversations.map(c=>c.id));const service = new MessengerService([adapter],store);
+  const adapter = new TestAdapter();adapter.conversations[0].avatarVersion='test-photo';adapter.avatars.set(adapter.conversations[0].id,Buffer.from([255,216,255,224,0,0,255,217])); store.select(adapter.conversations.map(c=>c.id));const service = new MessengerService([adapter],store);
   store.upsertMessages(adapter.messages);
   // Фиксированный тестовый порт, отдельный от реального приложения.
   const origin = 'http://127.0.0.1:14319';
@@ -57,13 +57,14 @@ test('HTTP: вход, CSRF, Origin/Host, приватные API, безопас�
     assert.equal((await request('/api/chat/older',{conversationId:adapter.conversations[0].id,before:'x'},{Cookie:headers.Cookie})).status,403);
     const photoInput={conversationId:adapter.conversations[0].id};
     assert.equal((await request('/api/chat/avatar',photoInput,{Cookie:headers.Cookie})).status,403);
-    assert.equal((await request('/api/chat/avatar',{conversationId:123},headers)).status,400);
+    assert.equal((await request('/api/chat/avatar',{conversationId:123},headers)).status,400);assert.equal((await request('/api/chat/avatar',{...photoInput,refresh:'bad'},headers)).status,400);
     assert.equal((await request('/api/chat/avatar',{conversationId:'excluded'},headers)).status,403);assert.equal(adapter.avatarCalls,0);
     const photo=await request('/api/chat/avatar',photoInput,headers);assert.equal(photo.status,200);assert.equal(photo.headers.get('content-type'),'image/jpeg');assert.equal(photo.headers.get('cache-control'),'no-store');assert.deepEqual(Buffer.from(await photo.arrayBuffer()),adapter.avatars.get(photoInput.conversationId));
     assert.equal((await request('/api/chat/avatar',photoInput,headers)).status,200);assert.equal(adapter.avatarCalls,1);
+    assert.equal((await request('/api/chat/avatar',{...photoInput,refresh:true},headers)).status,200);assert.equal(adapter.avatarCalls,2);
     assert.equal((await request('/api/chat/avatar',{conversationId:adapter.conversations[1].id},headers)).status,404);
     service.selection.replace(adapter.conversations.slice(1).map(c=>c.id),adapter.conversations);
-    assert.equal((await request('/api/chat/avatar',photoInput,headers)).status,403);assert.equal(adapter.avatarCalls,1);
+    assert.equal((await request('/api/chat/avatar',photoInput,headers)).status,403);assert.equal(adapter.avatarCalls,2);
     service.selection.replace(adapter.conversations.map(c=>c.id),adapter.conversations);
     adapter.fail = true;
     const error = await request('/api/chat/refresh',{},headers);

@@ -13,6 +13,12 @@ import type {AttachmentContent} from '../../core/source-adapter.js';
 import type {SourceEvent} from '../../core/source-adapter.js';
 import type {HistoryPage} from '../../../shared/types.js';
 
+//: Восстанавливает маленький JPEG профиля из уже полученных метаданных Telegram.
+//: Вызывается только для выбранного диалога; размер ограничен, ошибки не ломают каталог.
+function avatarThumbnail(photo:Api.UserProfilePhoto|Api.ChatPhoto|undefined):string|undefined{
+  const stripped=photo?.strippedThumb;if(!stripped||stripped.length>4096)return;
+  try{const jpeg=utils.strippedPhotoToJpg(Buffer.from(stripped));if(jpeg.length>8192||jpeg[0]!==255||jpeg[1]!==216||jpeg.at(-2)!==255||jpeg.at(-1)!==217)return;return jpeg.toString('base64');}catch{return;}
+}
 //: Задаёт стабильный ID личного Telegram-источника.
 //: Это ID экземпляра адаптера, а не общий вид провайдера.
 export const TELEGRAM_SOURCE = 'telegram-personal';
@@ -101,7 +107,8 @@ export class TelegramAdapter implements SourceAdapter {
       const userBanned = e instanceof Api.Channel && e.bannedRights?.sendMessages;
       const broadcast = e instanceof Api.Channel && e.broadcast && !(e.creator || e.adminRights?.postMessages);
       const forum = e instanceof Api.Channel && e.forum;
-      const top=allows?.(conversationId)?d.message:undefined;
+      const allowed=!!allows?.(conversationId);const thumbnail=allowed?avatarThumbnail(photo):undefined;
+      const top=allowed?d.message:undefined;
       const latest=top instanceof Api.Message&&entityId(this.source.id,'conversation',top.chatId?.toString()||utils.getPeerId(top.peerId))===conversationId?this.mapMessage(top,conversationId):undefined;
       const paid = e instanceof Api.User && BigInt(e.sendPaidMessagesStars?.toString() || '0') > 0n;
       result.push({
@@ -111,6 +118,7 @@ export class TelegramAdapter implements SourceAdapter {
         preview: latest?messagePreview(latest):'',
         ...(latest?{previewMessageId:latest.id}:{}),
         ...(photo?{avatarVersion:photo.photoId.toString()}:{}),
+        ...(thumbnail?{avatarThumbnail:thumbnail}:{}),
         canSend: !banned && !userBanned && !forum && !paid && !broadcast,
         ...(e instanceof Api.User&&e.bot?{isBot:true}:{}),
       });

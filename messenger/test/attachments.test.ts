@@ -125,3 +125,13 @@ test('аватары: размер, неподдерживаемые байты 
  adapter.avatars.set(c.id,Buffer.from('<svg onload="unsafe"/>'));await assert.rejects(core.avatar(c.id,signal),{status:415});
  adapter.openAvatar=async()=> (async function*(){yield png.subarray(0,10);core.selection.clear();yield png.subarray(10);})();await assert.rejects(core.avatar(c.id,signal),{status:403});
 });
+
+
+test('аватары: неполный JPEG не попадает в кеш, повтор получает полное изображение',async t=>{
+ const {adapter,core}=await context(t);const c=adapter.conversations[0];c.avatarVersion='same-photo';await core.refresh();const signal=new AbortController().signal;adapter.avatars.set(c.id,Buffer.from([255,216,255,224,0,0]));await assert.rejects(core.avatar(c.id,signal),{status:503});adapter.avatars.set(c.id,png);assert.deepEqual((await core.avatar(c.id,signal)).bytes,png);await core.avatar(c.id,signal);assert.equal(adapter.avatarCalls,2);await core.avatar(c.id,signal,true);assert.equal(adapter.avatarCalls,3);
+});
+
+
+test('аватары: частичные метаданные сохраняют миниатюру только той же версии фото',async t=>{
+ const {adapter,core}=await context(t);const c=adapter.conversations[0];c.avatarVersion='photo-1';c.avatarThumbnail='synthetic-thumbnail';await core.refresh();delete c.avatarThumbnail;await core.refresh();assert.equal(core.snapshot().conversations.find(item=>item.id===c.id)?.avatarThumbnail,'synthetic-thumbnail');c.avatarVersion='photo-2';await core.refresh();assert.equal(core.snapshot().conversations.find(item=>item.id===c.id)?.avatarThumbnail,undefined);
+});

@@ -81,6 +81,7 @@ test('список чатов: поиск, фильтр, возврат брау
   page.on('request',request=>{if(request.url().endsWith('/api/chat/open'))opens.push(request.postDataJSON().conversationId);if(request.url().endsWith('/api/chat/read'))reads.push(request.url());});
   await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();
   await expect(page.getByRole('heading',{name:'Чаты',exact:true})).toBeVisible();await expect(page.locator('.conversation')).toHaveCount(4);await page.waitForTimeout(800);expect(opens).toEqual([]);expect(reads).toEqual([]);
+  const updateBox=await page.getByRole('button',{name:'Обновить приложение',exact:true}).boundingBox();const exitBox=await page.getByRole('button',{name:'Выйти',exact:true}).boundingBox();expect(Math.abs((updateBox!.y+updateBox!.height/2)-(exitBox!.y+exitBox!.height/2))).toBeLessThan(1);await expect(page.locator('.sidebar > .app-updates')).toHaveCount(0);
   await page.screenshot({path:`test-results/chat-list-${testInfo.project.name}.png`});
   await page.getByRole('button',{name:'Непрочитанные',exact:true}).click();await expect(page.getByText('Нет непрочитанных чатов',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Все',exact:true}).click();
   const search=page.getByRole('textbox',{name:'Поиск диалогов'});await search.fill('Анна');await expect(page.locator('.conversation')).toHaveCount(1);await page.getByRole('button',{name:/Анна Смирнова/}).click();await expect(page.locator('.sidebar')).toBeHidden();await page.getByLabel('Сообщение',{exact:true}).fill('Остался у Анны');
@@ -128,4 +129,16 @@ test('аватары: прежнее фото остаётся видимым д
   const photo=page.getByRole('img',{name:'Фото: Сохраняем фото',exact:true});await expect(photo).toBeVisible();const previous=await photo.getAttribute('src');
   conversation.avatarVersion='photo-2';revision++;await expect.poll(()=>calls).toBe(2);await expect(photo).toHaveAttribute('src',previous!);await expect(photo).toHaveJSProperty('naturalWidth',1);
   release();await expect(photo).toHaveAttribute('src',previous!);await expect.poll(()=>calls).toBe(3);await expect(photo).not.toHaveAttribute('src',previous!);await expect(photo).toHaveJSProperty('naturalWidth',1);
+});
+
+
+test('аватары: миниатюра сохраняет лицо при отказе, повреждённый кеш перечитывается у источника',async({page})=>{
+  const thumbnail=await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=1;canvas.height=1;return canvas.toDataURL('image/jpeg').split(',')[1];});
+  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64');
+  const conversation={id:'fixture-a:conversation:0',sourceId:'fixture-a',title:'Синтетическая Юля',kind:'direct',recipient:{id:'recipient',name:'Синтетическая Юля'},unreadCount:0,updatedAt:'2026-11-08T10:00:00.000Z',preview:'Тест',canSend:true,avatarVersion:'photo-1',avatarThumbnail:thumbnail};
+  const snapshot={conversations:[conversation],messages:[],sources:[{id:'fixture-a',kind:'test',name:'Telegram',connected:true}],refreshedAt:null,stale:false};let calls=0;let refresh=false;
+  await page.route('**/api/chat/inbox',route=>route.fulfill({json:{snapshot,page:{conversationId:'inbox',messages:[],nextCursor:null,cached:true,historyComplete:true}}}));await page.route('**/api/chat/access?since=*',route=>route.fulfill({json:{ids:[conversation.id],revision:1}}));
+  await page.route('**/api/chat/avatar',route=>{calls++;if(calls===1)return route.fulfill({contentType:'image/jpeg',body:Buffer.from([255,216,255,224,0,0,255,217])});refresh=route.request().postDataJSON().refresh===true;return route.fulfill({contentType:'image/png',body:png});});
+  await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();const photo=page.getByRole('img',{name:'Фото: Синтетическая Юля',exact:true});await expect(photo).toHaveAttribute('src',/^data:image\/jpeg;base64,/);await expect(photo).toHaveJSProperty('naturalWidth',1);
+  await expect(photo).toHaveAttribute('src',/^blob:/);await expect(photo).toHaveJSProperty('naturalWidth',1);expect(refresh).toBe(true);expect(calls).toBe(2);
 });

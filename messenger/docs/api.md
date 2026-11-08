@@ -58,7 +58,7 @@ session и login не требуют сессии, login требует Origin. 
 | POST | open | `{conversationId}` → ConversationPageResult с последними 10 сообщениями этого адресата |
 | POST | older | `{conversationId,before}` → ConversationPageResult с предыдущими 10 |
 | POST | read | `{conversationId,messageId?}` → отметка до показанного сообщения; без messageId — ручная |
-| POST | avatar | `{conversationId}` → JPEG/PNG/WebP до 512 КиБ только выбранного диалога, no-store |
+| POST | avatar | `{conversationId,refresh?:boolean}` → JPEG/PNG/WebP до 512 КиБ только выбранного диалога, no-store |
 | POST | attachment | `{conversationId,messageId,attachmentId,variant?:'preview'}` → оригинал до 32 МиБ или миниатюра до 512 КиБ |
 | POST | send | `{destination,text,requestId}` → отправленный Message |
 

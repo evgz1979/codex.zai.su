@@ -88,7 +88,7 @@ async attachmentData(input: AttachmentRequest, signal: AbortSignal): Promise<{
 Не принимает внешний URL; 404 оставляет инициалы вместо фотографии.
 
 ```typescript
-async avatarData(conversationId: string, signal: AbortSignal): Promise<Blob>
+async avatarData(conversationId: string, signal: AbortSignal, refresh = false): Promise<Blob>
 ```
 
 <a id="symbol-avatarData.abort"></a>

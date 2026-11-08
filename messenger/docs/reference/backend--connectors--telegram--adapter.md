@@ -4,6 +4,18 @@
 
 [Исходный модуль](../../backend/connectors/telegram/adapter.ts) · [Индекс](README.md)
 
+<a id="symbol-avatarThumbnail"></a>
+
+## avatarThumbnail
+
+Восстанавливает маленький JPEG профиля из уже полученных метаданных Telegram.
+
+Вызывается только для выбранного диалога; размер ограничен, ошибки не ломают каталог.
+
+```typescript
+avatarThumbnail(photo: Api.UserProfilePhoto | Api.ChatPhoto | undefined): string | undefined
+```
+
 <a id="symbol-TELEGRAM_SOURCE"></a>
 
 ## TELEGRAM_SOURCE
