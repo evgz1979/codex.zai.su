@@ -511,6 +511,7 @@ export interface Source {
     kind: string;
     name: string;
     connected: boolean;
+    canMarkRead?: boolean;
 }
 ```
 

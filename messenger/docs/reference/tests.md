@@ -29,6 +29,7 @@
 - [test/auto-sync.test.ts](../../test/auto-sync.test.ts): автокеш: FloodWait не продвигает курсор и не создаёт цикл повторов
 - [test/auto-sync.test.ts](../../test/auto-sync.test.ts): автокеш: вся история больше 40 сохраняется, открытие и прокрутка не вызывают источник
 - [test/auto-sync.test.ts](../../test/auto-sync.test.ts): автокеш: новые сообщения, правки и удаления применяются только к выбранному диалогу
+- [test/auto-sync.test.ts](../../test/auto-sync.test.ts): автокеш: ошибка истории одного диалога не останавливает остальные
 - [test/auto-sync.test.ts](../../test/auto-sync.test.ts): автокеш: перезапуск продолжает курсор и не загружает начало истории заново
 - [test/auto-sync.test.ts](../../test/auto-sync.test.ts): автокеш: повреждённый старым усечением checkpoint приводит к восстановлению истории
 - [test/auto-sync.test.ts](../../test/auto-sync.test.ts): автокеш: поздняя страница не отменяет новую правку и не воскрешает удалённое
@@ -47,6 +48,7 @@
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): аватары: миниатюра сохраняет лицо при отказе, повреждённый кеш перечитывается у источника
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): аватары: прежнее фото остаётся видимым до готовности новой версии
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): единая лента, выбор адресата, отправка, непрочитанные, выход и мобильные границы
+- [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): источники: видимые отметки Telegram и WhatsApp, без неподдерживаемого read WhatsApp
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): открытый чат скрывает исключённые диалоги без синхронизации истории
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): последние сообщения в списке видны до открытия чатов и не снимают непрочитанное
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): список чатов: поиск, фильтр, возврат браузером и отдельные черновики
@@ -162,12 +164,15 @@
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: браузер изолирует QR и слот, не отключает чужую сессию, сохраняет sandbox
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: выбор и отключение одного источника сохраняют Telegram и архив
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: выбранная read-only группа доступна для чтения, отправка в неё запрещена
+- [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: выбранная история читает кеш и одну старую порцию без сериализатора чата
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: готовый Stream восстанавливает пропущенную инициализацию без подмены ready
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: закрытый протокол отклоняет RPC, путь профиля и невыбранного получателя
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: история недоступного Telegram не задерживает синхронизацию WhatsApp
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: каталог использует WAWebCollections без window.Store и не читает сообщения
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: неотсканированный QR завершается через три минуты
+- [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: остановка во время запуска ждёт только браузер, а не QR и синхронизацию
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: отсутствие Telegram-входа не блокирует метаданные подключённого WhatsApp
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: принятый QR получает время на синхронизацию, доступ к чатам только после ready
+- [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: пустая зависшая догрузка ограничена сроком и не выдаётся за полный архив
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: события прогресса не продлевают предел первичной синхронизации бесконечно
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: только владелец получает адаптер и API, личный admin не обходит запрет

@@ -77,7 +77,7 @@ export function App() {
   const connected = snapshot?.sources.some(s => s.connected);
   const preparation=useOfflinePrefetch(snapshot,!!session?.authenticated&&!offline,fail);
   useAppBadge(unread,!!session?.authenticated&&!!snapshot);
-  useVisibleReads(feed,messages,!!session?.authenticated&&!offline&&!pending&&chatOpen&&!attachmentTarget,async message=>{
+  useVisibleReads(feed,messages.filter(m=>snapshot?.sources.find(s=>s.id===m.sourceId)?.canMarkRead!==false),!!session?.authenticated&&!offline&&!pending&&chatOpen&&!attachmentTarget,async message=>{
     const result=await api<Snapshot>('read',{conversationId:message.conversationId,messageId:message.id});
     const conversation=result.conversations.find(c=>c.id===message.conversationId);
     if(conversation)setSnapshot(old=>old?{...old,conversations:old.conversations.map(c=>c.id===conversation.id?{...c,unreadCount:conversation.unreadCount}:c)}:old);
@@ -324,7 +324,7 @@ export function App() {
       <nav className="conversation-list" aria-label="Получатели" aria-busy={!snapshot}>
         {conversations.map(c=><button key={c.id} className="conversation" disabled={busy} onClick={()=>void choose(c)}>
           <Avatar conversation={c} paused={offline} onUnauthorized={fail}/>
-          <span className="conversation-copy"><span className="conversation-title"><span className="conversation-name" title={c.title}>{c.title}</span><time dateTime={c.updatedAt}>{c.updatedAt&&conversationTime(c.updatedAt)}</time></span><span className="preview">{drafts[c.id]?<><span className="draft-caption">Черновик: </span>{drafts[c.id]}</>:c.preview||(Date.parse(c.updatedAt)>0?'Загрузка сообщения…':'Нет сообщений')}</span></span>
+          <span className="conversation-copy"><span className="conversation-title"><span className="conversation-name" title={c.title}>{c.title}</span><time dateTime={c.updatedAt}>{c.updatedAt&&conversationTime(c.updatedAt)}</time></span><span className="preview"><span className="conversation-source" data-source-kind={snapshot?.sources.find(s=>s.id===c.sourceId)?.kind}>{snapshot?.sources.find(s=>s.id===c.sourceId)?.name||'Источник'}</span>{drafts[c.id]?<><span className="draft-caption">Черновик: </span>{drafts[c.id]}</>:c.preview||(Date.parse(c.updatedAt)>0?'Загрузка сообщения…':'Нет сообщений')}</span></span>
           {c.unreadCount>0&&<span className="badge" aria-label={`${c.unreadCount} непрочитанных`}>{c.unreadCount}</span>}
         </button>)}
         {!conversations.length&&<p className="list-empty">{!snapshot?'Загрузка чатов…':query.trim()?'Чаты не найдены':onlyUnread?'Нет непрочитанных чатов':'Здесь появятся ваши диалоги после подключения аккаунта и выбора в админке.'}</p>}
@@ -356,7 +356,7 @@ export function App() {
       <div className="composer-area">
         <div className="destination">{target ? <><span className="destination-recipient" title={target.title}>Кому: <strong>{target.title}</strong><span className="destination-source"> · {snapshot?.sources.find(s => s.id === target.sourceId)?.name}</span></span><button disabled={busy} onClick={backToList}>Изменить</button></> : <><span>Адресат не выбран</span><button onClick={backToList}>Выбрать <span aria-hidden="true">↗</span></button></>}</div>
         <form className="composer" onSubmit={send}><textarea ref={composerInput} aria-label="Сообщение" placeholder={offline?'Для отправки нужна связь':target ? target.canSend ? 'Написать сообщение…' : 'Этот диалог доступен только для чтения' : 'Сначала выберите адресата'} rows={1} value={draft} maxLength={LIMITS.text} disabled={!target?.canSend || pending || offline} onChange={e => target && setDrafts(old => ({ ...old, [target.id]: e.target.value }))} /><button className="send-button" type="submit" aria-label={target ? `Отправить: ${target.title}` : 'Отправить сообщение'} disabled={!target?.canSend || !draft.trim() || pending || uncertain || offline}><Icon name="send" /></button></form>
-        {(uncertain||(target&&target.unreadCount>0)||draft.length>3500)&&<div className="composer-note">{uncertain && <span>Дождитесь синхронизации и проверьте отправку перед повтором</span>}{target && target.unreadCount > 0 && <button disabled={pending||offline} onClick={read}>Отметить прочитанным</button>}{draft.length > 3500 && <span>{draft.length}/{LIMITS.text}</span>}</div>}
+        {(uncertain||(target&&target.unreadCount>0&&snapshot?.sources.find(s=>s.id===target.sourceId)?.canMarkRead!==false)||draft.length>3500)&&<div className="composer-note">{uncertain && <span>Дождитесь синхронизации и проверьте отправку перед повтором</span>}{target && target.unreadCount > 0 && snapshot?.sources.find(s=>s.id===target.sourceId)?.canMarkRead!==false && <button disabled={pending||offline} onClick={read}>Отметить прочитанным</button>}{draft.length > 3500 && <span>{draft.length}/{LIMITS.text}</span>}</div>}
       </div>
     </section>
     {attachmentTarget&&<AttachmentViewer key={`${attachmentTarget.messageId}/${attachmentTarget.attachmentId}`} request={attachmentTarget} onClose={()=>setAttachmentTarget(undefined)} onUnauthorized={fail}/>}

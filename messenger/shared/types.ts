@@ -4,7 +4,7 @@
 export type EntityId = string;
 //: Описывает экземпляр источника для общего интерфейса.
 //: Не содержит реквизитов авторизации или native client.
-export interface Source { id: EntityId; kind: string; name: string; connected: boolean }
+export interface Source { id: EntityId; kind: string; name: string; connected: boolean; canMarkRead?:boolean }
 //: Описывает адресата либо отправителя сообщения.
 //: ID и видимое имя не заменяют маршрут Destination.
 export interface Recipient { id: EntityId; name: string; isSelf?: boolean }

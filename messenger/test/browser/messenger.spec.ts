@@ -1,4 +1,21 @@
 import { test, expect } from '@playwright/test';
+test('источники: видимые отметки Telegram и WhatsApp, без неподдерживаемого read WhatsApp',async({page})=>{
+ const reads:string[]=[];
+ await page.route('**/api/chat/**',async route=>{
+  const action=new URL(route.request().url()).pathname.split('/').pop();
+  if(!['session','login','snapshot','inbox','open','older','access','read'].includes(action!))return route.continue();
+  if(action==='read')reads.push(route.request().postDataJSON().conversationId);
+  const response=await route.fetch();const data=await response.json();
+  const decorate=(snapshot:any)=>{if(!snapshot?.sources)return;const source=snapshot.sources.find((s:any)=>s.id==='fixture-b');Object.assign(source,{kind:'whatsapp',name:'WhatsApp',canMarkRead:false});snapshot.conversations.filter((c:any)=>c.sourceId==='fixture-b').forEach((c:any)=>{c.unreadCount=2;});};
+  decorate(data);decorate(data.snapshot);await route.fulfill({response,json:data});
+ });
+ await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();
+ await expect(page.locator('.conversation-source').getByText('Telegram',{exact:true}).first()).toBeVisible();await expect(page.locator('.conversation-source[data-source-kind=whatsapp]')).toHaveText('WhatsApp');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.getByRole('button',{name:/Мария · другой источник/}).click();await expect(page.locator('.chat-heading')).toContainText('WhatsApp');await expect(page.getByRole('button',{name:'Отметить прочитанным',exact:true})).toHaveCount(0);
+ await page.waitForTimeout(1000);expect(reads.filter(id=>id.startsWith('fixture-b:'))).toEqual([]);
+});
+
 test('единая лента, выбор адресата, отправка, непрочитанные, выход и мобильные границы', async ({ page }, testInfo) => {
   const errors: string[] = [];
   let takingScreenshot = false;

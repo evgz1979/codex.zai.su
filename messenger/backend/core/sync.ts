@@ -40,7 +40,7 @@ export class AutoSyncService {
     if(now>=this.metadataAt){await this.core.refresh();if(this.stopped)return;this.metadataAt=now+30000;
       for(const adapter of this.core.registry.adapters)if(adapter.subscribe&&!this.subscriptions.has(adapter))this.subscriptions.set(adapter,adapter.subscribe(event=>{try{this.core.ingest(event);}catch{this.metadataAt=0;}},id=>this.core.selection.allows(id),conversation=>this.core.discoverContact(conversation)));
     }
-    const ids=this.core.selection.ids().filter(id=>{const conversation=this.store.conversation(id);return !!conversation&&this.core.registry.get(conversation.sourceId).source.connected;});if(!ids.length)return;
+    const ids=this.core.selection.ids().filter(id=>{const conversation=this.store.conversation(id);return now>=Number(this.store.get(`sync.retry.${id}`)||0)&&!!conversation&&this.core.registry.get(conversation.sourceId).source.connected;});if(!ids.length)return;
     for(const id of ids)if(!this.validated.has(id)){const state=this.store.progress(id);if(state.checkpointIds?.length&&!this.store.checkpointExists(state.checkpointIds)){this.store.saveProgress(id,{initialized:false,historyCursor:null,historyComplete:false,headKeys:[],newerCursor:null,pendingHeadKeys:[],nextHeadAt:0,checkpointIds:[]});}this.validated.add(id);}
     const entries=ids.map(id=>({id,state:this.store.progress(id)}));
     let item=entries.find(e=>!e.state.initialized&&this.priority.has(e.id))||entries.find(e=>!e.state.initialized);
@@ -56,9 +56,12 @@ export class AutoSyncService {
     const {id,state}=item;const c=this.store.conversation(id)!;const adapter=this.core.registry.get(c.sourceId);const revision=this.core.selection.revision;
     const before=state.initialized?(history?state.historyCursor:state.newerCursor)||undefined:undefined;
     let page:HistoryPage;
+    try{
     if(adapter.historyPage)page=await adapter.historyPage(id,before,state.initialized&&!history&&!state.newerCursor?LIMITS.pageMessages:LIMITS.syncMessages);
     else if(adapter.messagePage){const result=await adapter.messagePage(id,LIMITS.pageMessages,before);page={...result,cursors:result.messages.map(m=>m.id)};}
     else{const messages=await adapter.recentMessages(id,LIMITS.pageMessages);page={conversationId:id,messages,nextCursor:null,cursors:messages.map(m=>m.id)};}
+    }catch(error){if((error instanceof AppError&&error.retryAfterSeconds)||telegramAuthIssue(error).retryAfterSeconds)throw error;this.store.set(`sync.retry.${id}`,String(this.now()+30000));return;}
+    this.store.remove(`sync.retry.${id}`);
     if(this.stopped||revision!==this.core.selection.revision||!this.core.selection.allows(id))return;
     if(page.conversationId!==id||page.messages.length>LIMITS.syncMessages||page.nextCursor===before||page.messages.some(m=>m.conversationId!==id||m.sourceId!==c.sourceId))throw new Error('Invalid source page');
     this.core.cacheMessages(id,page.messages,state.initialized&&!history);

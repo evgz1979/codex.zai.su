@@ -157,10 +157,10 @@ async handle(request: BrowserRequest): Promise<BrowserResult>
 
 Загружает ограниченную порцию выбранной истории внутри WhatsApp Web.
 
-Курсор проверяется в том же чате; одна операция догружает не более 20 страниц браузера.
+Голова возвращается из кеша; одна догрузка ограничена восемью секундами, курсор привязан к чату.
 
 ```typescript
-private async page(jid: string, title: string, before?: string): Promise<BrowserResult>
+private async page(jid: string, before?: string): Promise<BrowserResult>
 ```
 
 <a id="symbol-WhatsAppBrowser.start"></a>

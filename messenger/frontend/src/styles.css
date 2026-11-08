@@ -97,6 +97,8 @@ svg { width: 21px; height: 21px; flex-shrink: 0; }
 .preview { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; margin-top: 1px; overflow: hidden; overflow-wrap: anywhere; color: #8e8e93; font-size: 15px; line-height: 20px; }
 .conversation:has(> .badge) .preview { padding-right: 38px; }
 .draft-caption { color: #e66b5b; }
+.conversation-source { display: inline; margin-right: 5px; color: #247cb9; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.conversation-source[data-source-kind=whatsapp] { color: #218455; }
 .conversation > .badge { position: absolute; right: 16px; top: 37px; }
 .list-empty { padding: 32px 20px; color: #8e8e93; text-align: center; font-size: 14px; line-height: 1.5; }
 .sidebar-footer { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 44px; padding: 0 12px max(0px, env(safe-area-inset-bottom)) 16px; border-top: 1px solid var(--line); background: #f7f7f8; color: var(--muted); font-size: 11px; }

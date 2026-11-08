@@ -8,7 +8,7 @@ import type {BrowserAction,BrowserRequest,BrowserResult} from './protocol.js';
 //: Связывает один личный аккаунт Messenger с серверным WhatsApp Web.
 //: Браузер и профиль живут в отдельном непривилегированном сервисе, доступ ограничен выбором.
 export class WhatsAppAdapter implements SourceAdapter {
-  readonly source={id:'whatsapp',kind:'whatsapp',name:'WhatsApp',connected:false};
+  readonly source={id:'whatsapp',kind:'whatsapp',name:'WhatsApp',connected:false,canMarkRead:false};
   private state:WhatsAppStatus={stage:'idle',connected:false};
   private account:string;
   //: Вычисляет постоянный ключ приватного профиля без передачи пути worker.

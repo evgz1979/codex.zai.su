@@ -46,6 +46,14 @@ test('автокеш: FloodWait не продвигает курсор и не �
  adapter.historyPage=async(...args)=>{attempts++;if(attempts===1)throw {name:'FloodWaitError',seconds:5};return original(...args);};
  await sync.tick();assert.equal(store.progress(id).historyCursor,cursor);await sync.tick();assert.equal(attempts,1);advance(5001);await sync.tick();assert.equal(attempts,2);assert.equal(adapter.historyCalls.at(-1)?.before,cursor);
 });
+
+test('автокеш: ошибка истории одного диалога не останавливает остальные',async t=>{
+ const root=mkdtempSync(join(tmpdir(),'sync-isolation-'));const store=new Store(root);const adapter=new TestAdapter();const ids=adapter.conversations.slice(0,2).map(c=>c.id);store.select(ids);let attempts=0;let now=Date.now();
+ adapter.historyPage=async id=>{if(id===ids[0]){attempts++;throw Error('history unavailable');}const messages=adapter.messages.filter(m=>m.conversationId===id);return {conversationId:id,messages,nextCursor:null,cursors:messages.map(m=>m.id)};};
+ const core=new MessengerService([adapter],store);const sync=new AutoSyncService(core,store,3000,()=>now);t.after(async()=>{await sync.stop();store.close();rmSync(root,{recursive:true,force:true});});
+ await sync.tick();assert.equal(attempts,1);assert.equal(store.get('sync.pausedUntil'),undefined);await sync.tick();assert.equal(store.progress(ids[1]).initialized,true);assert.ok(store.loadCache([ids[1]]).messages.length);
+ await sync.tick();assert.equal(attempts,1);now+=30001;await sync.tick();assert.equal(attempts,2);
+});
 test('автокеш: повреждённый старым усечением checkpoint приводит к восстановлению истории',async t=>{
  const {dir,store,adapter,id,core,sync,now}=context(t);for(let i=0;i<3;i++)await sync.tick();await sync.stop();
  const db=new DatabaseSync(join(dir,'messenger.sqlite'));db.prepare('DELETE FROM message_cache WHERE conversation_id=? AND id NOT IN (SELECT id FROM message_cache WHERE conversation_id=? ORDER BY date DESC,id DESC LIMIT 40)').run(id,id);db.close();

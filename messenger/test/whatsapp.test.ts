@@ -60,6 +60,13 @@ test('WhatsApp: браузер изолирует QR и слот, не откл�
  await browser.stop();assert.equal(destroyed,1);assert.equal(closed,1);
 });
 
+test('WhatsApp: остановка во время запуска ждёт только браузер, а не QR и синхронизацию',async t=>{
+ const root=mkdtempSync(join(tmpdir(),'wa-launch-stop-'));let closed=0;
+ const client=Object.assign(new EventEmitter(),{pupBrowser:undefined as undefined|{close():Promise<void>},async initialize(){await new Promise(r=>setTimeout(r,30));client.pupBrowser={async close(){closed++;}};await new Promise(()=>{});},async destroy(){}});
+ const browser=new WhatsAppBrowser(root,'/trusted/chrome',()=>client as never);t.after(async()=>{await browser.stop();rmSync(root,{recursive:true,force:true});});
+ const account='a'.repeat(64);await browser.handle({account,action:'start',interactive:true});await browser.handle({account,action:'stop'});assert.equal(closed,1);assert.equal(browser.status(account).stage,'idle');
+});
+
 test('WhatsApp: неотсканированный QR завершается через три минуты',async t=>{
  t.mock.timers.enable({apis:['setTimeout']});const root=mkdtempSync(join(tmpdir(),'wa-qr-timeout-'));let closed=0;
  const client=Object.assign(new EventEmitter(),{pupBrowser:{async close(){closed++;}},async initialize(){},async destroy(){},async getState(){return 'UNPAIRED';}});
@@ -201,6 +208,27 @@ test('WhatsApp: worker запускается через symlink релиза и
   assert.equal(child.exitCode,null);assert.equal(existsSync(socket),true);
   assert.equal((await browserCall({account:'a'.repeat(64),action:'status'},socket)).status?.stage,'idle');
  }finally{child.kill('SIGTERM');await exited;}
+});
+
+test('WhatsApp: выбранная история читает кеш и одну старую порцию без сериализатора чата',async t=>{
+ const root=mkdtempSync(join(tmpdir(),'wa-history-'));const account='a'.repeat(64);let calls=0;
+ const model=(n:number)=>({id:{_serialized:`false_${jid}_${n}`,remote:{_serialized:jid},fromMe:false},from:{_serialized:jid},to:{_serialized:'self'},t:1794153600+n,body:`Синтетическое ${n}`,type:'chat',ack:1});
+ let current=[model(1),model(2),model(3)];let earlier=[model(0)];const chat={id:{_serialized:jid},name:'Тест',msgs:{getModelsArray:()=>current}};
+ const w={WWebJS:{async getChat(actual:string,options:any){assert.equal(actual,jid);assert.equal(options.getAsModel,false);return chat;}},require:(name:string)=>{assert.equal(name,'WAWebChatLoadMessages');return {async loadEarlierMsgs(){calls++;const batch=earlier;earlier=[];return batch;}};}};
+ const client=Object.assign(new EventEmitter(),{pupBrowser:{async close(){}},pupPage:{async evaluate(fn:Function,arg:any){return runInNewContext(`(${fn.toString()})(input)`,{window:w,input:arg,setTimeout,clearTimeout});}},async initialize(){},async destroy(){},async getChatById(){throw Error('full chat serializer accessed');}});
+ const browser=new WhatsAppBrowser(root,'/trusted/chrome',()=>client as never);t.after(async()=>{await browser.stop();rmSync(root,{recursive:true,force:true});});
+ await browser.handle({account,action:'start',interactive:true});client.emit('ready');
+ const head=await browser.handle({account,action:'messages',conversationId:id,allowed:[id]});assert.equal(head.messages?.length,3);assert.equal(calls,0);assert.ok(head.nextCursor);
+ current=current.slice(1);const older=await browser.handle({account,action:'messages',conversationId:id,allowed:[id],before:head.nextCursor!});assert.equal(older.messages?.length,1);assert.equal(older.messages![0].text,'Синтетическое 0');assert.equal(calls,1);
+ const end=await browser.handle({account,action:'messages',conversationId:id,allowed:[id],before:older.nextCursor!});assert.equal(end.messages?.length,0);assert.equal(end.nextCursor,null);assert.equal(calls,2);
+});
+
+test('WhatsApp: пустая зависшая догрузка ограничена сроком и не выдаётся за полный архив',async t=>{
+ t.mock.timers.enable({apis:['setTimeout']});const root=mkdtempSync(join(tmpdir(),'wa-history-timeout-'));const account='a'.repeat(64);let calls=0;
+ const w={WWebJS:{async getChat(){return {id:{_serialized:jid},msgs:{getModelsArray:()=>[]}};}},require:()=>({loadEarlierMsgs(){calls++;return new Promise(()=>{});}})};
+ const client=Object.assign(new EventEmitter(),{pupBrowser:{async close(){}},pupPage:{async evaluate(fn:Function,arg:any){return runInNewContext(`(${fn.toString()})(input)`,{window:w,input:arg,setTimeout,clearTimeout});}},async initialize(){},async destroy(){}});
+ const browser=new WhatsAppBrowser(root,'/trusted/chrome',()=>client as never);t.after(async()=>{await browser.stop();rmSync(root,{recursive:true,force:true});});await browser.handle({account,action:'start',interactive:true});client.emit('ready');
+ const pending=browser.handle({account,action:'messages',conversationId:id,allowed:[id]});const rejected=assert.rejects(pending,/history_timeout/);await flush();t.mock.timers.tick(8001);await rejected;assert.equal(calls,1);assert.equal(browser.status(account).connected,true);
 });
 
 test('WhatsApp: каталог использует WAWebCollections без window.Store и не читает сообщения',async t=>{
