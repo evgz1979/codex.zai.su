@@ -40,6 +40,7 @@ export class WhatsAppBrowser {
   private owner?:string;
   private state:WhatsAppStatus={stage:'idle',connected:false};
   private loginTimer?:ReturnType<typeof setTimeout>;
+  private stateTimer?:ReturnType<typeof setTimeout>;
   private stopping?:Promise<void>;
   private qrVersion=0;
   private initializing?:Promise<void>;
@@ -90,14 +91,44 @@ export class WhatsAppBrowser {
       puppeteer:{headless:true,executablePath:this.executablePath,pipe:true,args:['--disable-dev-shm-usage','--disable-gpu','--renderer-process-limit=2','--js-flags=--max-old-space-size=160']},
       deviceName:'Z AI Messenger',authTimeoutMs:120000,qrMaxRetries:6,takeoverOnConflict:false});
     this.client=client;
-    client.on('qr',qr=>{if(!interactive){rmSync(join(directory,'linked'),{force:true});void this.fail(client,'Сессия WhatsApp истекла. Нажмите «Подключить WhatsApp» для нового QR.');return;}const version=++this.qrVersion;void QRCode.toDataURL(qr,{width:320,margin:2,errorCorrectionLevel:'M'}).then(qrDataUrl=>{if(this.client===client&&version===this.qrVersion)this.state={stage:'qr',connected:false,qrDataUrl,expiresAt:Date.now()+45000};}).catch(()=>this.fail(client));});
-    client.on('authenticated',()=>{if(this.client===client)this.state={stage:'starting',connected:false};});
-    client.on('ready',()=>{if(this.client!==client)return;clearTimeout(this.loginTimer);writePrivate(join(directory,'linked'),'1');this.state={stage:'connected',connected:true};});
+    client.on('qr',qr=>{if(this.client!==client||this.state.connected)return;if(!interactive){rmSync(join(directory,'linked'),{force:true});void this.fail(client,'Сессия WhatsApp истекла. Нажмите «Подключить WhatsApp» для нового QR.');return;}if(this.state.stage==='syncing')this.waitForScan(client);const version=++this.qrVersion;void QRCode.toDataURL(qr,{width:320,margin:2,errorCorrectionLevel:'M'}).then(qrDataUrl=>{if(this.client===client&&version===this.qrVersion)this.state={stage:'qr',connected:false,qrDataUrl,expiresAt:Date.now()+45000};}).catch(()=>this.fail(client));});
+    client.on('authenticated',()=>this.beginSync(client));
+    client.on('loading_screen',percent=>this.beginSync(client,percent));
+    client.on('ready',()=>{if(this.client!==client)return;clearTimeout(this.loginTimer);clearTimeout(this.stateTimer);this.qrVersion++;writePrivate(join(directory,'linked'),'1');this.state={stage:'connected',connected:true};});
     client.on('auth_failure',()=>{rmSync(join(directory,'linked'),{force:true});void this.fail(client);});
     client.on('disconnected',()=>{rmSync(join(directory,'linked'),{force:true});void this.fail(client);});
-    this.loginTimer=setTimeout(()=>{if(this.client===client&&!this.state.connected)void this.fail(client,'Время ожидания QR истекло. Нажмите «Подключить WhatsApp» заново.');},180000);this.loginTimer.unref();
+    this.waitForScan(client);this.watchStartup(client);
     this.initializing=client.initialize().catch(()=>{if(this.client===client)void this.fail(client);});
     return this.status(account);
+  }
+  //: Ограничивает ожидание сканирования отдельно от первичной синхронизации.
+  //: Перед истечением трёх минут повторно проверяет транспорт, не закрывая уже привязанный клиент.
+  private waitForScan(client:InstanceType<typeof WA.Client>){
+    clearTimeout(this.loginTimer);
+    this.loginTimer=setTimeout(async()=>{
+      if(this.client!==client||this.state.connected)return;
+      try{if(await client.getState()==='CONNECTED'){this.beginSync(client);return;}}catch{/* Ещё не готовая страница не подтверждает привязку. */}
+      if(this.client===client&&!this.state.connected)await this.fail(client,'Время ожидания QR истекло. Нажмите «Подключить WhatsApp» заново.');
+    },180000);this.loginTimer.unref();
+  }
+  //: Даёт привязанному клиенту отдельные пятнадцать минут на первичную загрузку.
+  //: CONNECTED транспорта не разрешает историю: доступ появляется только после ready библиотеки.
+  private beginSync(client:InstanceType<typeof WA.Client>,percent?:unknown){
+    if(this.client!==client||this.state.connected)return;
+    if(this.state.stage!=='syncing'){
+      clearTimeout(this.loginTimer);this.qrVersion++;this.state={stage:'syncing',connected:false};
+      this.loginTimer=setTimeout(()=>{if(this.client===client&&!this.state.connected)void this.fail(client,'Первичная синхронизация WhatsApp не завершилась за 15 минут. Нажмите «Подключить WhatsApp», чтобы продолжить.');},900000);this.loginTimer.unref();
+    }
+    if(typeof percent==='number'&&Number.isFinite(percent))this.state={...this.state,progress:Math.max(0,Math.min(100,Math.round(percent)))};
+  }
+  //: Определяет принятую привязку без чтения чатов, профиля или ключей.
+  //: Последовательный опрос работает и при закрытой админке; stop/ready отменяют таймер.
+  private watchStartup(client:InstanceType<typeof WA.Client>){
+    this.stateTimer=setTimeout(async()=>{
+      if(this.client!==client||this.state.connected)return;
+      try{if(await client.getState()==='CONNECTED')this.beginSync(client);}catch{/* Во время загрузки AuthStore может ещё отсутствовать. */}
+      if(this.client===client&&!this.state.connected)this.watchStartup(client);
+    },2000);this.stateTimer.unref();
   }
   //: Завершает только текущую браузерную сессию после безопасного отказа.
   //: Исходное исключение библиотеки и browser stderr не выводятся в журнал или API.
@@ -107,7 +138,7 @@ export class WhatsAppBrowser {
   //: Закрывает Chromium, сохраняя профиль для следующего восстановления.
   //: Только logout удаляет профиль; остановка аккаунта и релиз его не стирают.
   async stop(){
-    if(this.stopping)return this.stopping;clearTimeout(this.loginTimer);this.qrVersion++;
+    if(this.stopping)return this.stopping;clearTimeout(this.loginTimer);clearTimeout(this.stateTimer);this.qrVersion++;
     const client=this.client;const initializing=this.initializing;this.client=undefined;this.initializing=undefined;this.state={stage:'idle',connected:false};
     this.stopping=(async()=>{try{if(client&&!client.pupBrowser)await initializing;await client?.pupBrowser?.close?.();await client?.destroy();}catch{/* Процесс может быть уже завершён cgroup. */}finally{this.owner=undefined;this.stopping=undefined;}})();return this.stopping;
   }

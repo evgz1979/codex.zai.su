@@ -605,8 +605,9 @@ QR временный и не сохраняется frontend; cookie и про�
 
 ```typescript
 export interface WhatsAppStatus {
-    stage: 'idle' | 'starting' | 'qr' | 'connected' | 'error' | 'unavailable' | 'busy';
+    stage: 'idle' | 'starting' | 'qr' | 'syncing' | 'connected' | 'error' | 'unavailable' | 'busy';
     connected: boolean;
+    progress?: number;
     qrDataUrl?: string;
     expiresAt?: number;
     issue?: string;

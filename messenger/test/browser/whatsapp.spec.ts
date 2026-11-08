@@ -5,7 +5,7 @@ test('WhatsApp в админке: серверный QR, готовность, �
  await page.route('**/api/admin/**',async route=>{
   const action=new URL(route.request().url()).pathname.slice('/api/admin/'.length);
   const qr='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=';
-  const status={stage,connected:stage==='connected',...(stage==='qr'?{qrDataUrl:qr,expiresAt:Date.now()+30000}:{})};
+  const status={stage,connected:stage==='connected',...(stage==='syncing'?{progress:37}:{}),...(stage==='qr'?{qrDataUrl:qr,expiresAt:Date.now()+30000}:{})};
   if(action==='whatsapp/begin')stage='qr';
   if(action==='whatsapp/selection')selected=route.request().postDataJSON().ids;
   const data=action==='session'?{authenticated:true,setupRequired:false,csrfToken:'synthetic-csrf',account:{id:'owner',username:'owner',displayName:'Владелец',isOwner:true,path:'/'}}:action==='status'?{telegram:{configured:false,connected:false,stage:'idle'},selectedCount:0}:action==='whatsapp/begin'?{stage:'qr',connected:false,qrDataUrl:qr}:action==='whatsapp/status'?status:action==='whatsapp/dialogs'?{conversations:[{id:'whatsapp:conversation:test',sourceId:'whatsapp',title:'Тест WhatsApp',kind:'direct',recipient:{id:'whatsapp:recipient:test',name:'Тест'},unreadCount:0,updatedAt:new Date().toISOString(),preview:'',canSend:true}],folders:[],truncated:false,selectedIds:selected}:{selectedIds:selected};
@@ -14,6 +14,8 @@ test('WhatsApp в админке: серверный QR, готовность, �
  await page.goto('/admin');await page.getByRole('button',{name:'Источники → WhatsApp',exact:true}).click();
  await page.getByRole('button',{name:'Подключить WhatsApp',exact:true}).click();await expect(page.getByAltText('QR-код подключения WhatsApp')).toBeVisible();
  expect(await page.evaluate(()=>JSON.stringify({...localStorage}))).not.toContain('data:image');
+ stage='syncing';await expect(page.getByText('Синхронизация WhatsApp: 37%',{exact:true})).toBeVisible();await expect(page.getByAltText('QR-код подключения WhatsApp')).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'Подключить WhatsApp',exact:true})).toBeDisabled();await expect(page.getByRole('button',{name:'Отключить WhatsApp',exact:true})).toBeEnabled();await expect(page.getByRole('button',{name:'Получить список диалогов WhatsApp'})).toBeDisabled();
  stage='connected';await expect(page.getByText('WhatsApp подключён',{exact:true})).toBeVisible();await expect(page.getByAltText('QR-код подключения WhatsApp')).toHaveCount(0);
  await page.getByRole('button',{name:'Получить список диалогов WhatsApp'}).click();await expect(page.getByText('Тест WhatsApp',{exact:true})).toBeVisible();
  await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Сохранить выбор'}).click();await expect(page.getByText('Выбор WhatsApp сохранён.')).toBeVisible();expect(selected).toEqual(['whatsapp:conversation:test']);

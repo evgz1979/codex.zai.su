@@ -164,5 +164,8 @@
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: выбранная read-only группа доступна для чтения, отправка в неё запрещена
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: закрытый протокол отклоняет RPC, путь профиля и невыбранного получателя
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: история недоступного Telegram не задерживает синхронизацию WhatsApp
+- [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: неотсканированный QR завершается через три минуты
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: отсутствие Telegram-входа не блокирует метаданные подключённого WhatsApp
+- [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: принятый QR получает время на синхронизацию, доступ к чатам только после ready
+- [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: события прогресса не продлевают предел первичной синхронизации бесконечно
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: только владелец получает адаптер и API, личный admin не обходит запрет

@@ -91,6 +91,18 @@ export interface WebMessage {
 class WhatsAppBrowser
 ```
 
+<a id="symbol-WhatsAppBrowser.beginSync"></a>
+
+## WhatsAppBrowser.beginSync
+
+Даёт привязанному клиенту отдельные пятнадцать минут на первичную загрузку.
+
+CONNECTED транспорта не разрешает историю: доступ появляется только после ready библиотеки.
+
+```typescript
+private beginSync(client: InstanceType<typeof WA.Client>, percent?: unknown)
+```
+
 <a id="symbol-WhatsAppBrowser.catalog"></a>
 
 ## WhatsAppBrowser.catalog
@@ -185,4 +197,28 @@ status(account: string): WhatsAppStatus
 
 ```typescript
 async stop()
+```
+
+<a id="symbol-WhatsAppBrowser.waitForScan"></a>
+
+## WhatsAppBrowser.waitForScan
+
+Ограничивает ожидание сканирования отдельно от первичной синхронизации.
+
+Перед истечением трёх минут повторно проверяет транспорт, не закрывая уже привязанный клиент.
+
+```typescript
+private waitForScan(client: InstanceType<typeof WA.Client>)
+```
+
+<a id="symbol-WhatsAppBrowser.watchStartup"></a>
+
+## WhatsAppBrowser.watchStartup
+
+Определяет принятую привязку без чтения чатов, профиля или ключей.
+
+Последовательный опрос работает и при закрытой админке; stop/ready отменяют таймер.
+
+```typescript
+private watchStartup(client: InstanceType<typeof WA.Client>)
 ```

@@ -163,7 +163,7 @@ export interface AdminStatus { telegram: { configured: boolean; connected: boole
 
 //: Передаёт состояние серверного WhatsApp Web в личную админку.
 //: QR временный и не сохраняется frontend; cookie и профиль Chromium никогда не возвращаются.
-export interface WhatsAppStatus {stage:'idle'|'starting'|'qr'|'connected'|'error'|'unavailable'|'busy';connected:boolean;qrDataUrl?:string;expiresAt?:number;issue?:string}
+export interface WhatsAppStatus {stage:'idle'|'starting'|'qr'|'syncing'|'connected'|'error'|'unavailable'|'busy';connected:boolean;progress?:number;qrDataUrl?:string;expiresAt?:number;issue?:string}
 
 //: Перечисляет разрешённые категории отказа Telegram.
 //: Произвольный текст исключений и введённые реквизиты не входят в контракт.

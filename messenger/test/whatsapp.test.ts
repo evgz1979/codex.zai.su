@@ -6,6 +6,7 @@ import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {setImmediate as flush} from 'node:timers/promises';
 import {request as httpRequest} from 'node:http';
 import {browserRequest,type BrowserRequest,type BrowserResult} from '../backend/connectors/whatsapp/protocol.js';
 import {WhatsAppBrowser,webMessage,type WebMessage} from '../backend/connectors/whatsapp/browser.js';
@@ -56,6 +57,38 @@ test('WhatsApp: браузер изолирует QR и слот, не откл�
  await browser.handle({account:b,action:'logout'});assert.equal(destroyed,0);assert.equal(browser.status(a).stage,'qr');
  client.emit('ready');assert.equal(browser.status(a).connected,true);assert.equal(browser.status(a).qrDataUrl,undefined);
  await browser.stop();assert.equal(destroyed,1);assert.equal(closed,1);
+});
+
+test('WhatsApp: неотсканированный QR завершается через три минуты',async t=>{
+ t.mock.timers.enable({apis:['setTimeout']});const root=mkdtempSync(join(tmpdir(),'wa-qr-timeout-'));let closed=0;
+ const client=Object.assign(new EventEmitter(),{pupBrowser:{async close(){closed++;}},async initialize(){},async destroy(){},async getState(){return 'UNPAIRED';}});
+ const browser=new WhatsAppBrowser(root,'/trusted/chrome',()=>client as never);t.after(async()=>{await browser.stop();rmSync(root,{recursive:true,force:true});});
+ const account='a'.repeat(64);await browser.handle({account,action:'start',interactive:true});
+ t.mock.timers.tick(180001);await flush();assert.equal(closed,1);assert.equal(browser.status(account).stage,'error');assert.match(browser.status(account).issue!,/ожидания QR/);
+});
+
+test('WhatsApp: принятый QR получает время на синхронизацию, доступ к чатам только после ready',async t=>{
+ t.mock.timers.enable({apis:['setTimeout']});const root=mkdtempSync(join(tmpdir(),'wa-sync-phase-'));let closed=0;let nativeState='UNPAIRED';
+ const client=Object.assign(new EventEmitter(),{pupBrowser:{async close(){closed++;}},async initialize(){},async destroy(){},async getState(){return nativeState;}});
+ const browser=new WhatsAppBrowser(root,'/trusted/chrome',()=>client as never);t.after(async()=>{await browser.stop();rmSync(root,{recursive:true,force:true});});
+ const account='a'.repeat(64);await browser.handle({account,action:'start',interactive:true});
+ t.mock.timers.tick(2000);await flush();assert.equal(browser.status(account).stage,'starting');
+ nativeState='CONNECTED';t.mock.timers.tick(2000);await flush();assert.equal(browser.status(account).stage,'syncing');assert.equal(browser.status(account).connected,false);
+ client.emit('loading_screen',37);assert.equal(browser.status(account).progress,37);assert.equal(browser.status(account).qrDataUrl,undefined);
+ t.mock.timers.tick(180001);await flush();assert.equal(closed,0);assert.equal(browser.status(account).stage,'syncing');
+ await assert.rejects(browser.handle({account,action:'catalog'}),/browser_not_ready/);
+ client.emit('ready');assert.equal(browser.status(account).connected,true);assert.equal(browser.status(account).progress,undefined);assert.ok(existsSync(join(root,account,'linked')));
+ t.mock.timers.tick(900001);await flush();assert.equal(closed,0);assert.equal(browser.status(account).stage,'connected');
+});
+
+test('WhatsApp: события прогресса не продлевают предел первичной синхронизации бесконечно',async t=>{
+ t.mock.timers.enable({apis:['setTimeout']});const root=mkdtempSync(join(tmpdir(),'wa-sync-timeout-'));let closed=0;
+ const client=Object.assign(new EventEmitter(),{pupBrowser:{async close(){closed++;}},async initialize(){},async destroy(){},async getState(){return 'CONNECTED';}});
+ const browser=new WhatsAppBrowser(root,'/trusted/chrome',()=>client as never);t.after(async()=>{await browser.stop();rmSync(root,{recursive:true,force:true});});
+ const account='a'.repeat(64);await browser.handle({account,action:'start',interactive:true});client.emit('loading_screen',10);
+ t.mock.timers.tick(600000);await flush();client.emit('loading_screen',50);assert.equal(closed,0);
+ t.mock.timers.tick(300001);await flush();assert.equal(closed,1);assert.equal(browser.status(account).stage,'error');assert.match(browser.status(account).issue!,/синхронизация.*15 минут/);
+ assert.equal(existsSync(join(root,account,'linked')),false);
 });
 
 test('WhatsApp: адаптер проверяет текущий выбор и точный маршрут, ключи аккаунтов независимы',async t=>{
