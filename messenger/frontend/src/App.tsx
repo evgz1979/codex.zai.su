@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { destinationFor,messagePreview,compareConversations, LIMITS, type Conversation, type ConversationPageResult, type Message, type MessagePage, type SessionInfo, type Snapshot, type SyncStatus } from '../../shared/types';
+import AppUpdates,{useAppUpdates} from './AppUpdates';
 import Avatar,{clearAvatars} from './Avatar';
 import AttachmentPreview from './AttachmentPreview';
 import {clearPreviews} from './previews';
@@ -35,6 +36,7 @@ function Brand() { return <div className="brand"><span className="monogram">Z</s
 //: Отображает вход, список чатов и отдельную переписку с явным адресатом.
 //: Держит снимок и черновики в памяти React, без хранилища браузера.
 export function App() {
+  const updates=useAppUpdates();
   const [session, setSession] = useState<SessionInfo>();
   const [snapshot, setSnapshot] = useState<Snapshot>();
   const [attachmentTarget,setAttachmentTarget]=useState<AttachmentRequest>();
@@ -286,12 +288,13 @@ export function App() {
         {error && <p className="error" role="alert">{error}</p>}
       </form>}
     </section>
+    <AppUpdates updates={updates} busy={busy} hasDrafts={false}/>
   </main>;
 
   const conversations=snapshot?.conversations.filter(c=>(!onlyUnread||c.unreadCount>0)&&c.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())).sort(compareConversations)||[];
   return <main className={`workspace ${chatOpen?'chat-screen':'list-screen'}`}>
     <aside className="sidebar" aria-label="Чаты" hidden={chatOpen}>
-      <header className="list-header"><a href={`${appBase}/admin`} className="settings-link">Настройки</a><div><h1>Чаты</h1><p role="status">{arrival.opening&&!snapshot?'Соединение…':syncStatus?.pausedUntil?'Синхронизация приостановлена':connected?'Обновлено':'Нет подключения'}</p></div><button className="icon-button inbox-button" aria-label="Общая лента" disabled={busy} onClick={()=>void openInbox()}><Icon name="inbox" /></button></header>
+      <header className="list-header"><a href={`${appBase}/admin`} className="settings-link">Настройки</a><div><h1>Чаты</h1><p role="status">{arrival.opening&&!snapshot?'Соединение…':syncStatus?.pausedUntil?'Синхронизация приостановлена':connected?'Подключено':'Нет подключения'}</p></div><button className="icon-button inbox-button" aria-label="Общая лента" disabled={busy} onClick={()=>void openInbox()}><Icon name="inbox" /></button></header>
       <label className="search"><Icon name="search" /><input aria-label="Поиск диалогов" placeholder="Поиск" value={query} onChange={e=>setQuery(e.target.value)} /></label>
       <div className="chat-filters" role="group" aria-label="Фильтр чатов"><button aria-pressed={!onlyUnread} onClick={()=>setOnlyUnread(false)}>Все</button><button aria-pressed={onlyUnread} onClick={()=>setOnlyUnread(true)}>Непрочитанные{unread>0&&<span>{unread}</span>}</button></div>
       {error&&<div className="error-banner" role="alert">{error}</div>}
@@ -304,9 +307,11 @@ export function App() {
         {!conversations.length&&<p className="list-empty">{!snapshot?'Загрузка чатов…':query.trim()?'Чаты не найдены':onlyUnread?'Нет непрочитанных чатов':'Здесь появятся ваши диалоги после подключения аккаунта и выбора в админке.'}</p>}
       </nav>
       <Notifications />
+      <AppUpdates updates={updates} busy={pending||!!attachmentTarget} hasDrafts={Object.values(drafts).some(Boolean)}/>
       <div className="sidebar-footer"><span>{session.account?.displayName||'Messenger'} · {unread} непрочитанных</span><button className="icon-button" aria-label="Выйти" onClick={logout} disabled={busy}><Icon name="logout" /></button></div>
     </aside>
     <section className="chat" aria-label="Единая лента сообщений" hidden={!chatOpen}>
+      {updates.available&&<AppUpdates updates={updates} busy={pending||!!attachmentTarget} hasDrafts={Object.values(drafts).some(Boolean)}/>}
       <header className="chat-header"><button className="back-button" aria-label="Назад к чатам" disabled={busy} onClick={backToList}><Icon name="back"/><span>Чаты</span></button><div className="chat-heading"><div className="header-title"><h1>{target?.title||'Общая лента'}</h1></div><p>{target?snapshot?.sources.find(s=>s.id===target.sourceId)?.name:`${unread} непрочитанных`}</p></div>{target&&<Avatar key={target.id} conversation={target} onUnauthorized={fail}/>}</header>
       <div className="feed-info"><span className="status-dot" />{syncStatus?.pausedUntil?'Синхронизация временно приостановлена':syncStatus?.pendingConversations?'История синхронизируется в фоне':'Автоматическая синхронизация'}<span className="feed-limit">Сообщения из локального кеша</span></div>
       {error && <div className="error-banner" role="alert">{error}</div>}

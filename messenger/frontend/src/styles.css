@@ -274,3 +274,10 @@ svg { width: 21px; height: 21px; flex-shrink: 0; }
 .media-viewer footer .media-download-secondary { color: var(--muted); font-weight: 400; }
 .media-open-primary { display: inline-flex; align-items: center; min-height: 44px; color: #247cb9; font-weight: 600; }
 .media-text { max-width: 100%; margin: 0; text-align: left; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.4; }
+
+.app-updates { flex: none; padding: 5px 16px; border-top: 1px solid var(--line); background: #f7f7f8; color: var(--muted); font-size: 11px; }
+.app-updates > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 38px; }
+.app-updates button { flex: none; min-height: 44px; padding: 6px 0 6px 8px; background: transparent; color: #0088ff; font-size: 12px; }
+.app-updates p { padding-bottom: 6px; color: #ae493e; line-height: 1.4; }
+.update-available { background: #e8f3ff; color: #236eae; }
+.entry > .app-updates { width: min(100%, 380px); margin: 0 auto; border-radius: 8px; }

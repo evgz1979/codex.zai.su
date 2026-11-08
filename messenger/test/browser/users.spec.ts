@@ -13,6 +13,7 @@ test('личный Messenger: владелец создаёт ссылку, им
   await page.getByLabel('Пароль',{exact:true}).fill('anna-browser-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();
   await expect(page.getByRole('navigation',{name:'Получатели'}).getByRole('button')).toHaveCount(0);
   await expect(page.locator('.sidebar-footer')).toContainText('Анна');
+  await page.getByRole('button',{name:'Обновить приложение',exact:true}).click();await expect(page).toHaveURL(new RegExp(`/${username}/\\?_app_update=`));await expect(page.locator('.sidebar-footer')).toContainText('Анна');
 
   await page.getByRole('link',{name:'Настройки',exact:true}).click();await expect(page).toHaveURL(new RegExp(`/${username}/admin$`));
   await expect(page.getByText(`Анна · @${username}`,{exact:true})).toBeVisible();await page.getByLabel('Пароль администратора').fill('anna-browser-password');await page.getByRole('button',{name:'Войти',exact:true}).click();

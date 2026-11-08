@@ -36,6 +36,7 @@
 | [frontend/public/manifest.webmanifest](frontend--public--manifest.webmanifest.md) | Идентичность и режим standalone для установки Messenger на экран «Домой». | 0 |
 | [frontend/public/sw.js](frontend--public--sw.js.md) | Service Worker для видимых push-уведомлений и открытия чата без кеширования переписки. | 0 |
 | [frontend/src/App.tsx](frontend--src--App.md) | Единый React-интерфейс, веб-вход, адресат, черновики и состояние операций. | 24 |
+| [frontend/src/AppUpdates.tsx](frontend--src--AppUpdates.md) | Проверка версии сборки и обновление приложения по нажатию без смены manifest и подписок. | 6 |
 | [frontend/src/AttachmentPreview.tsx](frontend--src--AttachmentPreview.md) | Ленивая миниатюра в ленте, фиксированные размеры и открытие оригинала. | 1 |
 | [frontend/src/AttachmentViewer.tsx](frontend--src--AttachmentViewer.md) | Модальный просмотр медиа по явному запросу, скачивание и отзыв Blob URL. | 2 |
 | [frontend/src/Avatar.tsx](frontend--src--Avatar.md) | Круглые фотографии разрешённых диалогов с загрузкой возле видимой области и инициалами. | 5 |
@@ -50,7 +51,7 @@
 | [frontend/src/useAppBadge.ts](frontend--src--useAppBadge.md) | Согласование значка приложения и уведомлений при чтении, возврате фокуса и позднем push. | 4 |
 | [frontend/src/useConversationArrival.ts](frontend--src--useConversationArrival.md) | Отменяемое открытие свежего непрочитанного при запуске и возврате, точного диалога по уведомлению. | 7 |
 | [frontend/src/useVisibleReads.ts](frontend--src--useVisibleReads.md) | Подтверждение просмотра реально видимых сообщений после остановки прокрутки в активной ленте. | 4 |
-| [frontend/vite.config.ts](frontend--vite.config.md) | React/Vite-сборка в dist/client без отдельного production-порта. | 0 |
+| [frontend/vite.config.ts](frontend--vite.config.md) | React/Vite-сборка в dist/client без отдельного production-порта. | 1 |
 | [playwright.config.ts](playwright.config.md) | Три браузерные конфигурации и изолированный сервер синтетических данных. | 0 |
 | [scripts/app-icon.svg](scripts--app-icon.md) | Квадратная иконка установки с непрозрачным фоном до краёв; маску применяет ОС. | 0 |
 | [scripts/build-documentation.mjs](scripts--build-documentation.md) | AST-справочник, маршруты, DDL, тестовый индекс и проверка ссылок без запуска приложения. | 16 |

@@ -5,6 +5,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const printer = ts.createPrinter({ removeComments: true, newLine: ts.NewLineKind.LineFeed });
 const purposes = {
+  'test/browser/updates.spec.ts':'Проверка обновления установленного приложения, предупреждения о черновиках, входа и отказа сети.',
+  'frontend/src/AppUpdates.tsx':'Проверка версии сборки и обновление приложения по нажатию без смены manifest и подписок.',
   'backend/accounts.ts': 'Закрытый реестр личных пользователей, персональные ссылки, блокировки и независимые серверные экземпляры.',
   'backend/runtime.ts': 'Отдельные БД, Telegram, пароли, медиакеш, push и жизненный цикл личного аккаунта.',
   'frontend/src/admin/UsersPanel.tsx': 'Добавление личных пользователей владельцем, персональные ссылки и блокировка доступа.',

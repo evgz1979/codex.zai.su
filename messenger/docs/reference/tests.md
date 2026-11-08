@@ -51,6 +51,8 @@
 - [test/browser/notifications.spec.ts](../../test/browser/notifications.spec.ts): уведомления: явное включение, проверка и выключение без повторного запроса разрешения
 - [test/browser/paging.spec.ts](../../test/browser/paging.spec.ts): автокеш: прокрутка без кнопок, обновления и удаления, быстрый переход
 - [test/browser/reads.spec.ts](../../test/browser/reads.spec.ts): просмотр: видимая активная лента снимает счётчик, скрытые сообщения ждут просмотра
+- [test/browser/updates.spec.ts](../../test/browser/updates.spec.ts): обновления: без сети приложение остаётся открытым, восстановление позволяет обновиться
+- [test/browser/updates.spec.ts](../../test/browser/updates.spec.ts): обновления: новая сборка не перезагружает чат, отмена сохраняет черновик, применение сохраняет вход
 - [test/browser/users.spec.ts](../../test/browser/users.spec.ts): личный Messenger: владелец создаёт ссылку, имя видно на главной, вход только паролем и чужие чаты закрыты
 - [test/core.test.ts](../../test/core.test.ts): SQLite сохраняет всю историю, ограничивает снимок и сохраняет исключённый архив
 - [test/core.test.ts](../../test/core.test.ts): единая лента объединяет источники и сохраняет хронологию

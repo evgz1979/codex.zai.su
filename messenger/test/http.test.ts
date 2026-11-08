@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { get } from 'node:http';
@@ -11,6 +11,7 @@ import { createApp } from '../backend/http.js';
 import { TestAdapter } from './fixtures.js';
 test('HTTP: вход, CSRF, Origin/Host, приватные API, безопасные ошибки и выход', async () => {
   const dir = mkdtempSync(join(tmpdir(),'zai-messenger-http-'));
+  writeFileSync(join(dir,'version.json'),JSON.stringify({version:'0.12.3',buildId:'synthetic-build'}));
   const store = new Store(dir); store.set('auth.chat',await passwordHash('test-password-only'));store.set('auth.admin',await passwordHash('admin-password-only'));
   const adapter = new TestAdapter();adapter.conversations[0].avatarVersion='test-photo';adapter.avatars.set(adapter.conversations[0].id,Buffer.from([255,216,255,224,0,0])); store.select(adapter.conversations.map(c=>c.id));const service = new MessengerService([adapter],store);
   store.upsertMessages(adapter.messages);
@@ -20,6 +21,7 @@ test('HTTP: вход, CSRF, Origin/Host, приватные API, безопас�
   await new Promise<void>(resolve => server.listen(14319,'127.0.0.1',resolve));
   const request = (path: string, input?: unknown, headers: Record<string,string> = {}) => fetch(origin+path, { method:input === undefined ? 'GET':'POST', headers:{ ...(input === undefined ? {} : {'Content-Type':'application/json',Origin:origin}), ...headers }, ...(input === undefined ? {} : { body:JSON.stringify(input) }) });
   try {
+    const version=await request('/version.json');assert.equal(version.status,200);assert.equal(version.headers.get('cache-control'),'no-store');assert.match(version.headers.get('content-type')||'',/application\/json/);assert.deepEqual(await version.json(),{version:'0.12.3',buildId:'synthetic-build'});
     assert.equal((await request('/api/chat/snapshot')).status,401);
     assert.equal((await request('/api/chat/inbox',{})).status,401);
     assert.equal((await request('/api/chat/avatar',{conversationId:adapter.conversations[0].id})).status,401);assert.equal(adapter.avatarCalls,0);

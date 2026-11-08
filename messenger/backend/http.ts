@@ -165,7 +165,7 @@ export function createApp(options: { service:MessengerService; store:Store; auth
       if(req.method!=='GET') throw new AppError(405,'Метод недоступен.');
       if(personal&&!personalApi&&originalPath===pagePrefix){res.writeHead(308,{Location:`${pagePrefix}/`});return res.end();}
       const asset=path==='/'||path==='/admin'||path==='/admin/'?'/index.html':decodeURIComponent(path);
-      if(!['/index.html','/favicon.svg','/manifest.webmanifest','/sw.js','/icon-192.png','/icon-512.png','/apple-touch-icon.png'].includes(asset)&&!/^\/assets\/[a-zA-Z0-9_.-]+\.(js|css)$/.test(asset)) throw new AppError(404,'Файл не найден.');
+      if(!['/version.json','/index.html','/favicon.svg','/manifest.webmanifest','/sw.js','/icon-192.png','/icon-512.png','/apple-touch-icon.png'].includes(asset)&&!/^\/assets\/[a-zA-Z0-9_.-]+\.(js|css)$/.test(asset)) throw new AppError(404,'Файл не найден.');
       const file=resolve(root,`.${asset}`); if(!file.startsWith(root+sep)) throw new AppError(404,'Файл не найден.');
       let bytes:Buffer; try{bytes=await readFile(file);}catch{throw new AppError(404,'Файл не найден.');}
       if(personal&&asset==='/index.html'){
@@ -175,7 +175,7 @@ export function createApp(options: { service:MessengerService; store:Store; auth
       if(personal&&asset==='/manifest.webmanifest'){
         const manifest=JSON.parse(bytes.toString());manifest.id=`${pagePrefix}/`;manifest.start_url=`${pagePrefix}/`;manifest.scope=`${pagePrefix}/`;manifest.name=`Z AI Messenger · ${account!.info.displayName}`;manifest.short_name=account!.info.displayName;bytes=Buffer.from(JSON.stringify(manifest));
       }
-      const mime:Record<string,string>={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
+      const mime:Record<string,string>={'.json':'application/json; charset=utf-8','.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
       res.writeHead(200,{'Content-Type':mime[extname(file)]}); res.end(bytes);
     } catch(error) {
       if(res.headersSent) return res.destroy();
