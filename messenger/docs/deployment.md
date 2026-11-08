@@ -5,7 +5,7 @@
 `zai-whatsapp.service` работает отдельным пользователем `zai-whatsapp`.
 Unix socket `/run/zai-whatsapp/control.sock` имеет 0660, группу Messenger;
 профили `/var/lib/zai-whatsapp/<server-key>` имеют 0700. TCP-портов нет.
-MemoryHigh — 768 МиБ, MemoryMax — 896 МиБ, MemorySwapMax — 0, CPUQuota — 35%,
+MemoryHigh — 864 МиБ, MemoryMax — 896 МиБ, MemorySwapMax — 0, CPUQuota — 35%,
 TasksMax — 256. При сбое завершается весь браузерный cgroup; Messenger/Telegram
 работают отдельно. На данном VPS доступна одна активная WhatsApp-сессия.
 
