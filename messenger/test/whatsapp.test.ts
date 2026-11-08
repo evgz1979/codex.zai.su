@@ -39,8 +39,8 @@ test('WhatsApp: закрытый протокол отклоняет RPC, пут
 
 test('WhatsApp: браузер изолирует QR и слот, не отключает чужую сессию, сохраняет sandbox',async t=>{
  const root=mkdtempSync(join(tmpdir(),'wa-worker-'));t.after(()=>rmSync(root,{recursive:true,force:true}));
- let options:any;let destroyed=0;
- const client=Object.assign(new EventEmitter(),{pupBrowser:{},async initialize(){},async destroy(){destroyed++;}});
+ let options:any;let destroyed=0;let closed=0;
+ const client=Object.assign(new EventEmitter(),{pupBrowser:{async close(){closed++;}},async initialize(){},async destroy(){destroyed++;}});
  const browser=new WhatsAppBrowser(root,'/trusted/chrome',input=>{options=input;return client as never;});t.after(()=>browser.stop());
  const a='a'.repeat(64),b='b'.repeat(64);
  assert.equal((await browser.handle({account:a,action:'start'})).status?.stage,'idle');
@@ -54,7 +54,7 @@ test('WhatsApp: браузер изолирует QR и слот, не откл�
  await browser.handle({account:b,action:'stop'});assert.equal(destroyed,0);
  await browser.handle({account:b,action:'logout'});assert.equal(destroyed,0);assert.equal(browser.status(a).stage,'qr');
  client.emit('ready');assert.equal(browser.status(a).connected,true);assert.equal(browser.status(a).qrDataUrl,undefined);
- await browser.stop();assert.equal(destroyed,1);
+ await browser.stop();assert.equal(destroyed,1);assert.equal(closed,1);
 });
 
 test('WhatsApp: адаптер проверяет текущий выбор и точный маршрут, ключи аккаунтов независимы',async t=>{
@@ -128,4 +128,14 @@ test('WhatsApp: worker запускается через symlink релиза и
   assert.equal(child.exitCode,null);assert.equal(existsSync(socket),true);
   assert.equal((await browserCall({account:'a'.repeat(64),action:'status'},socket)).status?.stage,'idle');
  }finally{child.kill('SIGTERM');await exited;}
+});
+
+test('WhatsApp: выбранная read-only группа доступна для чтения, отправка в неё запрещена',async t=>{
+ const root=mkdtempSync(join(tmpdir(),'wa-readonly-'));t.after(()=>rmSync(root,{recursive:true,force:true}));
+ const jid='99999-1@g.us';const conversationId=entityId('whatsapp','conversation',jid);const account='a'.repeat(64);let sends=0;
+ const client=Object.assign(new EventEmitter(),{pupBrowser:{async close(){}},pupPage:{async evaluate(){return {messages:[],more:false};}},async initialize(){},async destroy(){},async getChatById(){return {id:{_serialized:jid},name:'Группа',isReadOnly:true};},async sendMessage(){sends++;}});
+ const browser=new WhatsAppBrowser(root,'/unused/chrome',()=>client as never);t.after(()=>browser.stop());
+ await browser.handle({account,action:'start',interactive:true});client.emit('ready');
+ assert.deepEqual((await browser.handle({account,action:'messages',conversationId,allowed:[conversationId]})).messages,[]);
+ await assert.rejects(browser.handle({account,action:'send',conversationId,recipientId:entityId('whatsapp','recipient',jid),allowed:[conversationId],text:'текст'}),/invalid_destination/);assert.equal(sends,0);
 });

@@ -160,6 +160,7 @@
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: адаптер проверяет текущий выбор и точный маршрут, ключи аккаунтов независимы
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: браузер изолирует QR и слот, не отключает чужую сессию, сохраняет sandbox
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: выбор и отключение одного источника сохраняют Telegram и архив
+- [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: выбранная read-only группа доступна для чтения, отправка в неё запрещена
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: закрытый протокол отклоняет RPC, путь профиля и невыбранного получателя
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: история недоступного Telegram не задерживает синхронизацию WhatsApp
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: отсутствие Telegram-входа не блокирует метаданные подключённого WhatsApp

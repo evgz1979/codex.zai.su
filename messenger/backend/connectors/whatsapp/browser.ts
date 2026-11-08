@@ -63,14 +63,14 @@ export class WhatsAppBrowser {
     if(action==='start')return {status:await this.start(account,request.interactive===true)};
     if(action==='stop'){if(this.owner===account)await this.stop();return {status:{stage:'idle',connected:false}};}
     if(action==='logout'){
-      if(this.owner===account){if(this.client&&this.state.connected)await this.client.logout();await this.stop();}
+      if(this.owner===account){try{if(this.client&&this.state.connected)await this.client.pupPage!.evaluate(()=>((window as any).require('WAWebSocketModel').Socket.logout()));}catch{/* Локальный доступ отзывается и при недоступности WhatsApp. */}finally{await this.stop();}}
       rmSync(join(this.root,account),{recursive:true,force:true});return {status:{stage:'idle',connected:false}};
     }
     if(this.owner&&this.owner!==account)throw new Error('browser_busy');
     if(!this.client||!this.state.connected)throw new Error('browser_not_ready');
     if(action==='catalog')return {conversations:await this.catalog()};
     const jid=nativeChat(request.conversationId!);const chat=await this.client.getChatById(jid);
-    if(!chat||chat.id._serialized!==jid||chat.isReadOnly)throw new Error('invalid_destination');
+    if(!chat||chat.id._serialized!==jid||action==='send'&&chat.isReadOnly)throw new Error('invalid_destination');
     if(action==='send'){
       if(request.recipientId!==entityId('whatsapp','recipient',jid))throw new Error('invalid_destination');
       const result=await this.client.sendMessage(jid,request.text!,{sendSeen:false});
@@ -109,7 +109,7 @@ export class WhatsAppBrowser {
   async stop(){
     if(this.stopping)return this.stopping;clearTimeout(this.loginTimer);this.qrVersion++;
     const client=this.client;const initializing=this.initializing;this.client=undefined;this.initializing=undefined;this.state={stage:'idle',connected:false};
-    this.stopping=(async()=>{try{if(client&&!client.pupBrowser)await initializing;await client?.destroy();}catch{/* Процесс может быть уже завершён cgroup. */}finally{this.owner=undefined;this.stopping=undefined;}})();return this.stopping;
+    this.stopping=(async()=>{try{if(client&&!client.pupBrowser)await initializing;await client?.pupBrowser?.close?.();await client?.destroy();}catch{/* Процесс может быть уже завершён cgroup. */}finally{this.owner=undefined;this.stopping=undefined;}})();return this.stopping;
   }
   //: Выдаёт административный каталог метаданных без body и lastMessage.
   //: Из browser context выходят только ID, имя, тип, дата и unread; максимум 1000 чатов.
