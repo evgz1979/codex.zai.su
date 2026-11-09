@@ -63,15 +63,18 @@ export function createApp(options: { service:MessengerService; store:Store; auth
         const prefix=`/api/${role}/`;
         if(!path.startsWith(prefix)) throw new AppError(404,'Адрес не найден.');
         const action=path.slice(prefix.length);
-        const session=auth.session(req.headers.cookie,role,secure);
+        const session=action==='session'&&req.method==='GET'?auth.renew(req.headers.cookie,role,secure):auth.session(req.headers.cookie,role,secure);
         //: Повторно проверяет доступ после получения тела защищённого запроса.
         //: Блокировка во время медленной загрузки тела не запускает операцию личного источника.
         async function body(request:IncomingMessage,limit=20000){const input=await readBody(request,limit);if(action!=='login'&&(!auth.session(request.headers.cookie,role,secure)||(account&&!options.accounts!.allows(account))))throw new AppError(401,'Войдите в приложение.');return input;}
-        if(action==='session'&&req.method==='GET') return send(res,200,{authenticated:!!session,setupRequired:auth.setupRequired,...(accountInfo?{account:accountInfo}:{}),...(session?{csrfToken:session.csrf,expiresAt:session.expires}:{})});
+        if(action==='session'&&req.method==='GET') {
+          if(session&&role==='chat')cookie(res,role,auth.token(req.headers.cookie||'',role,secure),Math.max(0,Math.floor((session.expires-Date.now())/1000)),apiPrefix);
+          return send(res,200,{authenticated:!!session,setupRequired:auth.setupRequired,...(accountInfo?{account:accountInfo}:{}),...(session?{csrfToken:session.csrf,expiresAt:session.expires}:{})});
+        }
         if(action==='login'&&req.method==='POST') {
           const input=await body(req);
           if(typeof input.password!=='string'||input.password.length>512) throw new AppError(400,'Введите пароль.');
-          const login=account?await options.accounts!.login(account,input.password,role):await auth.login(input.password,role); auth.logout(req.headers.cookie,role,secure); cookie(res,role,login.token,28800,apiPrefix);
+          const login=account?await options.accounts!.login(account,input.password,role):await auth.login(input.password,role); auth.logout(req.headers.cookie,role,secure); cookie(res,role,login.token,Math.max(0,Math.floor((login.expires-Date.now())/1000)),apiPrefix);
           return send(res,200,{authenticated:true,setupRequired:false,csrfToken:login.csrf,expiresAt:login.expires,...(accountInfo?{account:accountInfo}:{})});
         }
         if(!session) throw new AppError(401,'Войдите в приложение.');

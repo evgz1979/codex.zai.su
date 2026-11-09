@@ -94,22 +94,25 @@ export function App() {
     setError(e instanceof Error ? e.message : 'Нет связи с локальным сервером.');
   }
   useEffect(() => {
-    //: Проверяет веб-вход при запуске и при восстановлении сети.
+    //: Проверяет и продлевает веб-вход при запуске, возвращении и восстановлении сети.
     //: Без связи API возвращает только ранее разрешённое локальное чтение.
     const check=()=>{void api<SessionInfo>('session').then(acceptSession).catch(e=>{if(e instanceof ApiError&&e.status===0)setError('Нет связи. Откройте приложение с интернетом, чтобы сохранить сообщения.');else fail(e);});};
     //: Очищает интерфейс при выходе в другом окне того же личного аккаунта.
     //: Событие не переносит тексты или токены между окнами.
     const localLogout=()=>fail(new ApiError(401,'Войдите в приложение.'));
-    check();window.addEventListener('online',check);window.addEventListener('messenger:local-logout',localLogout);
-    return()=>{window.removeEventListener('online',check);window.removeEventListener('messenger:local-logout',localLogout);};
+    //: Обновляет срок только видимого окна, не меняя переписку и черновики.
+    //: Фоновое окно не удерживает вход бесконечными запросами.
+    const visibleCheck=()=>{if(!document.hidden)check();};
+    check();const timer=window.setInterval(visibleCheck,3600000);document.addEventListener('visibilitychange',visibleCheck);window.addEventListener('online',check);window.addEventListener('messenger:local-logout',localLogout);
+    return()=>{window.clearInterval(timer);document.removeEventListener('visibilitychange',visibleCheck);window.removeEventListener('online',check);window.removeEventListener('messenger:local-logout',localLogout);};
   }, []);
   useEffect(()=>{
     if(!session?.authenticated||!session.expiresAt)return;
-    //: Завершает локальное чтение по фактическому сроку ранее подтверждённого входа.
-    //: Проверка при возврате учитывает приостановленные фоновые таймеры телефона.
-    const expire=()=>{if(Date.now()>=session.expiresAt!)void logout();};
-    const timer=setTimeout(expire,Math.max(0,session.expiresAt-Date.now()));document.addEventListener('visibilitychange',expire);
-    return()=>{clearTimeout(timer);document.removeEventListener('visibilitychange',expire);};
+    //: Уточняет истёкший вход у сервера без явного выхода и отзыва push.
+    //: Минутный таймер поддерживает длительные сессии без переполнения setTimeout.
+    const expire=()=>{if(Date.now()>=session.expiresAt!)void api<SessionInfo>('session').then(acceptSession).catch(e=>fail(e instanceof ApiError&&e.status===0?new ApiError(401,'Для продолжения войдите с подключением к сети.'):e));};
+    const timer=window.setInterval(expire,60000);document.addEventListener('visibilitychange',expire);
+    return()=>{window.clearInterval(timer);document.removeEventListener('visibilitychange',expire);};
   },[session?.authenticated,session?.expiresAt]);
   useEffect(() => {
     if (!session?.authenticated) return;

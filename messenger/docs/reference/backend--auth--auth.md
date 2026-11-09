@@ -1,6 +1,6 @@
 # backend/auth/auth.ts
 
-Argon2id-пароли ролей admin/chat, веб-сессии в памяти и ограничение попыток входа.
+Argon2id-пароли ролей, постоянный вход чата, ограниченная admin-сессия и защита входа.
 
 [Исходный модуль](../../backend/auth/auth.ts) · [Индекс](README.md)
 
@@ -10,7 +10,7 @@ Argon2id-пароли ролей admin/chat, веб-сессии в памяти
 
 Разделяет права чата и админки на сервере.
 
-Роли имеют независимые пароли, cookie и ограниченные сессии в памяти.
+Чат сохраняет вход после рестарта; административные сессии остаются в памяти.
 
 ```typescript
 class Auth
@@ -20,12 +20,12 @@ class Auth
 
 ## Auth.constructor
 
-Подключает SQLite для проверки Argon2id-настроек.
+Восстанавливает действующие chat-сессии из приватной SQLite.
 
-Сырой пароль и cookie-токены в SQLite не записываются.
+Сырой пароль и cookie-токены на диск не записываются; повреждённые записи доступа не дают.
 
 ```typescript
-constructor(private store: Store)
+constructor(private store: Store, private now = Date.now)
 ```
 
 <a id="symbol-Auth.cookieName"></a>
@@ -38,6 +38,18 @@ constructor(private store: Store)
 
 ```typescript
 cookieName(role: Role, secure: boolean)
+```
+
+<a id="symbol-Auth.credential"></a>
+
+## Auth.credential
+
+Связывает сессию с версией пароля её роли, включая изменения через CLI.
+
+Отпечаток не позволяет использовать старый вход после смены пароля.
+
+```typescript
+private credential(role: Role)
 ```
 
 <a id="symbol-Auth.login"></a>
@@ -76,6 +88,18 @@ logout(cookie = '', role: Role = 'chat', secure = false)
 ready()
 ```
 
+<a id="symbol-Auth.renew"></a>
+
+## Auth.renew
+
+Продлевает подтверждённый вход чата до 180 дней при использовании приложения.
+
+Запись обновляется не чаще раза в сутки; истёкший или отозванный токен не восстанавливается.
+
+```typescript
+renew(cookie = '', role: Role = 'chat', secure = false)
+```
+
 <a id="symbol-Auth.revoke"></a>
 
 ## Auth.revoke
@@ -86,6 +110,18 @@ ready()
 
 ```typescript
 revoke(role: Role)
+```
+
+<a id="symbol-Auth.save"></a>
+
+## Auth.save
+
+Сохраняет ограниченный набор chat-сессий без исходных cookie-токенов.
+
+Административные сессии и просроченные записи в SQLite не попадают.
+
+```typescript
+private save()
 ```
 
 <a id="symbol-Auth.session"></a>
@@ -196,18 +232,31 @@ Cookie, пароли и ключи сессий не взаимозаменяе�
 export type Role = 'admin' | 'chat';
 ```
 
+<a id="symbol-sessionLifetime"></a>
+
+## sessionLifetime
+
+Задаёт срок входа по роли: чат продлевается при использовании, админка ограничена восемью часами.
+
+Длительный вход не отменяет отзыв при выходе, блокировке или смене пароля.
+
+```typescript
+sessionLifetime(role: Role)
+```
+
 <a id="symbol-WebSession"></a>
 
 ## WebSession
 
-Содержит роль, CSRF и абсолютный срок веб-сессии.
+Содержит роль, CSRF, срок и отпечаток версии пароля веб-сессии.
 
-Сессия хранится только в памяти серверного процесса.
+В SQLite сохраняются только chat-сессии с хешем cookie-токена.
 
 ```typescript
 interface WebSession {
     csrf: string;
     expires: number;
     role: Role;
+    credential: string;
 }
 ```

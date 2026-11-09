@@ -18,18 +18,32 @@ export async function passwordMatches(password: string, stored: string): Promise
 //: Хеширует случайный токен веб-сессии.
 //: Сырой cookie-токен не является ключом карты сессий.
 const digest = (token: string) => createHash('sha256').update(token).digest('hex');
-//: Содержит роль, CSRF и абсолютный срок веб-сессии.
-//: Сессия хранится только в памяти серверного процесса.
-interface WebSession { csrf: string; expires: number; role: Role }
+//: Задаёт срок входа по роли: чат продлевается при использовании, админка ограничена восемью часами.
+//: Длительный вход не отменяет отзыв при выходе, блокировке или смене пароля.
+const sessionLifetime = (role:Role) => role==='chat'?180*86400000:8*3600000;
+//: Содержит роль, CSRF, срок и отпечаток версии пароля веб-сессии.
+//: В SQLite сохраняются только chat-сессии с хешем cookie-токена.
+interface WebSession { csrf: string; expires: number; role: Role; credential:string }
 //: Разделяет права чата и админки на сервере.
-//: Роли имеют независимые пароли, cookie и ограниченные сессии в памяти.
+//: Чат сохраняет вход после рестарта; административные сессии остаются в памяти.
 export class Auth {
   private sessions = new Map<string, WebSession>();
   private attempts: number[] = [];
   private verifying = false;
-  //: Подключает SQLite для проверки Argon2id-настроек.
-  //: Сырой пароль и cookie-токены в SQLite не записываются.
-  constructor(private store: Store) {}
+  //: Восстанавливает действующие chat-сессии из приватной SQLite.
+  //: Сырой пароль и cookie-токены на диск не записываются; повреждённые записи доступа не дают.
+  constructor(private store: Store,private now=Date.now) {
+    try {
+      const saved=JSON.parse(store.get('auth.sessions')||'[]') as [string,WebSession][];
+      for(const [key,session] of saved)if(/^chat:[a-f0-9]{64}$/.test(key)&&session.role==='chat'&&/^[a-f0-9]{64}$/.test(session.csrf)&&Number.isFinite(session.expires)&&session.expires>this.now()&&session.credential===this.credential('chat'))this.sessions.set(key,session);
+    }catch{this.sessions.clear();}
+  }
+  //: Связывает сессию с версией пароля её роли, включая изменения через CLI.
+  //: Отпечаток не позволяет использовать старый вход после смены пароля.
+  private credential(role:Role){return digest(this.store.get(`auth.${role}`)||'');}
+  //: Сохраняет ограниченный набор chat-сессий без исходных cookie-токенов.
+  //: Административные сессии и просроченные записи в SQLite не попадают.
+  private save(){this.store.set('auth.sessions',JSON.stringify([...this.sessions].filter(([,session])=>session.role==='chat'&&session.expires>this.now()&&session.credential===this.credential('chat'))));}
   //: Проверяет готовность обеих ролей.
   //: До начального задания паролей публичный вход заблокирован.
   get setupRequired() { return !this.ready(); }
@@ -52,13 +66,20 @@ export class Auth {
     if (!/^[a-f0-9]{64}$/.test(token)) return;
     const key = `${role}:${digest(token)}`;
     const session = this.sessions.get(key);
-    if (session && session.role === role && session.expires > Date.now()) return session;
-    this.sessions.delete(key);
+    if (session && session.role === role && session.expires > this.now()&&session.credential===this.credential(role)) return session;
+    if(this.sessions.delete(key)&&role==='chat')this.save();
+  }
+  //: Продлевает подтверждённый вход чата до 180 дней при использовании приложения.
+  //: Запись обновляется не чаще раза в сутки; истёкший или отозванный токен не восстанавливается.
+  renew(cookie='',role:Role='chat',secure=false){
+    const session=this.session(cookie,role,secure);
+    if(session&&role==='chat'&&session.expires<=this.now()+sessionLifetime(role)-86400000){session.expires=this.now()+sessionLifetime(role);this.save();}
+    return session;
   }
   //: Проверяет Argon2id-пароль и создаёт отдельную сессию роли.
   //: Ограничивает ошибки входа и параллельные хеширования для 1 vCPU.
   async login(password: string, role: Role = 'chat') {
-    const now = Date.now();
+    const now = this.now();
     this.attempts = this.attempts.filter(t => now - t < 60000);
     if (this.attempts.length >= 5 || this.verifying) throw new AuthError(429,'Слишком много попыток. Подождите минуту.');
     this.attempts.push(now);
@@ -67,23 +88,26 @@ export class Auth {
     try {
       const stored = this.store.get(`auth.${role}`)!;
       if (!await passwordMatches(password,stored)) throw new AuthError(401,'Неверный пароль.');
+      if(this.store.get(`auth.${role}`)!==stored)throw new AuthError(401,'Пароль изменён. Войдите снова.');
       this.attempts.pop();
       for (const [key,s] of this.sessions) if (s.expires <= now) this.sessions.delete(key);
-      if (this.sessions.size >= 10) this.sessions.delete(this.sessions.keys().next().value!);
+      const sameRole=[...this.sessions].filter(([,session])=>session.role===role);
+      if (sameRole.length >= 10) this.sessions.delete(sameRole[0][0]);
       const token = randomBytes(32).toString('hex');
-      const session: WebSession = { csrf:randomBytes(32).toString('hex'), expires:now+8*3600000, role };
+      const session: WebSession = { csrf:randomBytes(32).toString('hex'), expires:now+sessionLifetime(role), role,credential:this.credential(role) };
       this.sessions.set(`${role}:${digest(token)}`,session);
+      if(role==='chat')this.save();
       return { token, ...session };
     } finally { this.verifying = false; }
   }
   //: Отзывает текущую сессию одной роли.
   //: Выход из чата не завершает административную сессию.
   logout(cookie = '', role: Role = 'chat', secure = false) {
-    this.sessions.delete(`${role}:${digest(this.token(cookie,role,secure))}`);
+    if(this.sessions.delete(`${role}:${digest(this.token(cookie,role,secure))}`)&&role==='chat')this.save();
   }
   //: Отзывает все веб-сессии выбранной роли.
   //: Вызывается после изменения её пароля.
-  revoke(role: Role) { for (const [key,s] of this.sessions) if (s.role === role) this.sessions.delete(key); }
+  revoke(role: Role) { for (const [key,s] of this.sessions) if (s.role === role) this.sessions.delete(key);if(role==='chat')this.save(); }
 }
 //: Передаёт безопасный статус ошибки авторизации.
 //: Не содержит пароль, cookie или исходное исключение.
