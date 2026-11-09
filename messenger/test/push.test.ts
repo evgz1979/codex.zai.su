@@ -87,6 +87,17 @@ test('push: VAPID и устройства переживают рестарт; �
   store.set('auth.chat','new-password-hash');assert.equal(reopened.registered(sub.endpoint),false);
 });
 
+test('push: доставка не истекает через 90 дней, прежние подписки сохраняются без повторного включения',async t=>{
+  const {store,core,adapter,push,now}=await context(t);const sub=subscription();push.subscribe(sub);await push.stop();
+  const devices=JSON.parse(store.get('push.devices')!);devices[0].expiresAt=now-1;store.set('push.devices',JSON.stringify(devices));
+  const later=now+180*86400000;let delivered=0;
+  const restored=new PushService(core,store,'https://msg.zai.su:8443',async()=>{delivered++;},()=>later);t.after(()=>restored.stop());
+  assert.equal(restored.registered(sub.endpoint),true);
+  core.ingest({type:'message',message:{...adapter.messages[0],id:'incoming-after-180-days',date:new Date(later).toISOString()}});await restored.flush();assert.equal(delivered,1);
+  restored.subscribe(sub);assert.equal(JSON.parse(store.get('push.devices')!)[0].createdAt,devices[0].createdAt);
+  restored.remove(sub.endpoint);assert.equal(restored.registered(sub.endpoint),false);
+});
+
 test('push: HTTP 410 удаляет устройство; временный отказ сохраняет подписку и не раскрывает ошибку',async t=>{
   const {store,core,push}=await context(t);await push.stop();let statusCode=410;
   const failure=new PushService(core,store,'https://msg.zai.su:8443',async()=>{throw {statusCode,body:'PRIVATE_PROVIDER_ERROR'};});t.after(()=>failure.stop());

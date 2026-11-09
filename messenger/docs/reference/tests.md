@@ -25,6 +25,11 @@
 - [test/attachments.test.ts](../../test/attachments.test.ts): миниатюры: отдельный кеш не заменяет оригинал и не уменьшает его метаданные
 - [test/attachments.test.ts](../../test/attachments.test.ts): миниатюры: отсутствие запоминается, а предел размера не зависит от оригинала
 - [test/attachments.test.ts](../../test/attachments.test.ts): открытие: сигнатура PDF восстанавливает просмотр старого кеша, HTML остаётся файлом
+- [test/auth.test.ts](../../test/auth.test.ts): вход HTTP: прежний cookie и CSRF работают после рестарта, session обновляет срок cookie
+- [test/auth.test.ts](../../test/auth.test.ts): вход админки: отдельная роль, восемь часов и отсутствие постоянной сессии
+- [test/auth.test.ts](../../test/auth.test.ts): вход чата: выход и отзыв сохраняются после рестарта, смена пароля через CLI отзывает токен
+- [test/auth.test.ts](../../test/auth.test.ts): вход чата: использование продлевает срок и cookie, истёкший токен не восстанавливается
+- [test/auth.test.ts](../../test/auth.test.ts): вход чата: сохраняется при повторном открытии БД и рестарте, живёт дольше восьми часов
 - [test/auto-sync.test.ts](../../test/auto-sync.test.ts): автокеш: FloodWait метаданных сохраняет паузу при перезапуске
 - [test/auto-sync.test.ts](../../test/auto-sync.test.ts): автокеш: FloodWait не продвигает курсор и не создаёт цикл повторов
 - [test/auto-sync.test.ts](../../test/auto-sync.test.ts): автокеш: вся история больше 40 сохраняется, открытие и прокрутка не вызывают источник
@@ -54,8 +59,11 @@
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): открытый чат скрывает исключённые диалоги без синхронизации истории
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): последние сообщения в списке видны до открытия чатов и не снимают непрочитанное
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): список чатов: поиск, фильтр, возврат браузером и отдельные черновики
+- [test/browser/notifications.spec.ts](../../test/browser/notifications.spec.ts): вход чата: истечение подтверждённого срока проверяет сервер и не вызывает logout или отзыв push
 - [test/browser/notifications.spec.ts](../../test/browser/notifications.spec.ts): уведомления: iPhone получает инструкцию установки на экран Домой
-- [test/browser/notifications.spec.ts](../../test/browser/notifications.spec.ts): уведомления: явное включение, проверка и выключение без повторного запроса разрешения
+- [test/browser/notifications.spec.ts](../../test/browser/notifications.spec.ts): уведомления: временный отказ восстанавливается автоматически при возвращении сети
+- [test/browser/notifications.spec.ts](../../test/browser/notifications.spec.ts): уведомления: одно разрешение сохраняет доставку после перезагрузки, проверка и явный выход
+- [test/browser/notifications.spec.ts](../../test/browser/notifications.spec.ts): уведомления: системный запрет не вызывает повторных запросов разрешения
 - [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: 503 использует сохранённое чтение, 401 очищает его
 - [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: активный чат не вытесняет головы остальных при ограничении тысячи сообщений
 - [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: кеши владельца и личной ссылки изолированы, выход гостя не очищает владельца
@@ -119,6 +127,7 @@
 - [test/push.test.ts](../../test/push.test.ts): push: HTTP 410 удаляет устройство; временный отказ сохраняет подписку и не раскрывает ошибку
 - [test/push.test.ts](../../test/push.test.ts): push: VAPID и устройства переживают рестарт; смена пароля отзывает доставку
 - [test/push.test.ts](../../test/push.test.ts): push: библиотека формирует зашифрованный aes128gcm запрос с VAPID
+- [test/push.test.ts](../../test/push.test.ts): push: доставка не истекает через 90 дней, прежние подписки сохраняются без повторного включения
 - [test/push.test.ts](../../test/push.test.ts): push: новые входящие доставляются один раз без текста, история и исходящие исключены
 - [test/push.test.ts](../../test/push.test.ts): push: объединённое уведомление открывает самый свежий разрешённый диалог
 - [test/push.test.ts](../../test/push.test.ts): push: подписки проверяют провайдера, схему, порт и P-256 ключи

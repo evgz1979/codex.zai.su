@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | [backend/accounts.ts](backend--accounts.md) | Закрытый реестр личных пользователей, персональные ссылки, блокировки и независимые серверные экземпляры. | 16 |
 | [backend/admin/service.ts](backend--admin--service.md) | Настройки, метаданные Telegram и права выбора диалогов. | 12 |
-| [backend/auth/auth.ts](backend--auth--auth.md) | Argon2id-пароли ролей admin/chat, веб-сессии в памяти и ограничение попыток входа. | 17 |
+| [backend/auth/auth.ts](backend--auth--auth.md) | Argon2id-пароли ролей, постоянный вход чата, ограниченная admin-сессия и защита входа. | 21 |
 | [backend/auth/prompt.ts](backend--auth--prompt.md) | Скрытый интерактивный ввод в TTY без отражения символов. | 3 |
 | [backend/auth/telegram-issue.ts](backend--auth--telegram-issue.md) | Allowlist-классификация отказов Telegram без раскрытия исходных исключений. | 1 |
 | [backend/auth/telegram-login.ts](backend--auth--telegram-login.md) | Пошаговый Telegram-вход с временными callbacks кода и 2FA. | 9 |
@@ -41,12 +41,12 @@
 | [frontend/public/favicon.svg](frontend--public--favicon.md) | Локальная иконка приложения без внешних ресурсов. | 0 |
 | [frontend/public/manifest.webmanifest](frontend--public--manifest.webmanifest.md) | Идентичность и режим standalone для установки Messenger на экран «Домой». | 0 |
 | [frontend/public/sw.js](frontend--public--sw.js.md) | Service Worker: offline-оболочка личного чата и push, без кеширования API или переписки. | 0 |
-| [frontend/src/App.tsx](frontend--src--App.md) | Единый React-интерфейс, веб-вход, адресат, черновики и состояние операций. | 27 |
+| [frontend/src/App.tsx](frontend--src--App.md) | Единый React-интерфейс, веб-вход, адресат, черновики и состояние операций. | 28 |
 | [frontend/src/AppUpdates.tsx](frontend--src--AppUpdates.md) | Проверка версии сборки и обновление приложения по нажатию без смены manifest и подписок. | 6 |
 | [frontend/src/AttachmentPreview.tsx](frontend--src--AttachmentPreview.md) | Ленивая миниатюра в ленте, фиксированные размеры и открытие оригинала. | 1 |
 | [frontend/src/AttachmentViewer.tsx](frontend--src--AttachmentViewer.md) | Модальный просмотр медиа по явному запросу, скачивание и отзыв Blob URL. | 2 |
 | [frontend/src/Avatar.tsx](frontend--src--Avatar.md) | Круглые фотографии разрешённых диалогов с загрузкой возле видимой области и инициалами. | 5 |
-| [frontend/src/Notifications.tsx](frontend--src--Notifications.md) | Явное включение, отключение и проверка уведомлений; инструкция установки на iPhone. | 7 |
+| [frontend/src/Notifications.tsx](frontend--src--Notifications.md) | Одно системное разрешение, автоматическое восстановление и проверка уведомлений; инструкция для iPhone. | 8 |
 | [frontend/src/VoiceTranscription.tsx](frontend--src--VoiceTranscription.md) | Кнопка расшифровки голосового, частичный текст, ручной повтор и отменяемый опрос. | 2 |
 | [frontend/src/admin/AdminApp.tsx](frontend--src--admin--AdminApp.md) | Отдельная административная страница с собственным входом и формами. | 11 |
 | [frontend/src/admin/ConversationPicker.tsx](frontend--src--admin--ConversationPicker.md) | Закладки папок, поиск и независимый от текущей папки выбор диалогов. | 3 |
