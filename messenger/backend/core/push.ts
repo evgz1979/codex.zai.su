@@ -6,8 +6,8 @@ import type {MessengerService} from './service.js';
 import {AppError} from './errors.js';
 
 //: Хранит приватную подписку устройства и версию пароля владельца.
-//: Подписки действуют до отзыва независимо от веб-сессий и не выдаются через API.
-interface Device {subscription:webpush.PushSubscription; createdAt:number; credential:string}
+//: Подписки действуют до отзыва; expiresAt сохранён только для совместимого отката.
+interface Device {subscription:webpush.PushSubscription; createdAt:number; expiresAt:number; credential:string}
 //: Отправляет зашифрованный Web Push через стандартную библиотеку.
 //: Тесты подменяют транспорт без обращения к Apple или Telegram.
 type Transport=(subscription:webpush.PushSubscription,payload:string,options:webpush.RequestOptions)=>Promise<unknown>;
@@ -77,7 +77,7 @@ export class PushService {
     const previous=devices.find(device=>device.subscription.endpoint===subscription.endpoint);
     if(!previous&&devices.length>=10)throw new AppError(409,'Достигнут предел: 10 устройств. Выйдите из Messenger на одном из старых устройств.');
     this.keys();
-    this.save([...devices.filter(device=>device!==previous),{subscription,createdAt:previous?.createdAt??Math.floor(this.now()/1000)*1000,credential:this.credential()}]);
+    this.save([...devices.filter(device=>device!==previous),{subscription,createdAt:previous?.createdAt??Math.floor(this.now()/1000)*1000,expiresAt:Number.MAX_SAFE_INTEGER,credential:this.credential()}]);
   }
   //: Удаляет подписку текущего устройства при отключении или явном выходе.
   //: Другие устройства сохраняют собственное разрешение.

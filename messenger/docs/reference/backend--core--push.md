@@ -10,12 +10,13 @@
 
 Хранит приватную подписку устройства и версию пароля владельца.
 
-Подписки действуют до отзыва независимо от веб-сессий и не выдаются через API.
+Подписки действуют до отзыва; expiresAt сохранён только для совместимого отката.
 
 ```typescript
 interface Device {
     subscription: webpush.PushSubscription;
     createdAt: number;
+    expiresAt: number;
     credential: string;
 }
 ```

@@ -94,7 +94,7 @@ test('push: доставка не истекает через 90 дней, пр�
   const restored=new PushService(core,store,'https://msg.zai.su:8443',async()=>{delivered++;},()=>later);t.after(()=>restored.stop());
   assert.equal(restored.registered(sub.endpoint),true);
   core.ingest({type:'message',message:{...adapter.messages[0],id:'incoming-after-180-days',date:new Date(later).toISOString()}});await restored.flush();assert.equal(delivered,1);
-  restored.subscribe(sub);assert.equal(JSON.parse(store.get('push.devices')!)[0].createdAt,devices[0].createdAt);
+  restored.subscribe(sub);const saved=JSON.parse(store.get('push.devices')!)[0];assert.equal(saved.createdAt,devices[0].createdAt);assert.ok(saved.expiresAt>later,'Прежняя версия после отката тоже видит действующую подписку.');
   restored.remove(sub.endpoint);assert.equal(restored.registered(sub.endpoint),false);
 });
 
