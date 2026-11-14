@@ -33,7 +33,7 @@ function Icon({ name }: { name: 'send' | 'back' | 'inbox' | 'search' | 'logout' 
   const paths = { send: 'm4 4 17 8-17 8 3-8-3-8m3 8h14', back: 'm14 5-7 7 7 7M7 12h14', inbox: 'M4 4h16v12h-5l-3 4-3-4H4V4m4 4h8m-8 4h5', search: 'm15 15 5 5M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0', logout: 'M9 4H4v16h5m6-13 5 5-5 5M8 12h12', pin: 'm15 4 5 5-2 1-3 3v3l-1 1-7-7 1-1h3l3-3 1-2ZM10.5 13.5 5 19' };
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]} /></svg>;
 }
-//: Показывает маленький значок источника под кнопкой закрепления.
+//: Показывает маленький значок источника в правом нижнем углу аватара.
 //: Для источника без своей иконки использует нейтральное облачко.
 function ConversationSourceIcon({source}: {source?:Source}) {
   return <span className="conversation-source-icon" data-source-kind={source?.kind} title={source?.name} aria-hidden="true">
@@ -397,7 +397,10 @@ export function App() {
           const pinLabel = pinned ? 'Открепить чат' : 'Закрепить чат';
           return <div key={c.id} className="conversation-row">
             <button className="conversation" aria-description={source?.name} disabled={busy} onClick={()=>void choose(c)}>
-              <Avatar conversation={c} paused={offline} onUnauthorized={fail}/>
+              <span className="conversation-avatar">
+                <Avatar conversation={c} paused={offline} onUnauthorized={fail}/>
+                <ConversationSourceIcon source={source}/>
+              </span>
               <span className="conversation-copy">
                 <span className="conversation-title">
                   <span id={titleId} className="conversation-name" title={c.title}>{c.title}</span>
@@ -409,10 +412,7 @@ export function App() {
                 </span>
               </span>
             </button>
-            <div className="conversation-actions">
-              <button className="icon-button conversation-pin" data-pinned={pinned} aria-label={pinLabel} aria-describedby={titleId} title={pinLabel} disabled={busy||offline} onClick={()=>void togglePin(c)}><Icon name="pin"/></button>
-              <ConversationSourceIcon source={source}/>
-            </div>
+            <button className="icon-button conversation-pin" data-pinned={pinned} aria-label={pinLabel} aria-describedby={titleId} title={pinLabel} disabled={busy||offline} onClick={()=>void togglePin(c)}><Icon name="pin"/></button>
           </div>;
         })}
         {!conversations.length&&<p className="list-empty">{!snapshot?'Загрузка чатов…':query.trim()?'Чаты не найдены':onlyUnread?'Нет непрочитанных чатов':'Здесь появятся ваши диалоги после подключения аккаунта и выбора в админке.'}</p>}

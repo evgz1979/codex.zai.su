@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-test('источники: значки под булавкой и обновление счётчика после просмотра WhatsApp',async({page})=>{
+test('источники: значки на аватарах и обновление счётчика после просмотра WhatsApp',async({page})=>{
  const reads:string[]=[];
  let unreadCount=2;
  await page.addInitScript(()=>{
@@ -31,12 +31,16 @@ test('источники: значки под булавкой и обновле
  await expect(whatsappChat).toHaveAccessibleDescription('WhatsApp');
  const rowBounds=(await whatsappChat.boundingBox())!;
  const iconBounds=(await whatsapp.boundingBox())!;
- const pinBounds=(await list.getByRole('button',{name:'Закрепить чат',description:'Мария · другой источник',exact:true}).boundingBox())!;
+ const avatarBounds=(await whatsappChat.locator('.avatar').boundingBox())!;
+ const pin=list.getByRole('button',{name:'Закрепить чат',description:'Мария · другой источник',exact:true});
+ const pinBounds=(await pin.boundingBox())!;
+ await expect(pin).toHaveCSS('color','rgb(208, 209, 214)');
  expect(rowBounds.height).toBe(58);
  expect(pinBounds.height).toBe(44);
- expect(iconBounds.width).toBe(13);
- expect(iconBounds.y).toBeGreaterThanOrEqual(pinBounds.y+pinBounds.height);
- expect(iconBounds.x+iconBounds.width/2).toBeCloseTo(pinBounds.x+pinBounds.width/2,0);
+ expect(iconBounds.width).toBe(18);
+ expect(iconBounds.x+iconBounds.width).toBeCloseTo(avatarBounds.x+avatarBounds.width+2,0);
+ expect(iconBounds.y+iconBounds.height).toBeCloseTo(avatarBounds.y+avatarBounds.height+2,0);
+ expect(pinBounds.y+pinBounds.height/2).toBeCloseTo(rowBounds.y+rowBounds.height/2,0);
  await expect.poll(()=>page.evaluate(()=>(window as unknown as {badge:number}).badge)).toBe(2);
  expect(reads).toEqual([]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
