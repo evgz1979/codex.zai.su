@@ -124,6 +124,18 @@ constructor(directory: string)
 conversation(id: string): Conversation | undefined
 ```
 
+<a id="symbol-Store.conversationPins"></a>
+
+## Store.conversationPins
+
+Возвращает порядок закреплений разрешённых чатов личного аккаунта.
+
+Настройки переживают обновление метаданных и очистку кеша.
+
+```typescript
+conversationPins()
+```
+
 <a id="symbol-Store.deleteSourceKeys"></a>
 
 ## Store.deleteSourceKeys
@@ -350,6 +362,18 @@ selected(): string[]
 
 ```typescript
 set(key: string, value: string)
+```
+
+<a id="symbol-Store.setConversationPin"></a>
+
+## Store.setConversationPin
+
+Сохраняет или снимает закрепление одного чата.
+
+Повтор закрепления оставляет текущую позицию и ревизию кеша.
+
+```typescript
+setConversationPin(id: string, pinned: boolean)
 ```
 
 <a id="symbol-Store.syncStatus"></a>

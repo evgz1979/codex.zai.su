@@ -34,6 +34,7 @@
 | POST | `/api/chat/offline` |
 | POST | `/api/chat/older` |
 | POST | `/api/chat/open` |
+| POST | `/api/chat/pin` |
 | GET | `/api/chat/push/config` |
 | POST | `/api/chat/push/remove` |
 | POST | `/api/chat/push/status` |

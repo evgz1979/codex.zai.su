@@ -18,4 +18,5 @@ CREATE INDEX IF NOT EXISTS message_date_order ON message_cache(date DESC,id DESC
 CREATE TABLE IF NOT EXISTS media_preload (message_id TEXT NOT NULL,attachment_id TEXT NOT NULL,version TEXT NOT NULL,variant TEXT NOT NULL,message_date TEXT NOT NULL,next_attempt INTEGER NOT NULL,PRIMARY KEY(message_id,attachment_id,version,variant));
 CREATE TABLE IF NOT EXISTS conversation_policy (id TEXT PRIMARY KEY,source_id TEXT NOT NULL,excluded INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS voice_transcriptions (message_id TEXT PRIMARY KEY,payload TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS conversation_pins (pin_order INTEGER PRIMARY KEY, id TEXT NOT NULL UNIQUE);
 ```

@@ -75,10 +75,10 @@ export class OfflineCache {
     }
     return value;
   }
-  //: Запоминает только разрешённые ответы чтения и успешные изменения сообщений.
+  //: Запоминает ответы чтения и подтверждённые изменения сообщений и закреплений.
   //: Снятие выбора, удаления и reset немедленно удаляют соответствующую локальную историю.
   remember(path:string,input:unknown,result:unknown,generation:number,revisionAtRequest:number){
-    if(!path.startsWith('access?')&&!['snapshot','inbox','open','older','read','refresh','send','transcribe','offline'].includes(path))return Promise.resolve();
+    if(!path.startsWith('access?')&&!['snapshot','inbox','open','older','read','refresh','pin','send','transcribe','offline'].includes(path))return Promise.resolve();
     return this.change(value=>{
     if(!value||value.logoutPending||value.expiresAt<=Date.now())return value;
     const data=result as Snapshot&Partial<ConversationPageResult>&{ids?:string[];deletedIds?:string[];reset?:boolean;revision?:number};
@@ -91,7 +91,8 @@ export class OfflineCache {
       value.snapshot.conversations=value.snapshot.conversations.filter(c=>ids.has(c.id));value.messages=data.reset?[]:value.messages.filter(m=>ids.has(m.conversationId)&&!deleted.has(m.id));
     }else{
       if(revisionAtRequest!==this.dataRevision)return false;
-      const snapshot=data.snapshot||(['snapshot','read','refresh'].includes(path)?data:undefined);
+      if(path==='pin')this.dataRevision++; // Поздний снимок не откатывает закрепление в сохранённом списке.
+      const snapshot=data.snapshot||(['snapshot','read','refresh','pin'].includes(path)?data:undefined);
       if(snapshot?.conversations){value.snapshot={...structuredClone(snapshot),messages:[]};if(value.allowedIds){const ids=new Set(value.allowedIds);value.snapshot.conversations=value.snapshot.conversations.filter(c=>ids.has(c.id));}}
       const messages=[...(snapshot?.messages||[]),...(data.page?.messages||[]),...(path==='send'?[result as Message]:[]),...(path==='offline'?data.messages:[])];
       const merged=new Map(value.messages.map(m=>[m.id,m]));if(path==='offline'&&messages.every(m=>JSON.stringify(merged.get(m.id))===JSON.stringify(m)))return false;

@@ -111,9 +111,9 @@ export interface AttachmentRequest {
 
 ## compareConversations
 
-Поднимает диалоги с непрочитанными и сохраняет свежие сообщения сверху.
+Сортирует чаты по порядку закрепления, непрочитанным и времени сообщения.
 
-При равном времени порядок устойчив по общему ID.
+Последний закреплённый чат первый; при прочих равных используется общий ID.
 
 ```typescript
 compareConversations(a: Conversation, b: Conversation)
@@ -150,6 +150,7 @@ export interface Conversation {
     updatedAt: string;
     preview: string;
     previewMessageId?: EntityId;
+    pinOrder?: number;
     canSend: boolean;
     isBot?: boolean;
     avatarVersion?: string;

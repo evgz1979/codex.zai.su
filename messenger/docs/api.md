@@ -75,6 +75,7 @@ session и login не требуют сессии, login требует Origin. 
 | POST | open | `{conversationId}` → ConversationPageResult с последними 10 сообщениями этого адресата |
 | POST | older | `{conversationId,before}` → ConversationPageResult с предыдущими 10 |
 | POST | read | `{conversationId,messageId?}` → отметка до показанного сообщения; без messageId — ручная |
+| POST | pin | `{conversationId,pinned:boolean}` → Snapshot с обновлённым порядком чатов |
 | POST | avatar | `{conversationId,refresh?:boolean}` → JPEG/PNG/WebP до 512 КиБ только выбранного диалога, no-store |
 | POST | attachment | `{conversationId,messageId,attachmentId,variant?:'preview'}` → оригинал до 32 МиБ или миниатюра до 512 КиБ |
 | POST | transcribe | `{conversationId,messageId,attachmentId}` → `{text,pending}` встроенной расшифровки голосового |
@@ -95,6 +96,9 @@ conversationId=`inbox` обозначает общую ленту. Курсор 
 Внутренний historyPage адаптера имеет отдельные Telegram-курсоры и предел 100;
 браузер не вызывает его и не задаёт размер фоновой страницы.
 Snapshot.sync сообщает pendingConversations и необязательный pausedUntil.
+У закреплённых чатов есть `pinOrder`. Чем больше значение, тем выше чат.
+`pin` принимает только выбранные чаты текущего аккаунта. Повтор запроса с тем же
+состоянием сохраняет позицию. Запрос выполняется в SQLite без обращения к источнику.
 Сохранённый refresh оставлен для совместимости API; пользовательский UI его не вызывает.
 
 

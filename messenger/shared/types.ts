@@ -48,6 +48,7 @@ export interface Conversation {
   updatedAt: string;
   preview: string;
   previewMessageId?: EntityId;
+  pinOrder?: number;
   canSend: boolean;
   isBot?: boolean;
   avatarVersion?: string;
@@ -92,9 +93,14 @@ export function comparePosition(a:Pick<Message,'date'|'id'|'sequence'>,b:Pick<Me
 //: Получает порядок источника для новой записи или прежнего составного message ID.
 //: Совместимость применяется только к числовому суффиксу после закодированного разделителя.
 export function positionSequence(message:Pick<Message,'id'|'sequence'>){if(Number.isSafeInteger(message.sequence))return message.sequence;const legacy=/:message:.*%2F([0-9]{1,10})$/.exec(message.id);return legacy?Number(legacy[1]):undefined;}
-//: Поднимает диалоги с непрочитанными и сохраняет свежие сообщения сверху.
-//: При равном времени порядок устойчив по общему ID.
-export function compareConversations(a:Conversation,b:Conversation){return Number(b.unreadCount>0)-Number(a.unreadCount>0)||b.updatedAt.localeCompare(a.updatedAt)||a.id.localeCompare(b.id);}
+//: Сортирует чаты по порядку закрепления, непрочитанным и времени сообщения.
+//: Последний закреплённый чат первый; при прочих равных используется общий ID.
+export function compareConversations(a: Conversation, b: Conversation) {
+  return (b.pinOrder ?? 0) - (a.pinOrder ?? 0)
+    || Number(b.unreadCount > 0) - Number(a.unreadCount > 0)
+    || b.updatedAt.localeCompare(a.updatedAt)
+    || a.id.localeCompare(b.id);
+}
 //: Передаёт ограниченный снимок общей ленты.
 //: stale отражает результат последней фоновой сверки метаданных.
 export interface Snapshot {

@@ -292,6 +292,18 @@ reset()
 send(input: SendRequest): Promise<Message>
 ```
 
+<a id="symbol-MessengerService.setConversationPin"></a>
+
+## MessengerService.setConversationPin
+
+Меняет закрепление выбранного чата в текущем аккаунте Messenger.
+
+Проверяет входные данные и выбор; обновление выполняется только в SQLite.
+
+```typescript
+setConversationPin(id: unknown, pinned: unknown): Snapshot
+```
+
 <a id="symbol-MessengerService.snapshot"></a>
 
 ## MessengerService.snapshot

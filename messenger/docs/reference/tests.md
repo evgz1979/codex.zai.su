@@ -74,6 +74,7 @@
 - [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: просмотренные чаты и расшифровки доступны после закрытия окна, без отправок
 - [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: просроченный кеш не открывает переписку, недоступное хранилище не мешает входу
 - [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: список готовит сообщения неоткрытых чатов без open и отметок прочтения
+- [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): закрепление чатов меняет порядок и видно после перезагрузки без сети
 - [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): с сетью: кеш виден до ответа, новые сообщения не сдвигают прокрутку и черновик
 - [test/browser/paging.spec.ts](../../test/browser/paging.spec.ts): автокеш: прокрутка без кнопок, обновления и удаления, быстрый переход
 - [test/browser/reads.spec.ts](../../test/browser/reads.spec.ts): просмотр: видимая активная лента снимает счётчик, скрытые сообщения ждут просмотра
@@ -88,6 +89,7 @@
 - [test/browser/whatsapp.spec.ts](../../test/browser/whatsapp.spec.ts): WhatsApp у личного пользователя: видимые серые инструкции, кнопки отключены, запросов нет
 - [test/core.test.ts](../../test/core.test.ts): SQLite сохраняет всю историю, ограничивает снимок и сохраняет исключённый архив
 - [test/core.test.ts](../../test/core.test.ts): единая лента объединяет источники и сохраняет хронологию
+- [test/core.test.ts](../../test/core.test.ts): закрепления переживают обновление метаданных и повторное открытие SQLite
 - [test/core.test.ts](../../test/core.test.ts): идентификаторы не конфликтуют между источниками, типами и строками
 - [test/core.test.ts](../../test/core.test.ts): открытие ограничено; непрочитанные сбрасываются только явным действием
 - [test/core.test.ts](../../test/core.test.ts): отправка проверяет весь маршрут; повтор HTTP не дублирует отправку

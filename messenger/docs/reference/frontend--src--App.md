@@ -271,6 +271,18 @@ async send(e: FormEvent)
 showList()
 ```
 
+<a id="symbol-App.togglePin"></a>
+
+## App.togglePin
+
+Сохраняет закрепление чата и обновляет его позицию после ответа сервера.
+
+Применяет только порядок закрепления, сохраняя актуальные сообщения и счётчики.
+
+```typescript
+async togglePin(conversation: Conversation)
+```
+
 <a id="symbol-App.updateFromCache"></a>
 
 ## App.updateFromCache
@@ -341,7 +353,7 @@ day(date: string)
 
 ```typescript
 Icon({ name }: {
-    name: 'send' | 'back' | 'inbox' | 'search' | 'logout';
+    name: 'send' | 'back' | 'inbox' | 'search' | 'logout' | 'pin';
 })
 ```
 

@@ -56,6 +56,16 @@ test('HTTP: вход, CSRF, Origin/Host, приватные API, безопас�
     assert.equal((await request('/api/chat/older',{conversationId:adapter.conversations[0].id},headers)).status,400);
     assert.equal((await request('/api/chat/older',{conversationId:adapter.conversations[0].id,before:'x'},{Cookie:headers.Cookie})).status,403);
     const photoInput={conversationId:adapter.conversations[0].id};
+    const pinInput={conversationId:adapter.conversations[1].id,pinned:true};
+    assert.equal((await request('/api/chat/pin',pinInput)).status,401);
+    assert.equal((await request('/api/chat/pin',pinInput,{Cookie:headers.Cookie})).status,403);
+    assert.equal((await request('/api/chat/pin',{...pinInput,pinned:'true'},headers)).status,400);
+    assert.equal((await request('/api/chat/pin',{...pinInput,conversationId:'excluded'},headers)).status,403);
+    const pinned=await request('/api/chat/pin',pinInput,headers);
+    assert.equal(pinned.status,200);
+    const pinnedChats=(await pinned.json() as ReturnType<MessengerService['snapshot']>).conversations;
+    assert.equal(pinnedChats[0].id,pinInput.conversationId);
+    assert.equal(pinnedChats[0].pinOrder,1);
     assert.equal((await request('/api/chat/avatar',photoInput,{Cookie:headers.Cookie})).status,403);
     assert.equal((await request('/api/chat/avatar',{conversationId:123},headers)).status,400);assert.equal((await request('/api/chat/avatar',{...photoInput,refresh:'bad'},headers)).status,400);
     assert.equal((await request('/api/chat/avatar',{conversationId:'excluded'},headers)).status,403);assert.equal(adapter.avatarCalls,0);

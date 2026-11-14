@@ -36,6 +36,32 @@ test('единая лента объединяет источники и сох�
   assert.equal(a.calls.length,0);
   assert.equal(a.reads.length,0);
 });
+test('закрепления переживают обновление метаданных и повторное открытие SQLite', async t => {
+  const {dir, store} = context(t);
+  const a = new TestAdapter('a'), b = new TestAdapter('b');
+  const [unread, first] = a.conversations;
+  const second = b.conversations[2];
+  store.select([unread.id, first.id, second.id]);
+  const service = new MessengerService([a,b],store);
+  await service.refresh();
+  assert.equal(service.snapshot().conversations[0].id, unread.id);
+  service.setConversationPin(first.id, true);
+  const pinned = service.setConversationPin(second.id, true);
+  assert.deepEqual(pinned.conversations.map(c => c.id), [second.id, first.id, unread.id]);
+  const revision = store.revision;
+  assert.deepEqual(service.setConversationPin(first.id, true).conversations, pinned.conversations);
+  assert.equal(store.revision, revision);
+  assert.deepEqual((await service.refresh()).conversations, pinned.conversations);
+  const reopened = new Store(dir);
+  try {
+    const restored = new MessengerService([a,b], reopened);
+    assert.deepEqual(restored.snapshot().conversations, pinned.conversations);
+    assert.equal(restored.setConversationPin(second.id, false).conversations[0].id, first.id);
+    reopened.select([unread.id]);
+    assert.deepEqual(restored.snapshot().conversations.map(c => c.id), [unread.id]);
+    assert.throws(() => restored.setConversationPin(first.id, true), /не разрешён/);
+  } finally { reopened.close(); }
+});
 test('отправка проверяет весь маршрут; повтор HTTP не дублирует отправку', async t => {
   const { store } = context(t);
   const a = new TestAdapter('a'), b = new TestAdapter('b');

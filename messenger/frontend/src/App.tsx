@@ -29,8 +29,8 @@ function conversationTime(date:string){
 }
 //: Выбирает локальный SVG для рабочей кнопки.
 //: Не загружает внешние изображения или скрипты.
-function Icon({ name }: { name: 'send' | 'back' | 'inbox' | 'search' | 'logout' }) {
-  const paths = { send: 'm4 4 17 8-17 8 3-8-3-8m3 8h14', back: 'm14 5-7 7 7 7M7 12h14', inbox: 'M4 4h16v12h-5l-3 4-3-4H4V4m4 4h8m-8 4h5', search: 'm15 15 5 5M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0', logout: 'M9 4H4v16h5m6-13 5 5-5 5M8 12h12' };
+function Icon({ name }: { name: 'send' | 'back' | 'inbox' | 'search' | 'logout' | 'pin' }) {
+  const paths = { send: 'm4 4 17 8-17 8 3-8-3-8m3 8h14', back: 'm14 5-7 7 7 7M7 12h14', inbox: 'M4 4h16v12h-5l-3 4-3-4H4V4m4 4h8m-8 4h5', search: 'm15 15 5 5M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0', logout: 'M9 4H4v16h5m6-13 5 5-5 5M8 12h12', pin: 'm15 4 5 5-2 1-3 3v3l-1 1-7-7 1-1h3l3-3 1-2ZM10.5 13.5 5 19' };
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]} /></svg>;
 }
 //: Отображает название приложения.
@@ -58,6 +58,8 @@ export function App() {
   const [onlyUnread,setOnlyUnread]=useState(false);
   const viewOpen=useRef(false);viewOpen.current=chatOpen;
   const [uncertain, setUncertain] = useState(false);
+  const conversationList = useRef<HTMLElement>(null);
+  const showPinnedAtTop = useRef(false);
   const feed = useRef<HTMLDivElement>(null);
   const composerInput=useRef<HTMLTextAreaElement>(null);
   const request=useRef<{id:number;controller?:AbortController}>({id:0});
@@ -154,6 +156,11 @@ export function App() {
     scrollPlan.current=undefined;
   },[snapshot?.messages,page?.messages,targetId]);
   useEffect(()=>()=>{request.current.controller?.abort();request.current.id++;},[]);
+  useLayoutEffect(() => {
+    if (!showPinnedAtTop.current) return;
+    showPinnedAtTop.current = false;
+    conversationList.current?.scrollTo({top:0});
+  }, [snapshot?.conversations]);
   useLayoutEffect(()=>{const input=composerInput.current;if(!input)return;input.style.height='auto';input.style.height=`${Math.min(input.scrollHeight,128)}px`;},[draft,targetId,chatOpen,session?.authenticated]);
   useEffect(()=>{
     //: Восстанавливает список либо разрешённый чат кнопками браузера.
@@ -316,6 +323,28 @@ export function App() {
     try { setSnapshot(await api<Snapshot>('read', { conversationId: target.id })); }
     catch (e) { fail(e); } finally { setBusy(false); }
   }
+  //: Сохраняет закрепление чата и обновляет его позицию после ответа сервера.
+  //: Применяет только порядок закрепления, сохраняя актуальные сообщения и счётчики.
+  async function togglePin(conversation: Conversation) {
+    if (busy || offline) return;
+    cancelView();
+    live.current.pending = true;
+    setBusy(true);
+    setError('');
+    const pinned = conversation.pinOrder === undefined;
+    try {
+      const result = await api<Snapshot>('pin', {conversationId:conversation.id, pinned});
+      const updated = result.conversations.find(c => c.id === conversation.id);
+      if (!updated) return;
+      showPinnedAtTop.current = pinned;
+      setSnapshot(old => old && {...old, conversations:old.conversations.map(c => c.id === updated.id ? {...c, pinOrder:updated.pinOrder} : c)});
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 0) setError('Для изменения закрепления нужна связь.');
+      else fail(e);
+    } finally {
+      setBusy(false);
+    }
+  }
   //: Отзывает текущую веб-сессию и очищает состояние переписки UI.
   //: Не завершает Telegram-авторизацию на сервере.
   async function logout() {
@@ -347,12 +376,20 @@ export function App() {
       <label className="search"><Icon name="search" /><input aria-label="Поиск диалогов" placeholder="Поиск" value={query} onChange={e=>setQuery(e.target.value)} /></label>
       <div className="chat-filters" role="group" aria-label="Фильтр чатов"><button aria-pressed={!onlyUnread} onClick={()=>setOnlyUnread(false)}>Все</button><button aria-pressed={onlyUnread} onClick={()=>setOnlyUnread(true)}>Непрочитанные{unread>0&&<span>{unread}</span>}</button></div>
       {error&&<div className="error-banner" role="alert">{error}</div>}
-      <nav className="conversation-list" aria-label="Получатели" aria-busy={!snapshot}>
-        {conversations.map(c=><button key={c.id} className="conversation" disabled={busy} onClick={()=>void choose(c)}>
-          <Avatar conversation={c} paused={offline} onUnauthorized={fail}/>
-          <span className="conversation-copy"><span className="conversation-title"><span className="conversation-name" title={c.title}>{c.title}</span><time dateTime={c.updatedAt}>{c.updatedAt&&conversationTime(c.updatedAt)}</time></span><span className="preview"><span className="conversation-source" data-source-kind={snapshot?.sources.find(s=>s.id===c.sourceId)?.kind}>{snapshot?.sources.find(s=>s.id===c.sourceId)?.name||'Источник'}</span>{drafts[c.id]?<><span className="draft-caption">Черновик: </span>{drafts[c.id]}</>:c.preview||(Date.parse(c.updatedAt)>0?'Загрузка сообщения…':'Нет сообщений')}</span></span>
-          {c.unreadCount>0&&<span className="badge" aria-label={`${c.unreadCount} непрочитанных`}>{c.unreadCount}</span>}
-        </button>)}
+      <nav ref={conversationList} className="conversation-list" aria-label="Получатели" aria-busy={!snapshot}>
+        {conversations.map(c => {
+          const pinned = c.pinOrder !== undefined;
+          const titleId = `conversation-name-${c.id}`;
+          const pinLabel = pinned ? 'Открепить чат' : 'Закрепить чат';
+          return <div key={c.id} className="conversation-row">
+            <button className="conversation" disabled={busy} onClick={()=>void choose(c)}>
+              <Avatar conversation={c} paused={offline} onUnauthorized={fail}/>
+              <span className="conversation-copy"><span className="conversation-title"><span id={titleId} className="conversation-name" title={c.title}>{c.title}</span><time dateTime={c.updatedAt}>{c.updatedAt&&conversationTime(c.updatedAt)}</time></span><span className="preview"><span className="conversation-source" data-source-kind={snapshot?.sources.find(s=>s.id===c.sourceId)?.kind}>{snapshot?.sources.find(s=>s.id===c.sourceId)?.name||'Источник'}</span>{drafts[c.id]?<><span className="draft-caption">Черновик: </span>{drafts[c.id]}</>:c.preview||(Date.parse(c.updatedAt)>0?'Загрузка сообщения…':'Нет сообщений')}</span></span>
+              {c.unreadCount>0&&<span className="badge" aria-label={`${c.unreadCount} непрочитанных`}>{c.unreadCount}</span>}
+            </button>
+            <button className="icon-button conversation-pin" data-pinned={pinned} aria-label={pinLabel} aria-describedby={titleId} title={pinLabel} disabled={busy||offline} onClick={()=>void togglePin(c)}><Icon name="pin"/></button>
+          </div>;
+        })}
         {!conversations.length&&<p className="list-empty">{!snapshot?'Загрузка чатов…':query.trim()?'Чаты не найдены':onlyUnread?'Нет непрочитанных чатов':'Здесь появятся ваши диалоги после подключения аккаунта и выбора в админке.'}</p>}
       </nav>
       {!offline&&<Notifications />}

@@ -31,6 +31,7 @@ export class Store {
     this.db.exec("CREATE INDEX IF NOT EXISTS message_date_order ON message_cache(date DESC,id DESC); CREATE TABLE IF NOT EXISTS media_preload (message_id TEXT NOT NULL,attachment_id TEXT NOT NULL,version TEXT NOT NULL,variant TEXT NOT NULL,message_date TEXT NOT NULL,next_attempt INTEGER NOT NULL,PRIMARY KEY(message_id,attachment_id,version,variant));");
     this.db.exec('CREATE TABLE IF NOT EXISTS conversation_policy (id TEXT PRIMARY KEY,source_id TEXT NOT NULL,excluded INTEGER NOT NULL);');
     this.db.exec('CREATE TABLE IF NOT EXISTS voice_transcriptions (message_id TEXT PRIMARY KEY,payload TEXT NOT NULL);');
+    this.db.exec('CREATE TABLE IF NOT EXISTS conversation_pins (pin_order INTEGER PRIMARY KEY, id TEXT NOT NULL UNIQUE);');
     // Мигрируем только прежний локальный кеш. Выбор по умолчанию остаётся пустым.
     const old = this.get('cache');
     if (old) { try { this.saveCache(JSON.parse(old)); } catch { /* Повреждённый старый кеш не является настройкой. */ } this.remove('cache'); }
@@ -47,6 +48,20 @@ export class Store {
   //: Читает одни сохранённые метаданные диалога.
   //: Историю и реквизиты источника не загружает.
   conversation(id:string):Conversation|undefined{const row=this.db.prepare('SELECT payload FROM conversation_cache WHERE id=?').get(id) as {payload:string}|undefined;return row?JSON.parse(row.payload):undefined;}
+  //: Возвращает порядок закреплений разрешённых чатов личного аккаунта.
+  //: Настройки переживают обновление метаданных и очистку кеша.
+  conversationPins() {
+    const rows = this.db.prepare('SELECT p.id, p.pin_order FROM conversation_pins p JOIN selected_conversations s ON p.id=s.id').all() as {id:string;pin_order:number}[];
+    return new Map(rows.map(row => [row.id, row.pin_order]));
+  }
+  //: Сохраняет или снимает закрепление одного чата.
+  //: Повтор закрепления оставляет текущую позицию и ревизию кеша.
+  setConversationPin(id: string, pinned: boolean) {
+    const result = pinned
+      ? this.db.prepare('INSERT OR IGNORE INTO conversation_pins (id) VALUES (?)').run(id)
+      : this.db.prepare('DELETE FROM conversation_pins WHERE id=?').run(id);
+    if (Number(result.changes)) this.revision++;
+  }
   //: Читает ровно одно сообщение по общему ID для защищённого доступа к медиа.
   //: Проверку выбора выполняет ядро перед обращением к этому методу.
   message(id:string):Message|undefined{const row=this.db.prepare('SELECT payload FROM message_cache WHERE id=?').get(id) as {payload:string}|undefined;return row?this.withTranscription(JSON.parse(row.payload)):undefined;}

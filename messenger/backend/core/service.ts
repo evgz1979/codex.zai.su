@@ -60,7 +60,9 @@ export class MessengerService {
   //: Не обращается к сети; общая лента содержит только десять последних загруженных сообщений.
   snapshot(): Snapshot {
     const state=this.inbox.filter({ ...this.store.loadCache(), stale:this.state.stale,sync:this.store.syncStatus(),sources: this.registry.sources() });
-    return {...state,conversations:[...state.conversations].sort(compareConversations),messages:state.messages.slice(-LIMITS.pageMessages)};
+    const pins = this.store.conversationPins();
+    const conversations = state.conversations.map(c => ({...c, pinOrder:pins.get(c.id)})).sort(compareConversations);
+    return {...state,conversations,messages:state.messages.slice(-LIMITS.pageMessages)};
   }
   //: Ищет зарегистрированный источник по sourceId.
   //: Неизвестный источник отклоняется с 409.
@@ -74,6 +76,16 @@ export class MessengerService {
     const c = this.store.conversation(id);
     if (!c) throw new AppError(404, 'Диалог не найден.');
     return c;
+  }
+  //: Меняет закрепление выбранного чата в текущем аккаунте Messenger.
+  //: Проверяет входные данные и выбор; обновление выполняется только в SQLite.
+  setConversationPin(id: unknown, pinned: unknown): Snapshot {
+    if (typeof id !== 'string' || !id || id.length > 2048 || typeof pinned !== 'boolean') {
+      throw new AppError(400, 'Некорректный запрос закрепления.');
+    }
+    this.conversation(id);
+    this.store.setConversationPin(id, pinned);
+    return this.snapshot();
   }
   //: Обновляет метаданные разрешённых диалогов для фоновой сверки.
   //: Повторный параллельный вызов использует тот же pendingRefresh.

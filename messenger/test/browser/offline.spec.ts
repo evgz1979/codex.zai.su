@@ -21,6 +21,43 @@ test('offline: список готовит сообщения неоткрыты
   for(const name of ['Анна Смирнова','Команда проекта','Алексей','Мария · другой источник']){await page.getByRole('button',{name:new RegExp(name)}).click();await expect(page.getByRole('article')).not.toHaveCount(0);await expect(page.getByText('В этом чате ещё нет сохранённых сообщений',{exact:true})).toHaveCount(0);await page.getByRole('button',{name:'Назад к чатам'}).click();}
   expect(reads).toBe(0);
 });
+test('закрепление чатов меняет порядок и видно после перезагрузки без сети', async ({page,context,baseURL}) => {
+  await login(page);
+  const chats = page.locator('.conversation-name');
+  const anna = page.locator('.conversation-row').filter({hasText:'Анна Смирнова'});
+  const team = page.locator('.conversation-row').filter({hasText:'Команда проекта'});
+  const pin = 'Закрепить чат';
+  const unpin = 'Открепить чат';
+  try {
+    await anna.getByRole('button', {name:pin,exact:true}).press('Enter');
+    await expect(chats.first()).toHaveText('Анна Смирнова');
+    await team.getByRole('button', {name:pin,exact:true}).click();
+    await expect(chats.first()).toHaveText('Команда проекта');
+    await expect(chats.nth(1)).toHaveText('Анна Смирнова');
+    await expect(page.locator('.chat')).toBeHidden();
+    await page.reload();
+    await expect(chats.first()).toHaveText('Команда проекта');
+    await team.getByRole('button', {name:unpin,exact:true}).click();
+    await expect(chats.first()).toHaveText('Анна Смирнова');
+    await page.getByRole('button', {name:'Непрочитанные',exact:true}).click();
+    await expect(chats).toHaveCount(0);
+    await page.getByRole('button', {name:'Все',exact:true}).click();
+    await page.getByRole('textbox', {name:'Поиск диалогов'}).fill('Команда');
+    await expect(chats).toHaveText(['Команда проекта']);
+    await page.getByRole('textbox', {name:'Поиск диалогов'}).clear();
+    await context.setOffline(true);
+    await page.reload();
+    await expect(chats.first()).toHaveText('Анна Смирнова');
+    await expect(anna.getByRole('button', {name:unpin,exact:true})).toBeDisabled();
+    await expect(team.getByRole('button', {name:pin,exact:true})).toBeDisabled();
+  } finally {
+    await context.setOffline(false);
+    const {csrfToken} = await (await page.request.get('/api/chat/session')).json();
+    for (const conversationId of ['fixture-a:conversation:0','fixture-a:conversation:1']) {
+      await page.request.post('/api/chat/pin', {headers:{Origin:baseURL!,'X-CSRF-Token':csrfToken},data:{conversationId,pinned:false}});
+    }
+  }
+});
 test('offline: просмотренные чаты и расшифровки доступны после закрытия окна, без отправок',async({page,context},testInfo)=>{
   await login(page);await page.getByRole('button',{name:'Общая лента',exact:true}).click();
   await expect(page.getByRole('button',{name:'Открыть вложение: Голосовое.wav'})).toBeVisible();

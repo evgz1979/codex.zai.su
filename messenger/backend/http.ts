@@ -92,6 +92,10 @@ export function createApp(options: { service:MessengerService; store:Store; auth
           }
           if(action==='access'&&req.method==='GET') {const since=Number(new URL(req.url||'/',options.origin).searchParams.get('since')||0);if(!Number.isSafeInteger(since)||since<0)throw new AppError(400,'Некорректная ревизия.');return send(res,200,current.store.access(since));}
           if(action==='snapshot'&&req.method==='GET') return send(res,200,current.service.snapshot());
+          if(action==='pin'&&req.method==='POST') {
+            const input = await body(req);
+            return send(res, 200, current.service.setConversationPin(input.conversationId, input.pinned));
+          }
           if(action==='offline'&&req.method==='POST'){const input=await body(req);return send(res,200,current.service.offlineBatch(input.conversationIds));}
           if(action==='transcribe'&&req.method==='POST'){
             const input=await body(req) as unknown as AttachmentRequest;

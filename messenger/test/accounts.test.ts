@@ -83,6 +83,11 @@ test('личные пользователи: ссылки, пароли, cookie,
   const userAdapter=adapters.get(anna.id)!;const ownerAdapter=adapters.get(basename(directory))!;
   const snapshot=await (await request('/api/u/anna/chat/snapshot',undefined,chat)).text();assert.ok(snapshot.includes(`PRIVATE:${anna.id}`));assert.ok(!snapshot.includes(`PRIVATE:${basename(directory)}`));
   for(const action of ['open','read'])assert.equal((await request(`/api/u/anna/chat/${action}`,{conversationId:ownerAdapter.conversations[0].id},chat)).status,403);
+  assert.equal((await request('/api/u/anna/chat/pin',{conversationId:ownerAdapter.conversations[0].id,pinned:true},chat)).status,403);
+  const pin=await request('/api/u/anna/chat/pin',{conversationId:userAdapter.conversations[1].id,pinned:true},chat);
+  assert.equal(pin.status,200);
+  assert.equal((await pin.json() as ReturnType<MessengerService['snapshot']>).conversations[0].id,userAdapter.conversations[1].id);
+  assert.equal(ownerStore.conversationPins().size,0);
   assert.equal((await request('/api/u/anna/chat/send',{destination:destinationFor(ownerAdapter.conversations[0]),text:'must not send',requestId:'foreign-send-route-0001'},chat)).status,403);
   assert.equal(ownerAdapter.sent.length,0);
   assert.equal((await request('/api/u/anna/chat/offline',{conversationIds:[ownerAdapter.conversations[0].id]},chat)).status,403);
