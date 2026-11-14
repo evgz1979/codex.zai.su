@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-test('источники: цветные отметки и обновление счётчика после просмотра WhatsApp',async({page})=>{
+test('источники: значки под булавкой и обновление счётчика после просмотра WhatsApp',async({page})=>{
  const reads:string[]=[];
  let unreadCount=2;
  await page.addInitScript(()=>{
@@ -19,18 +19,24 @@ test('источники: цветные отметки и обновление 
  });
  await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();
  const list=page.getByRole('navigation',{name:'Получатели'});
- const telegram=list.locator('.conversation-source-marker[data-source-kind=telegram]').first();
- const whatsapp=list.locator('.conversation-source-marker[data-source-kind=whatsapp]');
- await expect(telegram).toHaveCSS('background-color','rgb(51, 144, 236)');
- await expect(whatsapp).toHaveCSS('background-color','rgb(33, 132, 85)');
+ const telegram=list.locator('.conversation-source-icon[data-source-kind=telegram]').first();
+ const whatsapp=list.locator('.conversation-source-icon[data-source-kind=whatsapp]');
+ await expect(telegram.locator('svg')).toBeVisible();
+ await expect(whatsapp.locator('svg')).toBeVisible();
+ await expect(telegram).toHaveCSS('color','rgb(51, 144, 236)');
+ await expect(whatsapp).toHaveCSS('color','rgb(33, 132, 85)');
+ await expect(whatsapp).toHaveAttribute('title','WhatsApp');
  await expect(list.getByText(/^(Telegram|WhatsApp)$/)).toHaveCount(0);
  const whatsappChat=list.getByRole('button',{name:/Мария · другой источник/});
  await expect(whatsappChat).toHaveAccessibleDescription('WhatsApp');
  const rowBounds=(await whatsappChat.boundingBox())!;
- const markerBounds=(await whatsapp.boundingBox())!;
- const avatarBounds=(await whatsappChat.locator('.avatar').boundingBox())!;
- expect(rowBounds.height).toBeLessThanOrEqual(60);
- expect(markerBounds.x+markerBounds.width).toBeLessThan(avatarBounds.x);
+ const iconBounds=(await whatsapp.boundingBox())!;
+ const pinBounds=(await list.getByRole('button',{name:'Закрепить чат',description:'Мария · другой источник',exact:true}).boundingBox())!;
+ expect(rowBounds.height).toBe(58);
+ expect(pinBounds.height).toBe(44);
+ expect(iconBounds.width).toBe(13);
+ expect(iconBounds.y).toBeGreaterThanOrEqual(pinBounds.y+pinBounds.height);
+ expect(iconBounds.x+iconBounds.width/2).toBeCloseTo(pinBounds.x+pinBounds.width/2,0);
  await expect.poll(()=>page.evaluate(()=>(window as unknown as {badge:number}).badge)).toBe(2);
  expect(reads).toEqual([]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -121,6 +127,7 @@ test('список чатов: поиск, фильтр, возврат брау
   page.on('request',request=>{if(request.url().endsWith('/api/chat/open'))opens.push(request.postDataJSON().conversationId);if(request.url().endsWith('/api/chat/read'))reads.push(request.url());});
   await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();
   await expect(page.getByRole('heading',{name:'Чаты',exact:true})).toBeVisible();await expect(page.locator('.conversation')).toHaveCount(4);await page.waitForTimeout(800);expect(opens).toEqual([]);expect(reads).toEqual([]);
+  await expect(page.locator('.conversation-source-icon[data-source-kind=test] svg')).toHaveCount(4);
   const updateBox=await page.getByRole('button',{name:'Обновить приложение',exact:true}).boundingBox();const exitBox=await page.getByRole('button',{name:'Выйти',exact:true}).boundingBox();expect(Math.abs((updateBox!.y+updateBox!.height/2)-(exitBox!.y+exitBox!.height/2))).toBeLessThan(1);await expect(page.locator('.sidebar > .app-updates')).toHaveCount(0);
   await page.screenshot({path:`test-results/chat-list-${testInfo.project.name}.png`});
   await page.getByRole('button',{name:'Непрочитанные',exact:true}).click();await expect(page.getByText('Нет непрочитанных чатов',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Все',exact:true}).click();

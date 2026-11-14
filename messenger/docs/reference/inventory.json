@@ -343,6 +343,7 @@
   {"path":"frontend/src/App.tsx","name":"App.updateFromCache","anchor":"symbol-App.updateFromCache"},
   {"path":"frontend/src/App.tsx","name":"App.visibleCheck","anchor":"symbol-App.visibleCheck"},
   {"path":"frontend/src/App.tsx","name":"Brand","anchor":"symbol-Brand"},
+  {"path":"frontend/src/App.tsx","name":"ConversationSourceIcon","anchor":"symbol-ConversationSourceIcon"},
   {"path":"frontend/src/App.tsx","name":"conversationTime","anchor":"symbol-conversationTime"},
   {"path":"frontend/src/App.tsx","name":"day","anchor":"symbol-day"},
   {"path":"frontend/src/App.tsx","name":"Icon","anchor":"symbol-Icon"},

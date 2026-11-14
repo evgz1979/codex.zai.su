@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
-import { destinationFor,messagePreview,compareConversations, LIMITS, type Conversation, type ConversationPageResult, type Message, type MessagePage, type SessionInfo, type Snapshot, type SyncStatus } from '../../shared/types';
+import { destinationFor,messagePreview,compareConversations, LIMITS, type Conversation, type ConversationPageResult, type Message, type MessagePage, type SessionInfo, type Snapshot, type Source, type SyncStatus } from '../../shared/types';
 import AppUpdates,{useAppUpdates} from './AppUpdates';
 import Avatar,{clearAvatars} from './Avatar';
 import AttachmentPreview from './AttachmentPreview';
@@ -32,6 +32,19 @@ function conversationTime(date:string){
 function Icon({ name }: { name: 'send' | 'back' | 'inbox' | 'search' | 'logout' | 'pin' }) {
   const paths = { send: 'm4 4 17 8-17 8 3-8-3-8m3 8h14', back: 'm14 5-7 7 7 7M7 12h14', inbox: 'M4 4h16v12h-5l-3 4-3-4H4V4m4 4h8m-8 4h5', search: 'm15 15 5 5M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0', logout: 'M9 4H4v16h5m6-13 5 5-5 5M8 12h12', pin: 'm15 4 5 5-2 1-3 3v3l-1 1-7-7 1-1h3l3-3 1-2ZM10.5 13.5 5 19' };
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]} /></svg>;
+}
+//: Показывает маленький значок источника под кнопкой закрепления.
+//: Для источника без своей иконки использует нейтральное облачко.
+function ConversationSourceIcon({source}: {source?:Source}) {
+  return <span className="conversation-source-icon" data-source-kind={source?.kind} title={source?.name} aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      {source?.kind === 'telegram' ? <path fill="currentColor" stroke="none" d="M22 2.5 2 10.2l7 2.8 9.1-6.6-7.3 7.9 7.7 5.5L22 2.5ZM9.3 14.7l.4 5 2.7-2.7-3.1-2.3Z"/> :
+        source?.kind === 'whatsapp' ? <>
+          <path d="M6.8 20 3 21l1-3.8A9 9 0 1 1 6.8 20Z"/>
+          <path fill="currentColor" stroke="none" d="M8.6 6.7c-.9.1-1.5.9-1.5 2 0 2.7 3.5 6.8 6.6 7.7 1.5.4 2.7-.2 3-1.3l.2-.8-2.9-1.4-1 1.2a8.1 8.1 0 0 1-3.5-3.5l1-1.1-1.2-2.8Z"/>
+        </> : <path d="M4 4h16v12h-7l-5 4v-4H4zM8 9h8m-8 3h5"/>}
+    </svg>
+  </span>;
 }
 //: Отображает название приложения.
 //: Не добавляет рекламные подписи и вводные тексты.
@@ -384,7 +397,6 @@ export function App() {
           const pinLabel = pinned ? 'Открепить чат' : 'Закрепить чат';
           return <div key={c.id} className="conversation-row">
             <button className="conversation" aria-description={source?.name} disabled={busy} onClick={()=>void choose(c)}>
-              <span className="conversation-source-marker" data-source-kind={source?.kind} title={source?.name} aria-hidden="true"/>
               <Avatar conversation={c} paused={offline} onUnauthorized={fail}/>
               <span className="conversation-copy">
                 <span className="conversation-title">
@@ -397,7 +409,10 @@ export function App() {
                 </span>
               </span>
             </button>
-            <button className="icon-button conversation-pin" data-pinned={pinned} aria-label={pinLabel} aria-describedby={titleId} title={pinLabel} disabled={busy||offline} onClick={()=>void togglePin(c)}><Icon name="pin"/></button>
+            <div className="conversation-actions">
+              <button className="icon-button conversation-pin" data-pinned={pinned} aria-label={pinLabel} aria-describedby={titleId} title={pinLabel} disabled={busy||offline} onClick={()=>void togglePin(c)}><Icon name="pin"/></button>
+              <ConversationSourceIcon source={source}/>
+            </div>
           </div>;
         })}
         {!conversations.length&&<p className="list-empty">{!snapshot?'Загрузка чатов…':query.trim()?'Чаты не найдены':onlyUnread?'Нет непрочитанных чатов':'Здесь появятся ваши диалоги после подключения аккаунта и выбора в админке.'}</p>}

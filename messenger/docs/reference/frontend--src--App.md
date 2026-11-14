@@ -319,6 +319,20 @@ visibleCheck()
 Brand()
 ```
 
+<a id="symbol-ConversationSourceIcon"></a>
+
+## ConversationSourceIcon
+
+Показывает маленький значок источника под кнопкой закрепления.
+
+Для источника без своей иконки использует нейтральное облачко.
+
+```typescript
+ConversationSourceIcon({ source }: {
+    source?: Source;
+})
+```
+
 <a id="symbol-conversationTime"></a>
 
 ## conversationTime

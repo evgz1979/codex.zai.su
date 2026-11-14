@@ -55,7 +55,7 @@
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): аватары: миниатюра сохраняет лицо при отказе, повреждённый кеш перечитывается у источника
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): аватары: прежнее фото остаётся видимым до готовности новой версии
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): единая лента, выбор адресата, отправка, непрочитанные, выход и мобильные границы
-- [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): источники: цветные отметки и обновление счётчика после просмотра WhatsApp
+- [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): источники: значки под булавкой и обновление счётчика после просмотра WhatsApp
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): открытый чат скрывает исключённые диалоги без синхронизации истории
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): последние сообщения в списке видны до открытия чатов и не снимают непрочитанное
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): список чатов: поиск, фильтр, возврат браузером и отдельные черновики
