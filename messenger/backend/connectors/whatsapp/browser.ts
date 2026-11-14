@@ -75,6 +75,7 @@ export class WhatsAppBrowser {
     if(action==='catalog')return {conversations:await this.catalog()};
     const jid=nativeChat(request.conversationId!);
     if(action==='messages')return this.page(jid,request.before);
+    if(action==='read'){await this.markRead(jid,request.messageId!);return {};}
     const chat=await this.client.pupPage!.evaluate(async jid=>{const chat=await (window as any).WWebJS.getChat(jid,{getAsModel:false});return chat?{id:chat.id?._serialized,isReadOnly:!!chat.isReadOnly,name:chat.formattedTitle||chat.name||''}:null;},jid);
     if(!chat||chat.id!==jid||chat.isReadOnly)throw new Error('invalid_destination');
     if(action==='send'){
@@ -172,6 +173,40 @@ export class WhatsAppBrowser {
       const chats=(window as any).require('WAWebCollections').Chat;return chats.getModelsArray().slice(0,1000).map((chat:any)=>({jid:chat.id?._serialized,name:chat.formattedTitle||chat.name||chat.id?.user||'',group:!!chat.isGroup,readOnly:!!chat.isReadOnly,unread:Math.max(0,chat.unreadCount||0),timestamp:Number.isFinite(chat.t)?chat.t:0}));
     });
     return rows.filter((row:any)=>typeof row.jid==='string'&&/^[0-9-]{1,64}@(c\.us|g\.us|lid)$/.test(row.jid)).map((row:any)=>({id:entityId('whatsapp','conversation',row.jid),sourceId:'whatsapp',title:String(row.name).slice(0,512),kind:row.group||row.jid.endsWith('@g.us')?'group':'direct',recipient:{id:entityId('whatsapp','recipient',row.jid),name:String(row.name).slice(0,512),isSelf:row.jid===this.client!.info?.wid?._serialized},unreadCount:row.unread,updatedAt:new Date(row.timestamp*1000).toISOString(),preview:'',canSend:!row.readOnly}));
+  }
+  //: Подтверждает просмотр только до актуального последнего входящего WhatsApp.
+  //: Метод источника отмечает весь чат, поэтому перед вызовом проверяется нативная граница.
+  private async markRead(jid:string,messageId:string):Promise<void>{
+    const key=decodeURIComponent(messageId.slice('whatsapp:message:'.length));
+    if(!key.startsWith(`false_${jid}_`)&&!key.startsWith(`true_${jid}_`))throw new Error('invalid_destination');
+    await this.client!.pupPage!.evaluate(async({jid,key})=>{
+      const w=window as any;
+      const chat=await w.WWebJS.getChat(jid,{getAsModel:false});
+      if(chat?.id?._serialized!==jid)throw new Error('invalid_destination');
+      if(chat.unreadCount===0)return;
+      //: Сравнивает актуальные ключи без сериализации сообщений и выгрузки их тел.
+      //: Поддерживает MsgKey из каталога и моделей загруженной истории.
+      const serialized=(id:any)=>{
+        const value=typeof id==='string'?id:id?._serialized||id?.toString?.();
+        if(typeof value==='string'&&/^(true|false)_/.test(value))return value;
+        const saved=id?.serialize?.()||id;
+        const remote=typeof saved?.remote==='string'?saved.remote:saved?.remote?._serialized;
+        const participant=typeof saved?.participant==='string'?saved.participant:saved?.participant?._serialized;
+        if(remote&&typeof saved.id==='string'&&typeof saved.fromMe==='boolean')return `${saved.fromMe}_${remote}_${saved.id}${participant?'_'+participant:''}`;
+      };
+      const last=serialized(chat.lastReceivedKey);
+      if(typeof last!=='string'||(!last.startsWith(`false_${jid}_`)&&!last.startsWith(`true_${jid}_`)))throw new Error('read_position_changed');
+      if(key!==last){
+        const keys=chat.msgs.getModelsArray().filter((message:any)=>!message.isNotification).map((message:any)=>serialized(message.id)||serialized(message.serialize?.().id));
+        const boundary=keys.lastIndexOf(last);
+        if(boundary<0||keys.lastIndexOf(key)<boundary)throw new Error('read_position_changed');
+      }
+      const stream=w.require('WAWebStreamModel').Stream;
+      const {sendSeen}=w.require('WAWebUpdateUnreadChatAction');
+      stream.markAvailable();
+      try{await sendSeen({chat,threadId:undefined});}finally{stream.markUnavailable();}
+      if(chat.unreadCount!==0)throw new Error('read_position_changed');
+    },{jid,key});
   }
   //: Загружает ограниченную порцию выбранной истории внутри WhatsApp Web.
   //: Голова возвращается из кеша; одна догрузка ограничена восемью секундами, курсор привязан к чату.

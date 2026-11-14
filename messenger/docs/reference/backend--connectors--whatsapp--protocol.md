@@ -13,7 +13,7 @@
 Протокол не принимает URL, JavaScript, shell или произвольные методы клиента.
 
 ```typescript
-export type BrowserAction = 'status' | 'start' | 'stop' | 'logout' | 'catalog' | 'messages' | 'send';
+export type BrowserAction = 'status' | 'start' | 'stop' | 'logout' | 'catalog' | 'messages' | 'send' | 'read';
 ```
 
 <a id="symbol-browserRequest"></a>
@@ -44,6 +44,7 @@ export interface BrowserRequest {
     allowed?: string[];
     conversationId?: string;
     recipientId?: string;
+    messageId?: string;
     before?: string;
     text?: string;
 }

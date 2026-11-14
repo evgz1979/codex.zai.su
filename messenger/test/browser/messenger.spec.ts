@@ -1,19 +1,30 @@
 import { test, expect } from '@playwright/test';
-test('источники: видимые отметки Telegram и WhatsApp, без неподдерживаемого read WhatsApp',async({page})=>{
+test('источники: видимый WhatsApp-чат обновляет счётчик чатов и значок',async({page})=>{
  const reads:string[]=[];
+ let unreadCount=2;
+ await page.addInitScript(()=>{
+  const state=window as unknown as {badge?:number};
+  Object.defineProperty(document,'hasFocus',{value:()=>false});
+  Object.defineProperty(navigator,'standalone',{value:true});
+  Object.defineProperty(navigator,'setAppBadge',{value:async(count:number)=>{state.badge=count;}});
+  Object.defineProperty(navigator,'clearAppBadge',{value:async()=>{state.badge=0;}});
+ });
  await page.route('**/api/chat/**',async route=>{
   const action=new URL(route.request().url()).pathname.split('/').pop();
   if(!['session','login','snapshot','inbox','open','older','access','read'].includes(action!))return route.continue();
-  if(action==='read')reads.push(route.request().postDataJSON().conversationId);
+  if(action==='read'){reads.push(route.request().postDataJSON().conversationId);unreadCount=0;}
   const response=await route.fetch();const data=await response.json();
-  const decorate=(snapshot:any)=>{if(!snapshot?.sources)return;const source=snapshot.sources.find((s:any)=>s.id==='fixture-b');Object.assign(source,{kind:'whatsapp',name:'WhatsApp',canMarkRead:false});snapshot.conversations.filter((c:any)=>c.sourceId==='fixture-b').forEach((c:any)=>{c.unreadCount=2;});};
+  const decorate=(snapshot:any)=>{if(!snapshot?.sources)return;const source=snapshot.sources.find((s:any)=>s.id==='fixture-b');Object.assign(source,{kind:'whatsapp',name:'WhatsApp'});snapshot.conversations.forEach((c:any)=>{c.unreadCount=c.sourceId==='fixture-b'?unreadCount:0;});};
   decorate(data);decorate(data.snapshot);await route.fulfill({response,json:data});
  });
  await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();
  await expect(page.locator('.conversation-source').getByText('Telegram',{exact:true}).first()).toBeVisible();await expect(page.locator('.conversation-source[data-source-kind=whatsapp]')).toHaveText('WhatsApp');
+ await expect.poll(()=>page.evaluate(()=>(window as unknown as {badge:number}).badge)).toBe(2);
+ expect(reads).toEqual([]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
- await page.getByRole('button',{name:/Мария · другой источник/}).click();await expect(page.locator('.chat-heading')).toContainText('WhatsApp');await expect(page.getByRole('button',{name:'Отметить прочитанным',exact:true})).toHaveCount(0);
- await page.waitForTimeout(1000);expect(reads.filter(id=>id.startsWith('fixture-b:'))).toEqual([]);
+ await page.getByRole('button',{name:/Мария · другой источник/}).click();await expect(page.locator('.chat-heading')).toContainText('WhatsApp');
+ await expect.poll(()=>page.evaluate(()=>(window as unknown as {badge:number}).badge)).toBe(0);
+ expect(reads).toEqual(['fixture-b:conversation:0']);
 });
 
 test('единая лента, выбор адресата, отправка, непрочитанные, выход и мобильные границы', async ({ page }, testInfo) => {

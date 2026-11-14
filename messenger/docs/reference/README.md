@@ -18,7 +18,7 @@
 | [backend/connectors/telegram/media.ts](backend--connectors--telegram--media.md) | Безопасные общие метаданные фото и документов Telegram без native references. | 4 |
 | [backend/connectors/whatsapp/adapter.ts](backend--connectors--whatsapp--adapter.md) | Личный SourceAdapter WhatsApp Web, административный QR, выбранная история и отправка текста. | 16 |
 | [backend/connectors/whatsapp/bridge.ts](backend--connectors--whatsapp--bridge.md) | Ограниченный клиент приватного браузерного worker без TCP и универсального RPC. | 2 |
-| [backend/connectors/whatsapp/browser.ts](backend--connectors--whatsapp--browser.md) | Одна изолированная Chromium-сессия с sandbox, временным QR и выбранной историей. | 18 |
+| [backend/connectors/whatsapp/browser.ts](backend--connectors--whatsapp--browser.md) | Одна изолированная Chromium-сессия с sandbox, временным QR и выбранной историей. | 20 |
 | [backend/connectors/whatsapp/protocol.ts](backend--connectors--whatsapp--protocol.md) | Закрытый протокол Unix socket и проверка выбранного получателя WhatsApp. | 5 |
 | [backend/connectors/whatsapp/worker.ts](backend--connectors--whatsapp--worker.md) | Последовательный Unix socket worker браузера с дедлайнами и безопасными отказами. | 4 |
 | [backend/core/attachments.ts](backend--core--attachments.md) | Защищённая потоковая загрузка вложений и ограниченный приватный кеш байтов. | 9 |
@@ -61,7 +61,7 @@
 | [frontend/src/useConversationArrival.ts](frontend--src--useConversationArrival.md) | Отменяемое открытие свежего непрочитанного при запуске и возврате, точного диалога по уведомлению. | 7 |
 | [frontend/src/useOffline.ts](frontend--src--useOffline.md) | Режим локального чтения после потери связи и подтверждённого восстановления сервера. | 1 |
 | [frontend/src/useOfflinePrefetch.ts](frontend--src--useOfflinePrefetch.md) | Фоновая последовательная подготовка голов выбранных чатов для чтения без сети без переключения адресата. | 3 |
-| [frontend/src/useVisibleReads.ts](frontend--src--useVisibleReads.md) | Подтверждение просмотра реально видимых сообщений после остановки прокрутки в активной ленте. | 4 |
+| [frontend/src/useVisibleReads.ts](frontend--src--useVisibleReads.md) | Подтверждение просмотра реально видимых сообщений после остановки прокрутки в активной ленте. | 5 |
 | [frontend/vite.config.ts](frontend--vite.config.md) | React/Vite-сборка в dist/client без отдельного production-порта. | 1 |
 | [playwright.config.ts](playwright.config.md) | Три браузерные конфигурации и изолированный сервер синтетических данных. | 0 |
 | [scripts/app-icon.svg](scripts--app-icon.md) | Квадратная иконка установки с непрозрачным фоном до краёв; маску применяет ОС. | 0 |

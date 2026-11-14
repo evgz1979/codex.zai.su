@@ -34,6 +34,8 @@ test('WhatsApp: закрытый протокол отклоняет RPC, пут
  assert.throws(()=>browserRequest({account,action:'evaluate',script:'example'}),/invalid_request/);
  assert.throws(()=>browserRequest({account:'../../other',action:'status'}),/invalid_request/);
  assert.throws(()=>browserRequest({account,action:'messages',conversationId:id,allowed:[]}),/not_selected/);
+ assert.throws(()=>browserRequest({account,action:'read',conversationId:id,allowed:[]}),/not_selected/);
+ assert.throws(()=>browserRequest({account,action:'read',conversationId:id,allowed:[id]}),/invalid_destination/);
  assert.throws(()=>browserRequest({account,action:'send',conversationId:id,allowed:[id],recipientId:'wrong',text:'текст'}),/invalid_destination/);
  assert.equal(browserRequest({account,action:'messages',conversationId:id,allowed:[id]}).conversationId,id);
  assert.throws(()=>webMessage(native,'79990000002@c.us','Другой'),/mismatch/);
@@ -115,17 +117,54 @@ test('WhatsApp: события прогресса не продлевают пр
 test('WhatsApp: адаптер проверяет текущий выбор и точный маршрут, ключи аккаунтов независимы',async t=>{
  const root=mkdtempSync(join(tmpdir(),'wa-adapter-'));const store=new Store(root);t.after(()=>{store.close();rmSync(root,{recursive:true,force:true});});
  const requests:BrowserRequest[]=[];
- const call=async(request:BrowserRequest):Promise<BrowserResult>=>{requests.push(request);if(request.action==='catalog')return {conversations:[conversation]};if(request.action==='messages')return {messages:[webMessage(native,jid,'Тест')],nextCursor:null};return {status:{stage:'connected',connected:true,qrDataUrl:'synthetic-sensitive-qr'}};};
+ const call=async(request:BrowserRequest):Promise<BrowserResult>=>{requests.push(request);if(request.action==='catalog')return {conversations:[conversation]};if(request.action==='messages')return {messages:[webMessage(native,jid,'Тест')],nextCursor:null};if(request.action==='read')return {};return {status:{stage:'connected',connected:true,qrDataUrl:'synthetic-sensitive-qr'}};};
  const adapter=new WhatsAppAdapter(root,store,call);await adapter.connect();assert.equal(requests.length,0);
  await adapter.begin();assert.equal(adapter.status().qrDataUrl,undefined);assert.equal((await adapter.authStatus()).qrDataUrl,'synthetic-sensitive-qr');
  assert.equal(adapter.canDiscoverContacts(),false);
  await assert.rejects(adapter.recentMessages(id,10),/не разрешён/);assert.ok(!requests.some(r=>r.action==='messages'));
  store.select([id]);assert.equal((await adapter.recentMessages(id,10))[0].text,native.body);
  assert.deepEqual(requests.at(-1)?.allowed,[id]);
+ const messageId=webMessage(native,jid,'Тест').id;
+ await adapter.markRead(id,messageId);
+ assert.deepEqual(requests.at(-1),{account:requests[0].account,action:'read',allowed:[id],conversationId:id,messageId});
  await assert.rejects(adapter.sendText({...destinationFor(conversation),recipientId:'wrong'},'текст'),/получателя/);assert.ok(!requests.some(r=>r.action==='send'));
  store.select([]);await assert.rejects(adapter.recentMessages(id,10),/не разрешён/);
  const other=new WhatsAppAdapter(root+'-other',store,call);await other.begin();assert.notEqual(requests[0].account,requests.at(-1)?.account);
- await assert.rejects(adapter.markRead(id,'message'),/официальном/);
+ await assert.rejects(adapter.markRead(id,messageId),/не разрешён/);
+});
+
+test('WhatsApp: отметка совпадает с границей чата и сохраняет появившееся позже непрочитанное',async t=>{
+ const root=mkdtempSync(join(tmpdir(),'wa-read-'));const account='a'.repeat(64);
+ const store=new Store(root);
+ const key=native.id._serialized;const newer=`false_${jid}_NEW`;const outgoing=`true_${jid}_REPLY`;
+ let readCalls=0;let unreadAfterRead=0;
+ const chat={id:{_serialized:jid},unreadCount:1,lastReceivedKey:{toString:()=>newer},msgs:{getModelsArray:()=>[{id:key},{id:{_serialized:newer}},{id:{_serialized:outgoing}}]}};
+ const w={WWebJS:{async getChat(){return chat;}},require:(name:string)=>name==='WAWebStreamModel'?{Stream:{markAvailable(){},markUnavailable(){}}}:{async sendSeen(input:{chat:typeof chat}){assert.equal(input.chat,chat);readCalls++;chat.unreadCount=unreadAfterRead;}}};
+ const client=Object.assign(new EventEmitter(),{pupBrowser:{async close(){}},pupPage:{async evaluate(fn:Function,arg:unknown){try{return await runInNewContext(`(${fn.toString()})(input)`,{window:w,input:arg,__name:(fn:Function)=>fn});}catch(e){throw new Error((e as Error).message);}}},async initialize(){},async destroy(){}});
+ const browser=new WhatsAppBrowser(root,'/unused/chrome',()=>client as never);
+ t.after(async()=>{await browser.stop();store.close();rmSync(root,{recursive:true,force:true});});
+ const whatsapp=new WhatsAppAdapter(root,store,async request=>{
+  if(request.action==='start')return {status:{stage:'connected',connected:true}};
+  if(request.action==='catalog')return {conversations:[conversation]};
+  return browser.handle(browserRequest({...request,account}));
+ });
+ await browser.handle({account,action:'start',interactive:true});client.emit('ready');await whatsapp.begin();
+ store.select([id]);
+ const core=new MessengerService([whatsapp],store);
+ await core.refresh();
+ const message=webMessage(native,jid,'Тест');
+ const latest={...message,id:entityId('whatsapp','message',newer),date:'2026-11-08T12:01:00.000Z'};
+ const reply={...latest,id:entityId('whatsapp','message',outgoing),date:'2026-11-08T12:01:01.000Z',outgoing:true};
+ store.upsertMessages([message,latest,reply]);
+ await assert.rejects(core.markRead(id,message.id),/последние сообщения/);
+ assert.equal(readCalls,0);assert.equal(store.badgeCount(),1);
+ unreadAfterRead=1;
+ await assert.rejects(core.markRead(id,reply.id),/последние сообщения/);
+ assert.equal(store.readPosition(id),undefined);assert.equal(store.badgeCount(),1);
+ unreadAfterRead=0;
+ await core.markRead(id,reply.id);
+ assert.equal(readCalls,2);assert.equal(store.badgeCount(),0);
+ assert.equal(store.readPosition(id)?.id,reply.id);
 });
 
 test('WhatsApp: выбор и отключение одного источника сохраняют Telegram и архив',async t=>{

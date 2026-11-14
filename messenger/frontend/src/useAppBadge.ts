@@ -19,8 +19,8 @@ export function useAppBadge(count:number,authenticated:boolean){
     //: Обрабатывает запрос Service Worker после доставки push при открытом окне.
     //: Другие сообщения worker игнорируются.
     const message=(event:MessageEvent)=>{if(event.data?.type==='messenger:badge-refresh')update();};
-    window.addEventListener('focus',update);document.addEventListener('visibilitychange',update);navigator.serviceWorker?.addEventListener?.('message',message);update();
-    return()=>{window.removeEventListener('focus',update);document.removeEventListener('visibilitychange',update);navigator.serviceWorker?.removeEventListener?.('message',message);};
+    window.addEventListener('focus',update);window.addEventListener('pageshow',update);document.addEventListener('visibilitychange',update);navigator.serviceWorker?.addEventListener?.('message',message);update();
+    return()=>{window.removeEventListener('focus',update);window.removeEventListener('pageshow',update);document.removeEventListener('visibilitychange',update);navigator.serviceWorker?.removeEventListener?.('message',message);};
   },[authenticated]);
   useEffect(()=>{if(authenticated&&!document.hidden)void synchronizeBadge(count);},[count,authenticated]);
 }

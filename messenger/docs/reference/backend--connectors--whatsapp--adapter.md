@@ -128,12 +128,12 @@ async listConversations(): Promise<Conversation[]>
 
 ## WhatsAppAdapter.markRead
 
-Не подтверждает скрытые сообщения методом полного прочтения WhatsApp-чата.
+Передаёт позицию просмотра в текущий выбранный чат WhatsApp.
 
-Библиотека не предоставляет точной границы read; счётчик остаётся до чтения в официальном клиенте.
+Браузер подтверждает прочтение только при совпадении с актуальной границей.
 
 ```typescript
-async markRead(_id: string, _messageId: string): Promise<void>
+async markRead(conversationId: string, messageId: string): Promise<void>
 ```
 
 <a id="symbol-WhatsAppAdapter.recentMessages"></a>

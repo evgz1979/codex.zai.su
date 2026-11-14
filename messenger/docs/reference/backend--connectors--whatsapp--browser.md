@@ -151,6 +151,30 @@ private async fail(client: InstanceType<typeof WA.Client>, issue = 'Не уда�
 async handle(request: BrowserRequest): Promise<BrowserResult>
 ```
 
+<a id="symbol-WhatsAppBrowser.markRead"></a>
+
+## WhatsAppBrowser.markRead
+
+Подтверждает просмотр только до актуального последнего входящего WhatsApp.
+
+Метод источника отмечает весь чат, поэтому перед вызовом проверяется нативная граница.
+
+```typescript
+private async markRead(jid: string, messageId: string): Promise<void>
+```
+
+<a id="symbol-WhatsAppBrowser.markRead.serialized"></a>
+
+## WhatsAppBrowser.markRead.serialized
+
+Сравнивает актуальные ключи без сериализации сообщений и выгрузки их тел.
+
+Поддерживает MsgKey из каталога и моделей загруженной истории.
+
+```typescript
+serialized(id: any)
+```
+
 <a id="symbol-WhatsAppBrowser.page"></a>
 
 ## WhatsAppBrowser.page

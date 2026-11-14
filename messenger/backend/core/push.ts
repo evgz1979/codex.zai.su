@@ -113,7 +113,7 @@ export class PushService {
         if(this.stopped||!this.registered(device.subscription.endpoint))continue;
         const fresh=messages.filter(message=>!message.outgoing&&Date.parse(message.date)>=device.createdAt&&Date.parse(message.date)>=this.now()-3600000&&this.core.selection.allows(message.conversationId)&&!!this.store.message(message.id)).sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id))[0];
         if(!fresh)continue;
-        const badge=this.store.loadCache().conversations.reduce((count,conversation)=>count+conversation.unreadCount,0);
+        const badge=this.store.badgeCount();
         const payload=JSON.stringify({title:'Z AI Messenger',body:'Новое сообщение',badge,conversationId:fresh.conversationId});
         try{await this.transport(device.subscription,payload,{vapidDetails:{subject:this.origin,...this.keys()},TTL:300,urgency:'high',topic:'messenger-incoming',timeout:10000});}
         catch(error){const status=(error as {statusCode?:number})?.statusCode;if(status===404||status===410)this.remove(device.subscription.endpoint);}

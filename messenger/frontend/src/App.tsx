@@ -77,7 +77,8 @@ export function App() {
   const connected = snapshot?.sources.some(s => s.connected);
   const preparation=useOfflinePrefetch(snapshot,!!session?.authenticated&&!offline,fail);
   useAppBadge(unread,!!session?.authenticated&&!!snapshot);
-  useVisibleReads(feed,messages.filter(m=>snapshot?.sources.find(s=>s.id===m.sourceId)?.canMarkRead!==false),!!session?.authenticated&&!offline&&!pending&&chatOpen&&!attachmentTarget,async message=>{
+  const unreadChats=new Set(snapshot?.conversations.filter(c=>c.unreadCount>0).map(c=>c.id));
+  useVisibleReads(feed,messages.filter(m=>unreadChats.has(m.conversationId)&&snapshot?.sources.find(s=>s.id===m.sourceId)?.canMarkRead!==false),!!session?.authenticated&&!offline&&!pending&&chatOpen&&!attachmentTarget,async message=>{
     const result=await api<Snapshot>('read',{conversationId:message.conversationId,messageId:message.id});
     const conversation=result.conversations.find(c=>c.id===message.conversationId);
     if(conversation)setSnapshot(old=>old?{...old,conversations:old.conversations.map(c=>c.id===conversation.id?{...c,unreadCount:conversation.unreadCount}:c)}:old);

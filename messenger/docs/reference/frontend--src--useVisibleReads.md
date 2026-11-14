@@ -16,6 +16,18 @@
 useVisibleReads(feed: RefObject<HTMLDivElement | null>, messages: Message[], enabled: boolean, acknowledge: (message: Message) => Promise<void>)
 ```
 
+<a id="symbol-useVisibleReads.active"></a>
+
+## useVisibleReads.active
+
+Проверяет активность окна перед отсчётом и перед отправкой запроса.
+
+У iOS-приложения с домашнего экрана активность определяется видимостью.
+
+```typescript
+active()
+```
+
 <a id="symbol-useVisibleReads.flush"></a>
 
 ## useVisibleReads.flush

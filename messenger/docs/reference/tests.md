@@ -55,7 +55,7 @@
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): аватары: миниатюра сохраняет лицо при отказе, повреждённый кеш перечитывается у источника
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): аватары: прежнее фото остаётся видимым до готовности новой версии
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): единая лента, выбор адресата, отправка, непрочитанные, выход и мобильные границы
-- [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): источники: видимые отметки Telegram и WhatsApp, без неподдерживаемого read WhatsApp
+- [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): источники: видимый WhatsApp-чат обновляет счётчик чатов и значок
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): открытый чат скрывает исключённые диалоги без синхронизации истории
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): последние сообщения в списке видны до открытия чатов и не снимают непрочитанное
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): список чатов: поиск, фильтр, возврат браузером и отдельные черновики
@@ -183,6 +183,7 @@
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: каталог использует WAWebCollections без window.Store и не читает сообщения
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: неотсканированный QR завершается через три минуты
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: остановка во время запуска ждёт только браузер, а не QR и синхронизацию
+- [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: отметка совпадает с границей чата и сохраняет появившееся позже непрочитанное
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: отсутствие Telegram-входа не блокирует метаданные подключённого WhatsApp
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: принятый QR получает время на синхронизацию, доступ к чатам только после ready
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: пустая зависшая догрузка ограничена сроком и не выдаётся за полный архив

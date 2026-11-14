@@ -8,7 +8,7 @@ import type {BrowserAction,BrowserRequest,BrowserResult} from './protocol.js';
 //: Связывает один личный аккаунт Messenger с серверным WhatsApp Web.
 //: Браузер и профиль живут в отдельном непривилегированном сервисе, доступ ограничен выбором.
 export class WhatsAppAdapter implements SourceAdapter {
-  readonly source={id:'whatsapp',kind:'whatsapp',name:'WhatsApp',connected:false,canMarkRead:false};
+  readonly source={id:'whatsapp',kind:'whatsapp',name:'WhatsApp',connected:false};
   private state:WhatsAppStatus={stage:'idle',connected:false};
   private account:string;
   //: Вычисляет постоянный ключ приватного профиля без передачи пути worker.
@@ -61,9 +61,16 @@ export class WhatsAppAdapter implements SourceAdapter {
     if(destination.sourceId!==this.source.id||!this.store.selected().includes(destination.conversationId)||destination.recipientId!==destination.conversationId.replace(':conversation:',':recipient:'))throw new AppError(403,'Проверьте получателя WhatsApp.');
     try{return (await this.request('send',{conversationId:destination.conversationId,recipientId:destination.recipientId,text})).message!;}catch{throw new AppError(503,'WhatsApp не подтвердил отправку. Проверьте переписку перед повтором.');}
   }
-  //: Не подтверждает скрытые сообщения методом полного прочтения WhatsApp-чата.
-  //: Библиотека не предоставляет точной границы read; счётчик остаётся до чтения в официальном клиенте.
-  async markRead(_id:string,_messageId:string):Promise<void>{throw new AppError(409,'Для WhatsApp подтверждение прочтения выполняется в официальном приложении.');}
+  //: Передаёт позицию просмотра в текущий выбранный чат WhatsApp.
+  //: Браузер подтверждает прочтение только при совпадении с актуальной границей.
+  async markRead(conversationId:string,messageId:string):Promise<void>{
+    if(!this.store.selected().includes(conversationId))throw new AppError(403,'Диалог не разрешён в админке.');
+    if(!this.source.connected)throw new AppError(503,'WhatsApp не подключён.');
+    try{await this.request('read',{conversationId,messageId});}catch(error){
+      if(error instanceof Error&&error.message==='read_position_changed')throw new AppError(409,'Откройте последние сообщения WhatsApp и повторите.');
+      throw new AppError(503,'WhatsApp не подтвердил прочтение.');
+    }
+  }
   //: Останавливает браузер аккаунта, сохраняя связанный профиль на сервере.
   //: Используется при остановке личного аккаунта и не затрагивает другие источники.
   async disconnect(){try{await this.request('stop');}catch{/* Сервис может уже завершиться. */}this.source.connected=false;}
