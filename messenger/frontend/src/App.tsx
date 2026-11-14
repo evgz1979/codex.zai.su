@@ -378,14 +378,24 @@ export function App() {
       {error&&<div className="error-banner" role="alert">{error}</div>}
       <nav ref={conversationList} className="conversation-list" aria-label="Получатели" aria-busy={!snapshot}>
         {conversations.map(c => {
+          const source = snapshot?.sources.find(s => s.id === c.sourceId);
           const pinned = c.pinOrder !== undefined;
           const titleId = `conversation-name-${c.id}`;
           const pinLabel = pinned ? 'Открепить чат' : 'Закрепить чат';
           return <div key={c.id} className="conversation-row">
-            <button className="conversation" disabled={busy} onClick={()=>void choose(c)}>
+            <button className="conversation" aria-description={source?.name} disabled={busy} onClick={()=>void choose(c)}>
+              <span className="conversation-source-marker" data-source-kind={source?.kind} title={source?.name} aria-hidden="true"/>
               <Avatar conversation={c} paused={offline} onUnauthorized={fail}/>
-              <span className="conversation-copy"><span className="conversation-title"><span id={titleId} className="conversation-name" title={c.title}>{c.title}</span><time dateTime={c.updatedAt}>{c.updatedAt&&conversationTime(c.updatedAt)}</time></span><span className="preview"><span className="conversation-source" data-source-kind={snapshot?.sources.find(s=>s.id===c.sourceId)?.kind}>{snapshot?.sources.find(s=>s.id===c.sourceId)?.name||'Источник'}</span>{drafts[c.id]?<><span className="draft-caption">Черновик: </span>{drafts[c.id]}</>:c.preview||(Date.parse(c.updatedAt)>0?'Загрузка сообщения…':'Нет сообщений')}</span></span>
-              {c.unreadCount>0&&<span className="badge" aria-label={`${c.unreadCount} непрочитанных`}>{c.unreadCount}</span>}
+              <span className="conversation-copy">
+                <span className="conversation-title">
+                  <span id={titleId} className="conversation-name" title={c.title}>{c.title}</span>
+                  <time dateTime={c.updatedAt}>{c.updatedAt&&conversationTime(c.updatedAt)}</time>
+                </span>
+                <span className="conversation-preview">
+                  <span className="preview">{drafts[c.id]?<><span className="draft-caption">Черновик: </span>{drafts[c.id]}</>:c.preview||(Date.parse(c.updatedAt)>0?'Загрузка сообщения…':'Нет сообщений')}</span>
+                  {c.unreadCount>0&&<span className="badge" aria-label={`${c.unreadCount} непрочитанных`}>{c.unreadCount}</span>}
+                </span>
+              </span>
             </button>
             <button className="icon-button conversation-pin" data-pinned={pinned} aria-label={pinLabel} aria-describedby={titleId} title={pinLabel} disabled={busy||offline} onClick={()=>void togglePin(c)}><Icon name="pin"/></button>
           </div>;

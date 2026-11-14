@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-test('источники: видимый WhatsApp-чат обновляет счётчик чатов и значок',async({page})=>{
+test('источники: цветные отметки и обновление счётчика после просмотра WhatsApp',async({page})=>{
  const reads:string[]=[];
  let unreadCount=2;
  await page.addInitScript(()=>{
@@ -14,15 +14,27 @@ test('источники: видимый WhatsApp-чат обновляет сч
   if(!['session','login','snapshot','inbox','open','older','access','read'].includes(action!))return route.continue();
   if(action==='read'){reads.push(route.request().postDataJSON().conversationId);unreadCount=0;}
   const response=await route.fetch();const data=await response.json();
-  const decorate=(snapshot:any)=>{if(!snapshot?.sources)return;const source=snapshot.sources.find((s:any)=>s.id==='fixture-b');Object.assign(source,{kind:'whatsapp',name:'WhatsApp'});snapshot.conversations.forEach((c:any)=>{c.unreadCount=c.sourceId==='fixture-b'?unreadCount:0;});};
+  const decorate=(snapshot:any)=>{if(!snapshot?.sources)return;snapshot.sources.find((s:any)=>s.id==='fixture-a').kind='telegram';const source=snapshot.sources.find((s:any)=>s.id==='fixture-b');Object.assign(source,{kind:'whatsapp',name:'WhatsApp'});snapshot.conversations.forEach((c:any)=>{c.unreadCount=c.sourceId==='fixture-b'?unreadCount:0;});};
   decorate(data);decorate(data.snapshot);await route.fulfill({response,json:data});
  });
  await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();
- await expect(page.locator('.conversation-source').getByText('Telegram',{exact:true}).first()).toBeVisible();await expect(page.locator('.conversation-source[data-source-kind=whatsapp]')).toHaveText('WhatsApp');
+ const list=page.getByRole('navigation',{name:'Получатели'});
+ const telegram=list.locator('.conversation-source-marker[data-source-kind=telegram]').first();
+ const whatsapp=list.locator('.conversation-source-marker[data-source-kind=whatsapp]');
+ await expect(telegram).toHaveCSS('background-color','rgb(51, 144, 236)');
+ await expect(whatsapp).toHaveCSS('background-color','rgb(33, 132, 85)');
+ await expect(list.getByText(/^(Telegram|WhatsApp)$/)).toHaveCount(0);
+ const whatsappChat=list.getByRole('button',{name:/Мария · другой источник/});
+ await expect(whatsappChat).toHaveAccessibleDescription('WhatsApp');
+ const rowBounds=(await whatsappChat.boundingBox())!;
+ const markerBounds=(await whatsapp.boundingBox())!;
+ const avatarBounds=(await whatsappChat.locator('.avatar').boundingBox())!;
+ expect(rowBounds.height).toBeLessThanOrEqual(60);
+ expect(markerBounds.x+markerBounds.width).toBeLessThan(avatarBounds.x);
  await expect.poll(()=>page.evaluate(()=>(window as unknown as {badge:number}).badge)).toBe(2);
  expect(reads).toEqual([]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
- await page.getByRole('button',{name:/Мария · другой источник/}).click();await expect(page.locator('.chat-heading')).toContainText('WhatsApp');
+ await whatsappChat.click();await expect(page.locator('.chat-heading')).toContainText('WhatsApp');
  await expect.poll(()=>page.evaluate(()=>(window as unknown as {badge:number}).badge)).toBe(0);
  expect(reads).toEqual(['fixture-b:conversation:0']);
 });
@@ -127,7 +139,7 @@ test('последние сообщения в списке видны до от
   await page.route('**/api/chat/access?since=*',route=>route.fulfill({json:{ids:conversations.map(c=>c.id),revision:1}}));
   page.on('request',request=>{if(/\/api\/chat\/(open|older|read)$/.test(request.url()))reads.push(request.url());});
   await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();
-  await expect(page.locator('.conversation .preview')).toContainText(previews);await expect(page.locator('.conversation > .badge')).toHaveText(['1','1','1','1']);await expect(page.getByText('Личный диалог',{exact:true})).toHaveCount(0);await page.waitForTimeout(800);expect(reads).toEqual([]);
+  await expect(page.locator('.conversation .preview')).toContainText(previews);await expect(page.locator('.conversation .badge')).toHaveText(['1','1','1','1']);await expect(page.getByText('Личный диалог',{exact:true})).toHaveCount(0);await page.waitForTimeout(800);expect(reads).toEqual([]);
 });
 
 test('аватары: временный отказ повторяется, видимые фото загружаются без всплеска запросов',async({page})=>{
