@@ -74,6 +74,7 @@
 - [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: просмотренные чаты и расшифровки доступны после закрытия окна, без отправок
 - [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: просроченный кеш не открывает переписку, недоступное хранилище не мешает входу
 - [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): offline: список готовит сообщения неоткрытых чатов без open и отметок прочтения
+- [test/browser/offline.spec.ts](../../test/browser/offline.spec.ts): с сетью: кеш виден до ответа, новые сообщения не сдвигают прокрутку и черновик
 - [test/browser/paging.spec.ts](../../test/browser/paging.spec.ts): автокеш: прокрутка без кнопок, обновления и удаления, быстрый переход
 - [test/browser/reads.spec.ts](../../test/browser/reads.spec.ts): просмотр: видимая активная лента снимает счётчик, скрытые сообщения ждут просмотра
 - [test/browser/transcription.spec.ts](../../test/browser/transcription.spec.ts): голосовое: pending обновляется, повтор клика заблокирован, текст безопасен

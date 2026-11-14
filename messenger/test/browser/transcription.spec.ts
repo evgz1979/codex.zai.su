@@ -3,7 +3,7 @@ import {test,expect,type Page} from '@playwright/test';
 //: Серверная фикстура общая; возврат позволяет проверить настоящий сохранённый кеш.
 async function freshVoice(page:Page){
   let clear=true;
-  await page.route(/\/api\/chat\/(snapshot|inbox|open)$/,async route=>{
+  await page.route(/\/api\/chat\/(snapshot|inbox|open|offline|read)$/,async route=>{
     const response=await route.fetch();const result=await response.json();
     if(clear)for(const messages of [result.messages,result.snapshot?.messages,result.page?.messages])for(const message of messages||[])delete message.voiceTranscription;
     await route.fulfill({response,json:result});

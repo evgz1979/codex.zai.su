@@ -7,7 +7,7 @@ import {clearPreviews} from './previews';
 import AttachmentViewer from './AttachmentViewer';
 import VoiceTranscription from './VoiceTranscription';
 import type {AttachmentRequest} from '../../shared/types';
-import { api, ApiError, setCsrf,appBase,isOffline } from './api';
+import { api, ApiError, readCachedPage, setCsrf,appBase,isOffline } from './api';
 import {useOffline} from './useOffline';
 import {useOfflinePrefetch} from './useOfflinePrefetch';
 import Notifications,{notificationEndpoint,unsubscribeNotifications} from './Notifications';
@@ -64,7 +64,7 @@ export function App() {
   const access=useRef<{ids?:Set<string>;revision:number}>({revision:0});
   const scrollPlan=useRef<{mode:'bottom'|'preserve';height?:number;top?:number;anchor?:{id:string;offset:number}}|undefined>(undefined);
   const target = snapshot?.conversations.find(c => c.id === targetId);
-  const messages=page?.conversationId===(target?.id||'inbox')?page.messages:target?[]:snapshot?.messages||[];
+  const messages=page?.conversationId===(targetId||'inbox')?page.messages:[];
   const arrival=useConversationArrival({authenticated:!!session?.authenticated,busy:busy||loading||uncertain,blocked:!!drafts[targetId||'']||!!attachmentTarget,navigate:openArrival,fail});
   const pending=busy||loading||arrival.opening;
   const arrivalOpening=useRef(arrival.opening);arrivalOpening.current=arrival.opening;
@@ -199,7 +199,7 @@ export function App() {
       const result=await api<ConversationPageResult>(id?'open':'inbox',id?{conversationId:id}:{});
       const state=result.snapshot;
       if(generation!==request.current.id||id!==live.current.targetId||live.current.pending)return;
-      const element=feed.current;if(element&&element.scrollHeight-element.scrollTop-element.clientHeight<100)scrollPlan.current={mode:'bottom'};
+      preserveFeedPosition(true);
       setSnapshot(state);
       if(result)setPage(old=>{
         const fresh=result.page;if(!old||old.conversationId!==fresh.conversationId)return fresh;
@@ -221,8 +221,17 @@ export function App() {
   //: Отменяет устаревший HTTP-запрос и запрещает применение позднего ответа.
   //: Не отзывает уже отправленный Telegram RPC или пользовательскую сессию.
   function cancelView(){request.current.controller?.abort();request.current.id++;live.current.pending=false;setLoading(false);}
-  //: Загружает десять сообщений одного адресата или предыдущую страницу.
-  //: Быстрое переключение отменяет прежний ответ; догрузка сохраняет положение прокрутки.
+  //: Запоминает видимую позицию перед обновлением сообщений.
+  //: При обновлении свежей страницы лента следует за концом, если читатель находится внизу.
+  function preserveFeedPosition(followBottom=false){
+    const element=feed.current;if(!element)return;
+    if(followBottom&&element.scrollHeight-element.scrollTop-element.clientHeight<=1){scrollPlan.current={mode:'bottom'};return;}
+    const top=element.getBoundingClientRect().top;
+    const anchor=[...element.querySelectorAll<HTMLElement>('[data-message-id]')].find(node=>node.getBoundingClientRect().bottom>top);
+    scrollPlan.current={mode:'preserve',height:element.scrollHeight,top:element.scrollTop,...(anchor?{anchor:{id:anchor.dataset.messageId!,offset:anchor.getBoundingClientRect().top-top}}:{})};
+  }
+  //: Показывает сохранённую первую страницу и запрашивает актуальные сообщения или более раннюю страницу.
+  //: Переход и изменение доступа отменяют оба результата, догрузка сохраняет позицию прокрутки.
   async function loadView(conversation?:Conversation,older=false){
     if(busy)return;
     const before=older&&page&&page.conversationId===(conversation?.id||'inbox')?page.nextCursor:undefined;
@@ -230,17 +239,30 @@ export function App() {
     request.current.controller?.abort();const controller=new AbortController();const id=++request.current.id;request.current.controller=controller;
     const revision=access.current.revision;live.current.pending=true;setLoading(true);setError('');
     try{
+      let showedCache=false;
+      if(!older){
+        const saved=await readCachedPage(conversation?.id);
+        if(id!==request.current.id||revision!==access.current.revision)return;
+        const allowed=access.current.ids;
+        const cachedMessages=saved?.page.messages.filter(message=>!allowed||allowed.has(message.conversationId));
+        if(saved&&cachedMessages?.length){
+          scrollPlan.current={mode:'bottom'};
+          setPage({...saved.page,messages:cachedMessages});
+          showedCache=true;
+          if(navigator.onLine===false)return;
+        }
+      }
       const result=await api<ConversationPageResult>(conversation?(older?'older':'open'):'inbox',{...(conversation?{conversationId:conversation.id}:{}),...(before?{before}:{})},controller.signal);
       if(id!==request.current.id||revision!==access.current.revision)return;
-      if(older){
-        const element=feed.current;const top=element?.getBoundingClientRect().top||0;
-        const anchor=element&&[...element.querySelectorAll<HTMLElement>('[data-message-id]')].find(node=>node.getBoundingClientRect().bottom>top);
-        scrollPlan.current={mode:'preserve',height:element?.scrollHeight,top:element?.scrollTop,...(anchor?{anchor:{id:anchor.dataset.messageId!,offset:anchor.getBoundingClientRect().top-top}}:{})};
-      }else scrollPlan.current={mode:'bottom'};
+      if(older||showedCache)preserveFeedPosition(!older);else scrollPlan.current={mode:'bottom'};
       setSnapshot(result.snapshot);
       setPage(old=>older&&old?.conversationId===result.page.conversationId?{...result.page,messages:[...new Map([...old.messages,...result.page.messages].map(m=>[m.id,m])).values()].sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id))}:result.page);
 
-    }catch(e){if(id===request.current.id&&!controller.signal.aborted)fail(e);}
+    }catch(e){
+      if(id!==request.current.id||controller.signal.aborted)return;
+      if(e instanceof ApiError&&(e.status===403||e.status===404))setPage(undefined);
+      fail(e);
+    }
     finally{if(id===request.current.id){live.current.pending=false;setLoading(false);}}
   }
   //: Выбирает адресата и подгружает его последние сообщения.
@@ -339,7 +361,7 @@ export function App() {
       <header className="chat-header"><button className="back-button" aria-label="Назад к чатам" disabled={busy} onClick={backToList}><Icon name="back"/><span>Чаты</span></button><div className="chat-heading"><div className="header-title"><h1>{target?.title||'Общая лента'}</h1></div><p>{target?snapshot?.sources.find(s=>s.id===target.sourceId)?.name:`${unread} непрочитанных`}</p></div>{target&&<Avatar key={target.id} conversation={target} paused={offline} onUnauthorized={fail}/>}</header>
       <div className="feed-info"><span className={`status-dot ${offline?'offline-dot':''}`} />{offline?'Без сети · сохранённые сообщения':syncStatus?.pausedUntil?'Синхронизация временно приостановлена':syncStatus?.pendingConversations?'История синхронизируется в фоне':'Автоматическая синхронизация'}<span className="feed-limit">{offline?'Кеш этого устройства':'Сообщения из локального кеша'}</span></div>
       {error && <div className="error-banner" role="alert">{error}</div>}
-      <div className="feed" ref={feed} tabIndex={0} aria-label="Сообщения" aria-busy={pending}>
+      <div className="feed" ref={feed} tabIndex={0} aria-label="Сообщения" aria-busy={pending&&!messages.length}>
         <div ref={sentinel} className="history-sentinel" aria-hidden="true" />
         {!messages.length ? <div className="empty-state"><h2>{loading?'Загрузка сообщений…':offline?'В этом чате ещё нет сохранённых сообщений':'Нет загруженных сообщений'}</h2></div> : <div className="message-stream">{messages.map((m,i,messages) => {
           const c = snapshot?.conversations.find(c => c.id === m.conversationId);
@@ -358,7 +380,7 @@ export function App() {
       </div>
       <div className="composer-area">
         <div className="destination">{target ? <><span className="destination-recipient" title={target.title}>Кому: <strong>{target.title}</strong><span className="destination-source"> · {snapshot?.sources.find(s => s.id === target.sourceId)?.name}</span></span><button disabled={busy} onClick={backToList}>Изменить</button></> : <><span>Адресат не выбран</span><button onClick={backToList}>Выбрать <span aria-hidden="true">↗</span></button></>}</div>
-        <form className="composer" onSubmit={send}><textarea ref={composerInput} aria-label="Сообщение" placeholder={offline?'Для отправки нужна связь':target ? target.canSend ? 'Написать сообщение…' : 'Этот диалог доступен только для чтения' : 'Сначала выберите адресата'} rows={1} value={draft} maxLength={LIMITS.text} disabled={!target?.canSend || pending || offline} onChange={e => target && setDrafts(old => ({ ...old, [target.id]: e.target.value }))} /><button className="send-button" type="submit" aria-label={target ? `Отправить: ${target.title}` : 'Отправить сообщение'} disabled={!target?.canSend || !draft.trim() || pending || uncertain || offline}><Icon name="send" /></button></form>
+        <form className="composer" onSubmit={send}><textarea ref={composerInput} aria-label="Сообщение" placeholder={offline?'Для отправки нужна связь':target ? target.canSend ? 'Написать сообщение…' : 'Этот диалог доступен только для чтения' : 'Сначала выберите адресата'} rows={1} value={draft} maxLength={LIMITS.text} disabled={!target?.canSend || busy || pending&&!messages.length || offline} onChange={e => target && setDrafts(old => ({ ...old, [target.id]: e.target.value }))} /><button className="send-button" type="submit" aria-label={target ? `Отправить: ${target.title}` : 'Отправить сообщение'} disabled={!target?.canSend || !draft.trim() || pending || uncertain || offline}><Icon name="send" /></button></form>
         {(uncertain||(target&&target.unreadCount>0&&snapshot?.sources.find(s=>s.id===target.sourceId)?.canMarkRead!==false)||draft.length>3500)&&<div className="composer-note">{uncertain && <span>Дождитесь синхронизации и проверьте отправку перед повтором</span>}{target && target.unreadCount > 0 && snapshot?.sources.find(s=>s.id===target.sourceId)?.canMarkRead!==false && <button disabled={pending||offline} onClick={read}>Отметить прочитанным</button>}{draft.length > 3500 && <span>{draft.length}/{LIMITS.text}</span>}</div>}
       </div>
     </section>

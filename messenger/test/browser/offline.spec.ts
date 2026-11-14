@@ -55,11 +55,11 @@ test('offline: кеши владельца и личной ссылки изол
 });
 test('offline: просроченный кеш не открывает переписку, недоступное хранилище не мешает входу',async({page,context})=>{
   await login(page);await page.getByRole('button',{name:/Анна Смирнова/}).click();await expect(page.getByRole('article')).not.toHaveCount(0);
-  await page.evaluate(async()=>{
-    const db=await new Promise<IDBDatabase>(resolve=>{const request=indexedDB.open('zai-messenger-offline-v1',1);request.onsuccess=()=>resolve(request.result);});
-    await new Promise<void>(resolve=>{const transaction=db.transaction('accounts','readwrite');const store=transaction.objectStore('accounts');const request=store.get('/api');request.onsuccess=()=>{store.put({...request.result,expiresAt:Date.now()-1},'/api');};transaction.oncomplete=()=>resolve();});db.close();
-  });
-  await context.setOffline(true);await page.reload();await expect(page.getByText('Нет связи. Откройте приложение с интернетом, чтобы сохранить сообщения.',{exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'Чаты',exact:true})).toHaveCount(0);await context.setOffline(false);await expect(page.getByRole('heading',{name:'Чаты',exact:true})).toBeVisible();await page.getByRole('button',{name:'Выйти',exact:true}).click();await expect(page.getByLabel('Пароль',{exact:true})).toBeVisible();
+  await context.setOffline(true);
+  await page.clock.setFixedTime(new Date(Date.now()+9*3600000));
+  await page.reload();await expect(page.getByText('Нет связи. Откройте приложение с интернетом, чтобы сохранить сообщения.',{exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'Чаты',exact:true})).toHaveCount(0);
+  await page.clock.setFixedTime(new Date());
+  await context.setOffline(false);await expect(page.getByRole('heading',{name:'Чаты',exact:true})).toBeVisible();await page.getByRole('button',{name:'Выйти',exact:true}).click();await expect(page.getByLabel('Пароль',{exact:true})).toBeVisible();
   await page.addInitScript(()=>{Object.defineProperty(indexedDB,'open',{value:()=>{throw new Error('Synthetic storage denied');}});});await page.reload();await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();await expect(page.getByRole('heading',{name:'Чаты',exact:true})).toBeVisible();
 });
 test('offline: опрос неизменённой ревизии не перезаписывает сохранённые сообщения',async({page})=>{
@@ -68,6 +68,44 @@ test('offline: опрос неизменённой ревизии не пере�
 });
 test.describe('отказ сервера',()=>{
   test.use({serviceWorkers:'block'});
+  test('с сетью: кеш виден до ответа, новые сообщения не сдвигают прокрутку и черновик',async({page},testInfo)=>{
+    if(testInfo.project.name==='desktop-chromium')await page.setViewportSize({width:1440,height:700});
+    const conversation:Conversation={id:'cache-chat',sourceId:'cache-source',title:'Чат с кешем',kind:'direct',recipient:{id:'cache-user',name:'Собеседник'},unreadCount:0,preview:'Сохранённое сообщение',updatedAt:'2026-11-08T00:00:20Z',canSend:true};
+    const messages:Message[]=Array.from({length:11},(_,index)=>({id:`cache-message-${index}`,sourceId:conversation.sourceId,conversationId:conversation.id,sender:conversation.recipient,date:new Date(Date.UTC(2026,10,8,0,0,index)).toISOString(),text:index<9?`Сообщение ${index}\nВторая строка\nТретья строка`:`Сообщение ${index}`,outgoing:false,status:'received',attachments:[]}));
+    const snapshot:Snapshot={conversations:[conversation],sources:[{id:conversation.sourceId,kind:'test',name:'Тестовый источник',connected:true,canMarkRead:false}],messages:[],refreshedAt:null,stale:false};
+    await page.route('**/api/chat/access?*',route=>route.fulfill({json:{ids:[conversation.id]}}));
+    await page.route('**/api/chat/inbox',route=>route.fulfill({json:{snapshot,page:{conversationId:'inbox',messages:[],nextCursor:null}}}));
+    await page.route('**/api/chat/offline',route=>route.fulfill({json:{messages:messages.slice(0,10),readyIds:[conversation.id]}}));
+    let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});
+    await page.route('**/api/chat/open',async route=>{
+      await gate;
+      const fresh=messages.slice(1).map(message=>message.id===messages[9].id?{...message,text:'Исправленное сообщение'}:message);
+      await route.fulfill({json:{snapshot,page:{conversationId:conversation.id,messages:fresh,nextCursor:null}}});
+    });
+    await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();
+    await expect.poll(async()=>JSON.parse(await stored(page))[0]?.messages.length).toBe(10);
+    const feed=page.getByRole('region',{name:'Единая лента сообщений'}).getByLabel('Сообщения',{exact:true});
+    const draft=page.getByLabel('Сообщение',{exact:true});
+    let anchorTop=0;
+    try{
+      await page.getByRole('button',{name:/Чат с кешем/}).click();
+      await expect(feed.getByRole('article')).toHaveCount(10);
+      await expect(feed).toHaveAttribute('aria-busy','false');
+      await expect(feed.getByText('Сообщение 9',{exact:true})).toBeVisible();
+      await expect(feed.getByText('Сообщение 10',{exact:true})).toHaveCount(0);
+      await draft.fill('Черновик во время обновления');
+      anchorTop=await feed.evaluate(element=>{
+        const anchor=element.querySelector<HTMLElement>('[data-message-id="cache-message-2"]')!;
+        element.scrollTop+=anchor.getBoundingClientRect().top-element.getBoundingClientRect().top;
+        return anchor.getBoundingClientRect().top;
+      });
+    }finally{release();}
+    await expect(feed.getByText('Сообщение 10',{exact:true})).toHaveCount(1);
+    await expect(feed.getByText('Исправленное сообщение',{exact:true})).toHaveCount(1);
+    await expect(draft).toHaveValue('Черновик во время обновления');
+    const position=await feed.locator('[data-message-id="cache-message-2"]').evaluate(element=>element.getBoundingClientRect().top);
+    expect(Math.abs(position-anchorTop)).toBeLessThan(4);
+  });
   test('offline: активный чат не вытесняет головы остальных при ограничении тысячи сообщений',async({page})=>{
     const conversations:Conversation[]=Array.from({length:191},(_,index)=>({id:`cache-conversation-${index}`,sourceId:'synthetic-cache',title:`Кеш чата ${index}`,kind:'direct',recipient:{id:`cache-recipient-${index}`,name:`Участник ${index}`},unreadCount:0,preview:'Синтетическое сообщение',updatedAt:new Date(Date.UTC(2026,10,8)-index*86400000).toISOString(),canSend:true}));
     const history:Message[][]=conversations.map((conversation,index)=>Array.from({length:index===0?100:5},(_,number)=>({id:`cache-message-${index}-${number}`,sourceId:conversation.sourceId,conversationId:conversation.id,sender:conversation.recipient,date:new Date(Date.parse(conversation.updatedAt)+number*1000).toISOString(),text:`Тестовый текст ${index}/${number}`,outgoing:false,status:'received',attachments:[]})));
@@ -93,6 +131,7 @@ test.describe('отказ сервера',()=>{
     let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});let started!:()=>void;const ready=new Promise<void>(resolve=>{started=resolve;});
     await page.route('**/api/chat/open',async route=>{const response=await route.fetch();started();await gate;await route.fulfill({response});});
     await page.getByRole('button',{name:/Анна Смирнова/}).click();await ready;
+    await expect(page.getByRole('article')).not.toHaveCount(0);
     for(const path of ['inbox','snapshot'])await page.route(`**/api/chat/${path}`,async route=>{const response=await route.fetch();const result=await response.json();const snapshot=result.snapshot||result;snapshot.conversations=snapshot.conversations.filter((c:{id:string})=>c.id!==excluded);snapshot.messages=snapshot.messages.filter((m:{conversationId:string})=>m.conversationId!==excluded);if(result.page)result.page.messages=result.page.messages.filter((m:{conversationId:string})=>m.conversationId!==excluded);await route.fulfill({response,json:result});});
     await page.route('**/api/chat/access?*',route=>route.fulfill({json:{ids:initial.snapshot.conversations.filter(c=>c.id!==excluded).map(c=>c.id),revision:(initial.accessRevision||Date.now())+1}}));
     await expect(page.getByRole('button',{name:/Анна Смирнова/})).toHaveCount(0);release();await page.waitForTimeout(300);

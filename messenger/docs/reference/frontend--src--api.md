@@ -8,7 +8,7 @@ Same-origin fetch, CSRF в памяти и безопасная ошибка API
 
 ## api
 
-Использует сеть для всех действий и ограниченный кеш только для чтения без связи.
+Отправляет запрос на сервер и при отказе транспорта пробует локальное чтение.
 
 Отказы доступа не подменяются кешем; отправка, прочтение и расшифровка offline не выполняются.
 
@@ -161,6 +161,18 @@ async network<T>(role: 'admin' | 'chat', path: string, input?: unknown, signal?:
 
 ```typescript
 abort()
+```
+
+<a id="symbol-readCachedPage"></a>
+
+## readCachedPage
+
+Читает сохранённую первую страницу текущего аккаунта до сетевого обновления.
+
+Индексация, срок входа и очистка при отзыве общие с автономным режимом.
+
+```typescript
+async readCachedPage(conversationId?: string): Promise<ConversationPageResult | undefined>
 ```
 
 <a id="symbol-reconnect"></a>

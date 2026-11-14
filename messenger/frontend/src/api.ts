@@ -1,4 +1,4 @@
-import {MEDIA_LIMITS,messengerPageBase,type Attachment,type AttachmentRequest,type SessionInfo} from '../../shared/types';
+import {MEDIA_LIMITS,messengerPageBase,type Attachment,type AttachmentRequest,type ConversationPageResult,type SessionInfo} from '../../shared/types';
 import {OfflineCache} from './offline-cache';
 //: Выбирает путь личного Messenger из проверенного формата ссылки.
 //: Имя не берётся из localStorage; API и настройки остаются в одном аккаунте.
@@ -71,7 +71,12 @@ async function reconnect(){
     setCsrf(info.csrfToken||'');await cache.authorize(info);
   })().finally(()=>{revalidating=undefined;});return revalidating;
 }
-//: Использует сеть для всех действий и ограниченный кеш только для чтения без связи.
+//: Читает сохранённую первую страницу текущего аккаунта до сетевого обновления.
+//: Индексация, срок входа и очистка при отзыве общие с автономным режимом.
+export async function readCachedPage(conversationId?:string):Promise<ConversationPageResult|undefined>{
+  return await cache.read(conversationId?'open':'inbox',conversationId?{conversationId}:{}) as ConversationPageResult|undefined;
+}
+//: Отправляет запрос на сервер и при отказе транспорта пробует локальное чтение.
 //: Отказы доступа не подменяются кешем; отправка, прочтение и расшифровка offline не выполняются.
 export async function api<T>(path:string,input?:unknown,signal?:AbortSignal):Promise<T>{
   const role=/^\/admin\/?$/.test(location.pathname.slice(appBase.length))?'admin':'chat';

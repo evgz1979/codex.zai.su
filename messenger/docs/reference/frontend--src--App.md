@@ -152,9 +152,9 @@ fail(e: unknown)
 
 ## App.loadView
 
-Загружает десять сообщений одного адресата или предыдущую страницу.
+Показывает сохранённую первую страницу и запрашивает актуальные сообщения или более раннюю страницу.
 
-Быстрое переключение отменяет прежний ответ; догрузка сохраняет положение прокрутки.
+Переход и изменение доступа отменяют оба результата, догрузка сохраняет позицию прокрутки.
 
 ```typescript
 async loadView(conversation?: Conversation, older = false)
@@ -221,6 +221,18 @@ async openArrival(intent: {
 
 ```typescript
 async openInbox(push = true)
+```
+
+<a id="symbol-App.preserveFeedPosition"></a>
+
+## App.preserveFeedPosition
+
+Запоминает видимую позицию перед обновлением сообщений.
+
+При обновлении свежей страницы лента следует за концом, если читатель находится внизу.
+
+```typescript
+preserveFeedPosition(followBottom = false)
 ```
 
 <a id="symbol-App.read"></a>

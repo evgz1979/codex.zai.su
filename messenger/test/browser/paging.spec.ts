@@ -35,6 +35,10 @@ test('автокеш: прокрутка без кнопок, обновлени
  await expect(page.locator('.bubble').getByText('Команда 1',{exact:true})).toHaveCount(0,{timeout:7000});await expect(page.locator('.bubble')).toHaveCount(25);
  await page.getByRole('button',{name:'Назад к чатам'}).click();await page.getByRole('button',{name:/Анна/}).click();await expect(page.locator('.bubble')).toHaveCount(10);await expect(page.locator('.bubble').getByText('Анна 25',{exact:true})).toBeVisible();await expect(page.locator('.bubble').getByText('Команда 25',{exact:true})).toHaveCount(0);
  expect(opens.filter(id=>id===conversations[0].id)).toHaveLength(2);expect(opens.at(-1)).toBe(conversations[0].id);
- await page.getByRole('button',{name:'Назад к чатам'}).click();await page.getByRole('button',{name:/Общая лента/}).click();await expect(page.locator('.bubble')).toHaveCount(10);await page.locator('.feed').evaluate(element=>{element.scrollTop=0;});await expect(page.locator('.bubble')).toHaveCount(20);
+ await page.getByRole('button',{name:'Назад к чатам'}).click();
+ const inbox=page.waitForResponse(response=>response.url().endsWith('/api/chat/inbox')&&!response.request().postDataJSON().before);
+ await page.getByRole('button',{name:/Общая лента/}).click();await inbox;
+ await expect(page.locator('.bubble')).toHaveCount(10);
+ await expect(async()=>{await page.locator('.feed').evaluate(element=>{element.scrollTop=0;});await expect(page.locator('.bubble')).toHaveCount(20,{timeout:750});}).toPass({timeout:5000});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);await page.screenshot({path:`test-results/paging-${testInfo.project.name}.png`});
 });
