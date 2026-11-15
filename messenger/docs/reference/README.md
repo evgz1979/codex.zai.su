@@ -20,7 +20,7 @@
 | [backend/connectors/whatsapp/bridge.ts](backend--connectors--whatsapp--bridge.md) | Ограниченный клиент приватного браузерного worker без TCP и универсального RPC. | 2 |
 | [backend/connectors/whatsapp/browser.ts](backend--connectors--whatsapp--browser.md) | Одна изолированная Chromium-сессия с sandbox, временным QR и выбранной историей. | 21 |
 | [backend/connectors/whatsapp/protocol.ts](backend--connectors--whatsapp--protocol.md) | Закрытый протокол Unix socket и проверка выбранного получателя WhatsApp. | 5 |
-| [backend/connectors/whatsapp/video.ts](backend--connectors--whatsapp--video.md) | Распознавание небольших JPEG-кадров WhatsApp в новых сообщениях и прежнем кеше. | 3 |
+| [backend/connectors/whatsapp/thumbnails.ts](backend--connectors--whatsapp--thumbnails.md) | Распознавание JPEG-миниатюр фото и видео WhatsApp в новых сообщениях и прежнем кеше. | 3 |
 | [backend/connectors/whatsapp/worker.ts](backend--connectors--whatsapp--worker.md) | Последовательный Unix socket worker браузера с дедлайнами и безопасными отказами. | 4 |
 | [backend/core/attachments.ts](backend--core--attachments.md) | Защищённая потоковая загрузка вложений и ограниченный приватный кеш байтов. | 9 |
 | [backend/core/errors.ts](backend--core--errors.md) | Безопасная прикладная ошибка HTTP API. | 2 |

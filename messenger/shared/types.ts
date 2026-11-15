@@ -9,7 +9,7 @@ export interface Source { id: EntityId; kind: string; name: string; connected: b
 //: ID и видимое имя не заменяют маршрут Destination.
 export interface Recipient { id: EntityId; name: string; isSelf?: boolean }
 //: Описывает метаданные вложения общей модели.
-//: Оригинал кешируется отдельно; thumbnailJpeg передаёт только небольшой кадр WhatsApp.
+//: Оригинал кешируется отдельно; thumbnailJpeg передаёт только небольшую миниатюру WhatsApp.
 export interface Attachment { id: EntityId; kind: 'image' | 'video' | 'file' | 'audio' | 'unsupported'; name: string; mimeType?: string; size?: number; downloadable?:boolean;hasPreview?:boolean;isVoice?:boolean;thumbnailJpeg?:string }
 //: Задаёт точный маршрут чтения вложения сохранённого сообщения.
 //: Сервер повторно проверяет диалог, сообщение, источник и ID вложения.

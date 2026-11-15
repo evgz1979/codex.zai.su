@@ -27,9 +27,9 @@ AttachmentPreview({ attachment: a, request, version, paused, onOpen, onUnauthori
 
 ## AttachmentStill
 
-Показывает сохранённый JPEG-кадр в ширину пузыря сообщения.
+Показывает сохранённую JPEG-миниатюру в ширину пузыря сообщения.
 
-Пропорции кадра сохраняются и на узком экране; оригинал не загружается.
+Пропорции изображения сохраняются и на узком экране; оригинал не загружается.
 
 ```typescript
 AttachmentStill({ attachment }: {

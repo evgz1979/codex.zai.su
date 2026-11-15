@@ -75,7 +75,7 @@ export interface AdminStatus {
 
 Описывает метаданные вложения общей модели.
 
-Оригинал кешируется отдельно; thumbnailJpeg передаёт только небольшой кадр WhatsApp.
+Оригинал кешируется отдельно; thumbnailJpeg передаёт только небольшую миниатюру WhatsApp.
 
 ```typescript
 export interface Attachment {

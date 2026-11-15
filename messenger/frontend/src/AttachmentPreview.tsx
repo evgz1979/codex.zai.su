@@ -2,11 +2,11 @@ import {useEffect,useRef,useState} from 'react';
 import type {Attachment,AttachmentRequest} from '../../shared/types';
 import {ApiError} from './api';
 import {previewData} from './previews';
-//: Показывает сохранённый JPEG-кадр в ширину пузыря сообщения.
-//: Пропорции кадра сохраняются и на узком экране; оригинал не загружается.
+//: Показывает сохранённую JPEG-миниатюру в ширину пузыря сообщения.
+//: Пропорции изображения сохраняются и на узком экране; оригинал не загружается.
 export function AttachmentStill({attachment}:{attachment:Attachment}){
   const [width,setWidth]=useState(210);
-  return <img className="attachment-still" width={width} src={`data:image/jpeg;base64,${attachment.thumbnailJpeg}`} alt="Кадр видео" loading="lazy" onLoad={event=>{
+  return <img className="attachment-still" width={width} src={`data:image/jpeg;base64,${attachment.thumbnailJpeg}`} alt={attachment.kind==='image'?'Фото':'Кадр видео'} loading="lazy" onLoad={event=>{
     const {naturalWidth,naturalHeight}=event.currentTarget;
     if(naturalHeight)setWidth(Math.max(1,Math.min(218,Math.round(320*naturalWidth/naturalHeight))));
   }} />;

@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-test('вложения: кадр и голосовое без плашек, отдельный блок только у цитаты',async({page})=>{
+test('вложения: фото, кадр видео и голосовое без плашек, отдельный блок только у цитаты',async({page})=>{
  await page.goto('/');
  const thumbnailJpeg=await page.evaluate(()=>{
   const canvas=document.createElement('canvas');canvas.width=9;canvas.height=16;
@@ -12,9 +12,10 @@ test('вложения: кадр и голосовое без плашек, от
   message.text='Подпись к видео';message.attachments=[{id:'synthetic-video',kind:'video',name:'Видео',downloadable:false,thumbnailJpeg}];
   Object.assign(json.page.messages.at(-2),{text:'',attachments:[{id:'synthetic-voice',kind:'unsupported',name:'Голосовое сообщение',downloadable:false}]});
   Object.assign(json.page.messages.at(-3),{text:'Текст ответа',attachments:[],quote:{author:'Вы',text:'Текст цитаты'}});
+  Object.assign(json.page.messages.at(-4),{text:'Подпись к фото',attachments:[{id:'synthetic-photo',kind:'image',name:'Фото',downloadable:false,thumbnailJpeg}]});
   await route.fulfill({response,json});
  });
- const attachmentRequests:string[]=[];page.on('request',request=>{if(request.url().endsWith('/api/chat/attachment')&&request.postDataJSON()?.attachmentId==='synthetic-video')attachmentRequests.push(request.url());});
+ const attachmentRequests:string[]=[];page.on('request',request=>{if(request.url().endsWith('/api/chat/attachment')&&['synthetic-photo','synthetic-video'].includes(request.postDataJSON()?.attachmentId))attachmentRequests.push(request.url());});
  await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();
  await page.getByRole('button',{name:'Общая лента',exact:true}).click();
  const message=page.getByRole('article').filter({hasText:'Подпись к видео'});
@@ -32,6 +33,11 @@ test('вложения: кадр и голосовое без плашек, от
  const reply=page.getByRole('article').filter({hasText:'Текст ответа'});
  await expect(reply.locator('blockquote')).toContainText('Текст цитаты');
  await expect(reply.locator('blockquote')).toHaveCSS('border-inline-start-width','3px');
+ const photo=page.getByRole('article').filter({hasText:'Подпись к фото'});
+ const image=photo.getByRole('img',{name:'Фото',exact:true});
+ await image.scrollIntoViewIfNeeded();await expect(image).toHaveJSProperty('naturalWidth',9);
+ await expect(photo.getByText(thumbnailJpeg,{exact:false})).toHaveCount(0);
+ await expect(photo.locator('blockquote')).toHaveCount(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(attachmentRequests).toEqual([]);
 });

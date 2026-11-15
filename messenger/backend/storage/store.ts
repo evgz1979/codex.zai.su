@@ -5,7 +5,7 @@ import { privateDirectory } from './private-files.js';
 import { LIMITS,messagePreview,comparePosition,positionSequence, type Snapshot, type Conversation, type Message, type MessagePage,type Attachment,type AttachmentRequest, type SyncStatus } from '../../shared/types.js';
 import {AppError} from '../core/errors.js';
 import type {SourceTranscription} from '../core/source-adapter.js';
-import {isVideoThumbnail,whatsappVideoMessage} from '../connectors/whatsapp/video.js';
+import {isJpegThumbnail,whatsappThumbnailMessage} from '../connectors/whatsapp/thumbnails.js';
 //: Хранит приватную расшифровку отдельно от синхронизируемого сообщения.
 //: Версия и ID вложения запрещают показывать текст после замены голосового.
 export interface StoredTranscription extends SourceTranscription {attachmentId:string;version:string;updatedAt:number}
@@ -71,7 +71,7 @@ export class Store {
   //: Числовой порядок источника различает сообщения одной секунды.
   private latestStoredMessage(id:string):Message|undefined{
     const row=this.db.prepare("SELECT payload FROM message_cache WHERE conversation_id=? ORDER BY date DESC,COALESCE(json_extract(payload,'$.sequence'),message_sequence(id)) DESC,id DESC LIMIT 1").get(id) as {payload:string}|undefined;
-    return row?whatsappVideoMessage(JSON.parse(row.payload)):undefined;
+    return row?whatsappThumbnailMessage(JSON.parse(row.payload)):undefined;
   }
   //: Обновляет превью по последнему сообщению из SQLite.
   //: Позиция предыдущего превью берётся из его сообщения, сохраняя свежую дату каталога для списка.
@@ -90,10 +90,10 @@ export class Store {
   //: Читает внутреннее состояние одного ранее запрошенного задания.
   //: Проверку доступа к диалогу выполняет сервис до чтения этой записи.
   transcription(id:string):StoredTranscription|undefined{const row=this.db.prepare('SELECT payload FROM voice_transcriptions WHERE message_id=?').get(id) as {payload:string}|undefined;return row?JSON.parse(row.payload):undefined;}
-  //: Отделяет JPEG старого видео от текста и подставляет актуальную расшифровку голосового.
+  //: Отделяет JPEG старой миниатюры от текста и подставляет актуальную расшифровку голосового.
   //: Медиаданные и расшифровка обрабатываются в пределах выданного сообщения.
   private withMessageDetails(message:Message):Message{
-    message=whatsappVideoMessage(message);
+    message=whatsappThumbnailMessage(message);
     delete message.voiceTranscription;
     if(!message.attachments.some(a=>a.kind==='audio'&&a.isVoice&&a.downloadable!==false))return message;
     const saved=this.transcription(message.id);
@@ -194,7 +194,7 @@ export class Store {
     if (!ids.length) return empty;
     const placeholders = ids.map(()=>'?').join(',');
     const conversations = (this.db.prepare(`SELECT payload FROM conversation_cache WHERE id IN (${placeholders})`).all(...ids) as {payload:string}[]).map(r=>JSON.parse(r.payload) as Conversation);
-    for(const c of conversations)if(c.sourceId==='whatsapp'&&isVideoThumbnail(c.preview))this.updateCachedPreview(c);
+    for(const c of conversations)if(c.sourceId==='whatsapp'&&isJpegThumbnail(c.preview))this.updateCachedPreview(c);
     const recent=this.db.prepare('SELECT payload FROM message_cache WHERE conversation_id=? ORDER BY date DESC,id DESC LIMIT ?');
     const messages=ids.flatMap(id=>(recent.all(id,LIMITS.pageMessages) as {payload:string}[]).map(r=>JSON.parse(r.payload) as Message)).sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id)).slice(-LIMITS.cachedMessages);
     return { ...empty,conversations,messages:messages.map(message=>this.withMessageDetails(message)) };

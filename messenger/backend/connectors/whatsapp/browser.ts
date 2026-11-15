@@ -5,7 +5,7 @@ import QRCode from 'qrcode';
 import {entityId,LIMITS,type Conversation,type Message,type WhatsAppStatus} from '../../../shared/types.js';
 import {privateDirectory,writePrivate} from '../../storage/private-files.js';
 import type {BrowserRequest,BrowserResult,BrowserStartup} from './protocol.js';
-import {isVideoThumbnail,VIDEO_THUMBNAIL_CHARS,whatsappVideoMessage} from './video.js';
+import {isJpegThumbnail,JPEG_THUMBNAIL_CHARS,whatsappThumbnailMessage} from './thumbnails.js';
 const mediaNames:Readonly<Record<string,string>>={image:'Фото',video:'Видео',ptt:'Голосовое сообщение',audio:'Аудио',document:'Документ',sticker:'Стикер'};
 //: Использует WhatsApp Web без автоматической передачи всех входящих текстов в Node.
 //: История извлекается только явной командой выбранного диалога; состояние проверяется отдельно.
@@ -29,14 +29,14 @@ export function webMessage(value:WebMessage,chatId:string,title:string):Message 
   const actual=value.id.remote|| (value.fromMe?value.to:value.from);if(actual!==chatId)throw new Error('message_destination_mismatch');
   const conversationId=entityId('whatsapp','conversation',chatId);const outgoing=!!value.fromMe;
   const quotedText=value.quote?.text.trim();
-  const quote=value.quote?{text:quotedText&&!isVideoThumbnail(quotedText)?quotedText.slice(0,300):mediaNames[value.quote.type||'']||'Сообщение',...(value.quote.fromMe?{author:'Вы'}:{})}:undefined;
+  const quote=value.quote?{text:quotedText&&!isJpegThumbnail(quotedText)?quotedText.slice(0,300):mediaNames[value.quote.type||'']||'Сообщение',...(value.quote.fromMe?{author:'Вы'}:{})}:undefined;
   const message:Message={id:entityId('whatsapp','message',value.id._serialized),sourceKey:entityId('whatsapp','message',value.id._serialized),sourceId:'whatsapp',conversationId,
     sender:{id:entityId('whatsapp','recipient',outgoing?'self':value.author||value.from),name:outgoing?'Вы':value.author?.split('@')[0]||title,isSelf:outgoing},
     date:new Date(value.timestamp*1000).toISOString(),text:String(value.body||'').slice(0,LIMITS.text),outgoing,
     status:!outgoing?'received':value.ack>=3?'read':value.ack===2?'delivered':value.ack===1?'sent':value.ack===-1?'failed':'pending',
     attachments:value.hasMedia||mediaNames[value.type]?[{id:entityId('whatsapp','attachment',value.id._serialized),kind:'unsupported',name:mediaNames[value.type]||'Вложение WhatsApp',downloadable:false}]:[],
     ...(quote?{quote}:{})};
-  return value.type==='video'?whatsappVideoMessage(message,value.body,value.caption):message;
+  return whatsappThumbnailMessage(message,value.body,value.caption);
 }
 //: Управляет единственной ограниченной браузерной сессией VPS.
 //: Разные аккаунты не делят профиль; чужой start возвращает busy без отключения владельца.
@@ -250,9 +250,14 @@ export class WhatsAppBrowser {
         return {text:typeof text==='string'?text.slice(0,300):'',type:typeof quoted.type==='string'?quoted.type:undefined,
           fromMe:quoted.id?.fromMe===true||quoted.fromMe===true||!!(ownId&&participant&&(participant._serialized||String(participant))===ownId)};
       };
-      const messages=slice.map((m:any)=>({id:{_serialized:key(m)!,remote:key(m)!.split('_')[1]},from:m.from?._serialized||m.from,to:m.to?._serialized||m.to,author:m.author?._serialized||m.author,fromMe:typeof m.id?.fromMe==='boolean'?m.id.fromMe:key(m)!.startsWith('true_'),timestamp:Number(m.t),body:String(m.body||'').slice(0,m.type==='video'?thumbnailChars:4096),...(m.type==='video'&&typeof m.caption==='string'?{caption:m.caption.slice(0,4096)}:{}),quote:quote(m),type:m.type,ack:m.ack,hasMedia:!!m.isMedia}));
+      const messages=slice.map((m:any)=>{
+        const hasThumbnail=m.type==='image'||m.type==='video';
+        return {id:{_serialized:key(m)!,remote:key(m)!.split('_')[1]},from:m.from?._serialized||m.from,to:m.to?._serialized||m.to,author:m.author?._serialized||m.author,
+          fromMe:typeof m.id?.fromMe==='boolean'?m.id.fromMe:key(m)!.startsWith('true_'),timestamp:Number(m.t),body:String(m.body||'').slice(0,hasThumbnail?thumbnailChars:4096),
+          ...(hasThumbnail&&typeof m.caption==='string'?{caption:m.caption.slice(0,4096)}:{}),quote:quote(m),type:m.type,ack:m.ack,hasMedia:!!m.isMedia};
+      });
       return {messages,more:!exhausted||end>100,title:String(chat.formattedTitle||chat.name||'')};
-    },{jid,cursor,thumbnailChars:VIDEO_THUMBNAIL_CHARS,ownId:this.client!.info?.wid?._serialized});
+    },{jid,cursor,thumbnailChars:JPEG_THUMBNAIL_CHARS,ownId:this.client!.info?.wid?._serialized});
     const messages=result.messages.map((value:WebMessage)=>webMessage(value,jid,result.title||jid));
     return {messages,nextCursor:result.more&&messages.length?messages[0].id:null};
   }
