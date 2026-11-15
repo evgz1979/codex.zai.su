@@ -188,6 +188,7 @@
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: миниатюры фото и видео отделены от подписи в новых и сохранённых сообщениях
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: неотсканированный QR завершается через три минуты
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: новая дата каталога не оставляет старое голосовое в превью
+- [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: оригиналы фото, голосового и PDF открываются только из выбранного сообщения
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: остановка во время запуска ждёт только браузер, а не QR и синхронизацию
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: отметка совпадает с границей чата и сохраняет появившееся позже непрочитанное
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: отсутствие Telegram-входа не блокирует метаданные подключённого WhatsApp

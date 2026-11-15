@@ -206,7 +206,7 @@ export class MessengerService {
   attachmentMetadata(input:AttachmentRequest,original:Message,attachment:Message['attachments'][number]){
     const current=this.attachmentMessage(input);if(current.editedAt!==original.editedAt)throw new AppError(409,'Сообщение изменилось. Откройте вложение заново.');
     if(input.variant==='preview')return;
-    this.store.upsertMessages([{...current,attachments:current.attachments.map(a=>a.id===attachment.id?attachment:a)}]);
+    this.store.upsertMessages([{...current,attachments:current.attachments.map(a=>a.id===attachment.id?{...a,...attachment}:a)}]);
   }
   //: Отмечает прочитанным до реально показанного либо явно выбранного сообщения.
   //: Проверяет маршрут, сохраняет новые входящие и не откатывает позднюю границу.

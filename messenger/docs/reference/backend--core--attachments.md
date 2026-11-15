@@ -4,6 +4,30 @@
 
 [Исходный модуль](../../backend/core/attachments.ts) · [Индекс](README.md)
 
+<a id="symbol-attachmentKind"></a>
+
+## attachmentKind
+
+Оставляет только безопасные встроенные форматы браузерного просмотра.
+
+SVG, HTML и произвольные документы остаются скачиваемыми файлами.
+
+```typescript
+attachmentKind(mime: string): Attachment['kind']
+```
+
+<a id="symbol-attachmentName"></a>
+
+## attachmentName
+
+Очищает отображаемое имя файла без использования его как пути.
+
+Удаляет управляющие символы, компоненты каталогов и ограничивает длину.
+
+```typescript
+attachmentName(name: string)
+```
+
 <a id="symbol-AttachmentService"></a>
 
 ## AttachmentService

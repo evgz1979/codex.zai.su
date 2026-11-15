@@ -136,6 +136,18 @@ async listConversations(): Promise<Conversation[]>
 async markRead(conversationId: string, messageId: string): Promise<void>
 ```
 
+<a id="symbol-WhatsAppAdapter.openAttachment"></a>
+
+## WhatsAppAdapter.openAttachment
+
+Читает оригинал фото, аудио или документа из разрешённого сообщения WhatsApp.
+
+Миниатюры из истории уже доступны клиенту; сетевой запрос нужен только по нажатию.
+
+```typescript
+async openAttachment(input: AttachmentRequest, signal: AbortSignal): Promise<AttachmentContent>
+```
+
 <a id="symbol-WhatsAppAdapter.recentMessages"></a>
 
 ## WhatsAppAdapter.recentMessages
@@ -157,7 +169,7 @@ async recentMessages(id: string, limit: number): Promise<Message[]>
 Разрешённые диалоги берутся заново из SQLite на каждом запросе.
 
 ```typescript
-private async request(action: BrowserAction, input: Partial<BrowserRequest> = {}): Promise<BrowserResult>
+private async request(action: BrowserAction, input: Partial<BrowserRequest> = {}, signal?: AbortSignal): Promise<BrowserResult>
 ```
 
 <a id="symbol-WhatsAppAdapter.revoke"></a>

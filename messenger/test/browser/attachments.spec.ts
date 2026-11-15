@@ -12,10 +12,16 @@ test('вложения: фото, кадр видео и голосовое бе
   message.text='Подпись к видео';message.attachments=[{id:'synthetic-video',kind:'video',name:'Видео',downloadable:false,thumbnailJpeg}];
   Object.assign(json.page.messages.at(-2),{text:'',attachments:[{id:'synthetic-voice',kind:'unsupported',name:'Голосовое сообщение',downloadable:false}]});
   Object.assign(json.page.messages.at(-3),{text:'Текст ответа',attachments:[],quote:{author:'Вы',text:'Текст цитаты'}});
-  Object.assign(json.page.messages.at(-4),{text:'Подпись к фото',attachments:[{id:'synthetic-photo',kind:'image',name:'Фото',downloadable:false,thumbnailJpeg}]});
+  Object.assign(json.page.messages.at(-4),{text:'Подпись к фото',attachments:[{id:'synthetic-photo',kind:'image',name:'Фото',downloadable:true,thumbnailJpeg}]});
   await route.fulfill({response,json});
  });
  const attachmentRequests:string[]=[];page.on('request',request=>{if(request.url().endsWith('/api/chat/attachment')&&['synthetic-photo','synthetic-video'].includes(request.postDataJSON()?.attachmentId))attachmentRequests.push(request.url());});
+ let originalAvailable=true;
+ await page.route('**/api/chat/attachment',async route=>{
+  if(route.request().postDataJSON()?.attachmentId!=='synthetic-photo')return route.continue();
+  if(!originalAvailable)return route.fulfill({status:404,json:{error:'Оригинал недоступен.'}});
+  return route.fulfill({body:Buffer.from(thumbnailJpeg,'base64'),contentType:'image/jpeg',headers:{'x-attachment-kind':'image','x-attachment-name':encodeURIComponent('Фото.jpg')}});
+ });
  await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();
  await page.getByRole('button',{name:'Общая лента',exact:true}).click();
  const message=page.getByRole('article').filter({hasText:'Подпись к видео'});
@@ -25,7 +31,7 @@ test('вложения: фото, кадр видео и голосовое бе
  const frameBox=await frame.boundingBox();const bubbleBox=await message.locator('.bubble').boundingBox();
  expect(frameBox!.width).toBeCloseTo(bubbleBox!.width,0);expect(frameBox!.width/frameBox!.height).toBeCloseTo(9/16,2);
  await expect(message.getByText('Видео',{exact:true})).toHaveCount(0);
- await expect(message.getByRole('button',{name:'Открыть вложение: Видео'})).toHaveCount(0);
+ await expect(message.getByRole('button',{name:'Открыть вложение: Видео'})).toHaveCount(1);
  await expect(message.getByText(thumbnailJpeg,{exact:false})).toHaveCount(0);
  const voice=page.getByRole('article').filter({hasText:'Голосовое сообщение'});
  await expect(voice.locator('.attachment')).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
@@ -40,12 +46,26 @@ test('вложения: фото, кадр видео и голосовое бе
  await expect(photo.locator('blockquote')).toHaveCount(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(attachmentRequests).toEqual([]);
+ const viewer=page.getByRole('dialog');
+ await message.getByRole('button',{name:'Открыть вложение: Видео'}).click();
+ await expect(viewer.getByRole('img',{name:'Кадр видео.jpg'})).toBeVisible();
+ await expect(viewer.getByText('Миниатюра',{exact:true})).toBeVisible();
+ await viewer.getByRole('button',{name:'Закрыть вложение'}).click();
+ expect(attachmentRequests).toEqual([]);
+ const openPhoto=photo.getByRole('button',{name:'Открыть вложение: Фото'});
+ await openPhoto.click();await expect(viewer.getByRole('img',{name:'Фото.jpg'})).toBeVisible();
+ await viewer.getByRole('button',{name:'Закрыть вложение'}).click();
+ originalAvailable=false;await openPhoto.click();await expect(viewer.getByText('Миниатюра',{exact:true})).toBeVisible();
+ expect(attachmentRequests).toHaveLength(2);
 });
 
 test('вложения: миниатюры в ленте, оригинал по нажатию, открытие PDF, скачивание и мобильные границы',async({page},testInfo)=>{
  const requests:{attachmentId:string;variant?:string}[]=[];page.on('request',request=>{if(request.url().endsWith('/api/chat/attachment'))requests.push(request.postDataJSON());});
  await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();await page.getByRole('button',{name:'Общая лента',exact:true}).click();
  const photoButton=page.getByRole('button',{name:'Открыть вложение: Тестовое фото.png'});await expect(photoButton).toBeVisible();await photoButton.scrollIntoViewIfNeeded();await expect(photoButton).toBeInViewport();await expect(page.getByRole('img',{name:'Миниатюра: Тестовое фото.png'})).toBeVisible();expect(requests.filter(r=>!r.variant)).toHaveLength(0);
+ const imageBox=await photoButton.getByRole('img').boundingBox();const messageBox=await photoButton.locator('..').boundingBox();
+ expect(imageBox!.x).toBeCloseTo(messageBox!.x,0);
+ await expect(photoButton.locator('.attachment-thumb-label')).toHaveCount(0);
  await page.screenshot({path:`test-results/previews-${testInfo.project.name}.png`});
  await page.getByRole('button',{name:'Открыть вложение: Тестовое фото.png'}).click();const viewer=page.getByRole('dialog');await expect(viewer).toBeVisible();await expect(viewer.getByRole('img')).toBeVisible();await expect(viewer.getByRole('img')).toHaveJSProperty('naturalWidth',1);expect(requests.filter(r=>!r.variant)).toHaveLength(1);
  const url=await viewer.getByRole('img').getAttribute('src');expect(url).toMatch(/^blob:/);await expect(viewer.getByRole('link',{name:'Скачать'})).toHaveAttribute('download','Тестовое фото.png');

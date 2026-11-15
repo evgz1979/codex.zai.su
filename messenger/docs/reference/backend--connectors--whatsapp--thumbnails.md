@@ -28,14 +28,14 @@ isJpegThumbnail(value: string)
 const JPEG_THUMBNAIL_CHARS = 12000
 ```
 
-<a id="symbol-whatsappThumbnailMessage"></a>
+<a id="symbol-whatsappAttachmentMessage"></a>
 
-## whatsappThumbnailMessage
+## whatsappAttachmentMessage
 
-Отделяет миниатюру WhatsApp от подписи в новых сообщениях и прежней истории.
+Нормализует тип вложения, подпись и миниатюру новых и сохранённых сообщений WhatsApp.
 
-Только полный JPEG в пределах лимита становится миниатюрой фото или видео.
+Оригиналы поддерживаемых типов загружаются по нажатию; для видео доступен кадр.
 
 ```typescript
-whatsappThumbnailMessage(message: Message, body = message.text, caption?: string): Message
+whatsappAttachmentMessage(message: Message, body = message.text, caption?: string): Message
 ```

@@ -1,14 +1,15 @@
 import {createHash} from 'node:crypto';
-import type {Conversation,Destination,HistoryPage,Message,WhatsAppStatus} from '../../../shared/types.js';
-import type {SourceAdapter} from '../../core/source-adapter.js';
+import {entityId,type AttachmentRequest,type Conversation,type Destination,type HistoryPage,type Message,type WhatsAppStatus} from '../../../shared/types.js';
+import type {AttachmentContent,SourceAdapter} from '../../core/source-adapter.js';
 import type {Store} from '../../storage/store.js';
 import {AppError} from '../../core/errors.js';
 import {browserCall} from './bridge.js';
-import type {BrowserAction,BrowserRequest,BrowserResult} from './protocol.js';
+import {attachmentKind,attachmentName} from '../../core/attachments.js';
+import {WHATSAPP_ATTACHMENT_BYTES,type BrowserAction,type BrowserRequest,type BrowserResult} from './protocol.js';
 //: Связывает один личный аккаунт Messenger с серверным WhatsApp Web.
 //: Браузер и профиль живут в отдельном непривилегированном сервисе, доступ ограничен выбором.
 export class WhatsAppAdapter implements SourceAdapter {
-  readonly source={id:'whatsapp',kind:'whatsapp',name:'WhatsApp',connected:false};
+  readonly source={id:'whatsapp',kind:'whatsapp',name:'WhatsApp',connected:false,canTranscribeVoice:false};
   private state:WhatsAppStatus={stage:'idle',connected:false};
   private account:string;
   //: Вычисляет постоянный ключ приватного профиля без передачи пути worker.
@@ -19,7 +20,7 @@ export class WhatsAppAdapter implements SourceAdapter {
   private enabled(){return this.store.get('whatsapp.enabled')==='1';}
   //: Вызывает фиксированную операцию для своего серверного ключа.
   //: Разрешённые диалоги берутся заново из SQLite на каждом запросе.
-  private async request(action:BrowserAction,input:Partial<BrowserRequest>={}):Promise<BrowserResult>{return this.call({...input,account:this.account,action,allowed:this.store.selected().filter(id=>id.startsWith('whatsapp:conversation:'))});}
+  private async request(action:BrowserAction,input:Partial<BrowserRequest>={},signal?:AbortSignal):Promise<BrowserResult>{return this.call({...input,account:this.account,action,allowed:this.store.selected().filter(id=>id.startsWith('whatsapp:conversation:'))},undefined,signal);}
   //: Возвращает безопасное последнее состояние без QR общего status API.
   //: QR доступен только отдельному административному маршруту после проверки роли.
   status():WhatsAppStatus {const {qrDataUrl:_,...safe}=this.state;return safe;}
@@ -55,6 +56,38 @@ export class WhatsAppAdapter implements SourceAdapter {
   //: Реализует общий контракт короткой головы выбранного диалога.
   //: Источник не используется для чтения неразрешённого ID.
   async recentMessages(id:string,limit:number):Promise<Message[]>{return (await this.historyPage(id,undefined,limit)).messages;}
+  //: Читает оригинал фото, аудио или документа из разрешённого сообщения WhatsApp.
+  //: Миниатюры из истории уже доступны клиенту; сетевой запрос нужен только по нажатию.
+  async openAttachment(input:AttachmentRequest,signal:AbortSignal):Promise<AttachmentContent>{
+    signal.throwIfAborted();
+    if(!this.store.selected().includes(input.conversationId))throw new AppError(403,'Диалог не разрешён в админке.');
+    const message=this.store.message(input.messageId);
+    const previous=message?.attachments.find(a=>a.id===input.attachmentId);
+    if(!message||message.sourceId!=='whatsapp'||message.conversationId!==input.conversationId||!previous||input.attachmentId!==entityId('whatsapp','attachment',decodeURIComponent(message.id.slice('whatsapp:message:'.length))))throw new AppError(404,'Вложение не найдено.');
+    if(input.variant==='preview'||previous.downloadable===false)throw new AppError(415,'Этот вариант вложения недоступен.');
+    if(!this.source.connected)throw new AppError(503,'WhatsApp пока не подключён.');
+    let media:BrowserResult['media'];
+    try{media=(await this.request('attachment',{conversationId:input.conversationId,messageId:input.messageId},signal)).media;}
+    catch(error){
+      signal.throwIfAborted();
+      const code=error instanceof Error?error.message:'';
+      if(code==='attachment_missing')throw new AppError(404,'Оригинал больше недоступен в WhatsApp.');
+      if(code==='attachment_too_large')throw new AppError(413,'Это вложение больше 8 МБ.');
+      if(code==='attachment_unsupported')throw new AppError(415,'Это вложение открывается в WhatsApp.');
+      if(code==='invalid_destination'||code==='not_selected')throw new AppError(403,'Вложение недоступно.');
+      throw new AppError(503,'Не удалось загрузить вложение из WhatsApp.');
+    }
+    signal.throwIfAborted();
+    if(!this.store.selected().includes(input.conversationId))throw new AppError(403,'Диалог не разрешён в админке.');
+    if(!media||typeof media.data!=='string'||typeof media.mimeType!=='string')throw new AppError(503,'Не удалось загрузить вложение из WhatsApp.');
+    const bytes=Buffer.from(media.data,'base64');
+    if(!bytes.length||bytes.length>WHATSAPP_ATTACHMENT_BYTES)throw new AppError(503,'Вложение из WhatsApp загружено не полностью.');
+    const mimeType=media.mimeType.toLowerCase().split(';')[0].trim();
+    const kind=attachmentKind(mimeType);
+    const suffix=mimeType==='image/jpeg'?'jpg':mimeType==='audio/mpeg'?'mp3':mimeType.split('/')[1]?.match(/^[a-z0-9]{1,8}$/)?.[0]||'bin';
+    const name=attachmentName(media.name||`${previous.name}.${suffix}`);
+    return {attachment:{id:previous.id,kind,name,mimeType,size:bytes.length,downloadable:true},chunks:(async function*(){yield bytes;})()};
+  }
   //: Отправляет текст в точную пару выбранного чата и получателя.
   //: Автоматическая отметка всего WhatsApp-чата прочитанным при отправке отключена.
   async sendText(destination:Destination,text:string){

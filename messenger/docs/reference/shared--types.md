@@ -530,6 +530,7 @@ export interface Source {
     name: string;
     connected: boolean;
     canMarkRead?: boolean;
+    canTranscribeVoice?: boolean;
 }
 ```
 

@@ -13,7 +13,7 @@
 Протокол не принимает URL, JavaScript, shell или произвольные методы клиента.
 
 ```typescript
-export type BrowserAction = 'status' | 'start' | 'stop' | 'logout' | 'catalog' | 'messages' | 'send' | 'read';
+export type BrowserAction = 'status' | 'start' | 'stop' | 'logout' | 'catalog' | 'messages' | 'send' | 'read' | 'attachment';
 ```
 
 <a id="symbol-browserRequest"></a>
@@ -50,6 +50,18 @@ export interface BrowserRequest {
 }
 ```
 
+<a id="symbol-browserResponseLimit"></a>
+
+## browserResponseLimit
+
+Ограничивает обмен по приватному сокету в зависимости от команды.
+
+Только команда вложения получает запас для Base64 и метаданных одного файла.
+
+```typescript
+browserResponseLimit(action: string)
+```
+
 <a id="symbol-BrowserResult"></a>
 
 ## BrowserResult
@@ -66,6 +78,11 @@ export interface BrowserResult {
     messages?: Message[];
     nextCursor?: string | null;
     message?: Message;
+    media?: {
+        data: string;
+        mimeType: string;
+        name?: string;
+    };
     error?: string;
 }
 ```
@@ -88,4 +105,16 @@ export interface BrowserStartup {
     authenticated: boolean;
     recoveryRequested: boolean;
 }
+```
+
+<a id="symbol-WHATSAPP_ATTACHMENT_BYTES"></a>
+
+## WHATSAPP_ATTACHMENT_BYTES
+
+Ограничивает оригинал одного вложения в браузерном worker.
+
+Base64 передаётся только между серверными процессами через Unix socket.
+
+```typescript
+const WHATSAPP_ATTACHMENT_BYTES = 8 * 1024 * 1024
 ```

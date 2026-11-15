@@ -4,8 +4,8 @@ import WA from 'whatsapp-web.js';
 import QRCode from 'qrcode';
 import {entityId,LIMITS,type Conversation,type Message,type WhatsAppStatus} from '../../../shared/types.js';
 import {privateDirectory,writePrivate} from '../../storage/private-files.js';
-import type {BrowserRequest,BrowserResult,BrowserStartup} from './protocol.js';
-import {isJpegThumbnail,JPEG_THUMBNAIL_CHARS,whatsappThumbnailMessage} from './thumbnails.js';
+import {WHATSAPP_ATTACHMENT_BYTES,type BrowserRequest,type BrowserResult,type BrowserStartup} from './protocol.js';
+import {isJpegThumbnail,JPEG_THUMBNAIL_CHARS,whatsappAttachmentMessage} from './thumbnails.js';
 const mediaNames:Readonly<Record<string,string>>={image:'Фото',video:'Видео',ptt:'Голосовое сообщение',audio:'Аудио',document:'Документ',sticker:'Стикер'};
 //: Использует WhatsApp Web без автоматической передачи всех входящих текстов в Node.
 //: История извлекается только явной командой выбранного диалога; состояние проверяется отдельно.
@@ -16,7 +16,7 @@ class PollingClient extends WA.Client {
 }
 //: Описывает только используемые поля сообщения из браузерного клиента.
 //: Не сохраняет ссылки на native message, функции, медиа или ключи шифрования.
-export interface WebMessage {id:{_serialized:string;remote?:string;fromMe?:boolean};from:string;to:string;author?:string;fromMe:boolean;timestamp:number;body:string;caption?:string;type:string;ack:number;hasMedia?:boolean;quote?:{text:string;type?:string;fromMe:boolean}}
+export interface WebMessage {id:{_serialized:string;remote?:string;fromMe?:boolean};from:string;to:string;author?:string;fromMe:boolean;timestamp:number;body:string;caption?:string;type:string;ack:number;hasMedia?:boolean;viewOnce?:boolean;quote?:{text:string;type?:string;fromMe:boolean}}
 //: Проверяет и декодирует точный native маршрут WhatsApp.
 //: Статусы, рассылки, каналы и произвольные URL не становятся диалогами Messenger.
 export function nativeChat(id:string):string {
@@ -32,11 +32,11 @@ export function webMessage(value:WebMessage,chatId:string,title:string):Message 
   const quote=value.quote?{text:quotedText&&!isJpegThumbnail(quotedText)?quotedText.slice(0,300):mediaNames[value.quote.type||'']||'Сообщение',...(value.quote.fromMe?{author:'Вы'}:{})}:undefined;
   const message:Message={id:entityId('whatsapp','message',value.id._serialized),sourceKey:entityId('whatsapp','message',value.id._serialized),sourceId:'whatsapp',conversationId,
     sender:{id:entityId('whatsapp','recipient',outgoing?'self':value.author||value.from),name:outgoing?'Вы':value.author?.split('@')[0]||title,isSelf:outgoing},
-    date:new Date(value.timestamp*1000).toISOString(),text:String(value.body||'').slice(0,LIMITS.text),outgoing,
+    date:new Date(value.timestamp*1000).toISOString(),text:value.viewOnce?'':String(value.body||'').slice(0,LIMITS.text),outgoing,
     status:!outgoing?'received':value.ack>=3?'read':value.ack===2?'delivered':value.ack===1?'sent':value.ack===-1?'failed':'pending',
-    attachments:value.hasMedia||mediaNames[value.type]?[{id:entityId('whatsapp','attachment',value.id._serialized),kind:'unsupported',name:mediaNames[value.type]||'Вложение WhatsApp',downloadable:false}]:[],
+    attachments:value.viewOnce||value.hasMedia||mediaNames[value.type]?[{id:entityId('whatsapp','attachment',value.id._serialized),kind:'unsupported',name:value.viewOnce?'Одноразовое вложение WhatsApp':mediaNames[value.type]||'Вложение WhatsApp',downloadable:false}]:[],
     ...(quote?{quote}:{})};
-  return whatsappThumbnailMessage(message,value.body,value.caption);
+  return whatsappAttachmentMessage(message,value.body,value.caption);
 }
 //: Управляет единственной ограниченной браузерной сессией VPS.
 //: Разные аккаунты не делят профиль; чужой start возвращает busy без отключения владельца.
@@ -80,6 +80,10 @@ export class WhatsAppBrowser {
     if(action==='catalog')return {conversations:await this.catalog()};
     const jid=nativeChat(request.conversationId!);
     if(action==='messages')return this.page(jid,request.before);
+    if(action==='attachment'){
+      if(!request.allowed?.includes(request.conversationId!))throw new Error('not_selected');
+      return {media:await this.downloadAttachment(jid,request.messageId!)};
+    }
     if(action==='read'){await this.markRead(jid,request.messageId!);return {};}
     const chat=await this.client.pupPage!.evaluate(async jid=>{const chat=await (window as any).WWebJS.getChat(jid,{getAsModel:false});return chat?{id:chat.id?._serialized,isReadOnly:!!chat.isReadOnly,name:chat.formattedTitle||chat.name||''}:null;},jid);
     if(!chat||chat.id!==jid||chat.isReadOnly)throw new Error('invalid_destination');
@@ -89,6 +93,26 @@ export class WhatsAppBrowser {
       return {message:webMessage(result,jid,chat.name)};
     }
     throw new Error('invalid_request');
+  }
+  //: Получает оригинал одного поддерживаемого вложения выбранного чата.
+  //: Тип, точный ключ, принадлежность чату, одноразовость и размер проверяются до скачивания.
+  private async downloadAttachment(jid:string,messageId:string):Promise<NonNullable<BrowserResult['media']>>{
+    if(!messageId.startsWith('whatsapp:message:'))throw new Error('invalid_destination');
+    const key=decodeURIComponent(messageId.slice('whatsapp:message:'.length));
+    if(!key.startsWith(`false_${jid}_`)&&!key.startsWith(`true_${jid}_`))throw new Error('invalid_destination');
+    const message=await this.client!.getMessageById(key);
+    if(!message)throw new Error('attachment_missing');
+    if(message.id._serialized!==key||message.id.remote!==jid)throw new Error('invalid_destination');
+    const raw=message.rawData as {size?:number|string;isViewOnce?:boolean;viewOnce?:boolean;isViewOnceV2?:boolean};
+    if(raw.isViewOnce||raw.viewOnce||raw.isViewOnceV2||!['image','audio','ptt','document','sticker'].includes(message.type))throw new Error('attachment_unsupported');
+    if(!message.hasMedia)throw new Error('attachment_missing');
+    const size=Number(raw.size);
+    if(!Number.isSafeInteger(size)||size<=0)throw new Error('attachment_missing');
+    if(size>WHATSAPP_ATTACHMENT_BYTES)throw new Error('attachment_too_large');
+    const file=await message.downloadMedia();
+    if(!file?.data)throw new Error('attachment_missing');
+    if(file.data.length>4*Math.ceil(WHATSAPP_ATTACHMENT_BYTES/3))throw new Error('attachment_too_large');
+    return {data:file.data,mimeType:file.mimetype.slice(0,128),...(file.filename?{name:file.filename.slice(0,256)}:{})};
   }
   //: Запускает Chromium с включённым sandbox и профилем текущего аккаунта.
   //: Без interactive восстанавливается только профиль, ранее достигший ready.
@@ -251,10 +275,11 @@ export class WhatsAppBrowser {
           fromMe:quoted.id?.fromMe===true||quoted.fromMe===true||!!(ownId&&participant&&(participant._serialized||String(participant))===ownId)};
       };
       const messages=slice.map((m:any)=>{
-        const hasThumbnail=m.type==='image'||m.type==='video';
+        const hasThumbnail=m.type==='image'||m.type==='video'||m.type==='document';
         return {id:{_serialized:key(m)!,remote:key(m)!.split('_')[1]},from:m.from?._serialized||m.from,to:m.to?._serialized||m.to,author:m.author?._serialized||m.author,
           fromMe:typeof m.id?.fromMe==='boolean'?m.id.fromMe:key(m)!.startsWith('true_'),timestamp:Number(m.t),body:String(m.body||'').slice(0,hasThumbnail?thumbnailChars:4096),
-          ...(hasThumbnail&&typeof m.caption==='string'?{caption:m.caption.slice(0,4096)}:{}),quote:quote(m),type:m.type,ack:m.ack,hasMedia:!!m.isMedia};
+          ...(hasThumbnail&&typeof m.caption==='string'?{caption:m.caption.slice(0,4096)}:{}),quote:quote(m),type:m.type,ack:m.ack,hasMedia:!!m.isMedia,
+          viewOnce:!!(m.isViewOnce||m.viewOnce||m.isViewOnceV2)};
       });
       return {messages,more:!exhausted||end>100,title:String(chat.formattedTitle||chat.name||'')};
     },{jid,cursor,thumbnailChars:JPEG_THUMBNAIL_CHARS,ownId:this.client!.info?.wid?._serialized});

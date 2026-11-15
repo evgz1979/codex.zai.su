@@ -77,6 +77,7 @@ export interface WebMessage {
     type: string;
     ack: number;
     hasMedia?: boolean;
+    viewOnce?: boolean;
     quote?: {
         text: string;
         type?: string;
@@ -131,6 +132,18 @@ HTTP-запросы не могут менять executablePath, root или ф�
 
 ```typescript
 constructor(private root: string, private executablePath: string, private factory = (options: WA.ClientOptions) => new PollingClient(options))
+```
+
+<a id="symbol-WhatsAppBrowser.downloadAttachment"></a>
+
+## WhatsAppBrowser.downloadAttachment
+
+Получает оригинал одного поддерживаемого вложения выбранного чата.
+
+Тип, точный ключ, принадлежность чату, одноразовость и размер проверяются до скачивания.
+
+```typescript
+private async downloadAttachment(jid: string, messageId: string): Promise<NonNullable<BrowserResult['media']>>
 ```
 
 <a id="symbol-WhatsAppBrowser.fail"></a>

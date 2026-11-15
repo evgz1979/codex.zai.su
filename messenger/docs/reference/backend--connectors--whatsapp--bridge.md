@@ -13,7 +13,19 @@
 Нет TCP-порта, токена в браузере, универсального RPC или бесконечного ожидания.
 
 ```typescript
-browserCall(request: BrowserRequest, socketPath = process.env.WHATSAPP_BROWSER_SOCKET || '/run/zai-whatsapp/control.sock'): Promise<BrowserResult>
+browserCall(request: BrowserRequest, socketPath = process.env.WHATSAPP_BROWSER_SOCKET || '/run/zai-whatsapp/control.sock', signal?: AbortSignal): Promise<BrowserResult>
+```
+
+<a id="symbol-browserCall.abort"></a>
+
+## browserCall.abort
+
+Закрывает сокет, если пользователь закрыл просмотр или вышел из чата.
+
+Данные завершившейся позже команды больше не принимаются.
+
+```typescript
+abort()
 ```
 
 <a id="symbol-browserCall.finish"></a>

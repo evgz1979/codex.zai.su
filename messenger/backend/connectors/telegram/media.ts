@@ -1,16 +1,6 @@
 import {Api,utils} from 'teleproto';
 import {entityId,MEDIA_LIMITS,type Attachment} from '../../../shared/types.js';
-//: Очищает отображаемое имя файла без использования его как пути.
-//: Удаляет управляющие символы, компоненты каталогов и ограничивает длину.
-export function attachmentName(name:string){return [...name.split(/[\\/]/).at(-1)!.replace(/[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/g,'').trim()].slice(0,180).join('')||'Файл';}
-//: Оставляет только безопасные встроенные форматы браузерного просмотра.
-//: SVG, HTML и произвольные документы остаются скачиваемыми файлами.
-export function attachmentKind(mime:string):Attachment['kind']{
-  if(['image/jpeg','image/png','image/gif','image/webp'].includes(mime))return 'image';
-  if(['video/mp4','video/webm','video/quicktime'].includes(mime))return 'video';
-  if(['audio/mpeg','audio/mp4','audio/ogg','audio/wav','audio/x-wav','audio/webm','audio/aac'].includes(mime))return 'audio';
-  return 'file';
-}
+import {attachmentKind,attachmentName} from '../../core/attachments.js';
 //: Преобразует только безопасные метаданные Telegram-вложения в общий DTO.
 //: Native file reference, access_hash и самоуничтожающиеся медиа в DTO не попадают.
 export function telegramAttachments(source:string,conversation:string,message:Api.Message):Attachment[]{

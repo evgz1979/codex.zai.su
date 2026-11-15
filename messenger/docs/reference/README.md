@@ -15,14 +15,14 @@
 | [backend/connectors/telegram/adapter.ts](backend--connectors--telegram--adapter.md) | Каталог диалогов/папок Telegram, преобразование сообщений в общие DTO и проверка назначения. | 30 |
 | [backend/connectors/telegram/client.ts](backend--connectors--telegram--client.md) | Создание teleproto-клиента с приватной сессией, дедлайном RPC и выключенными логами. | 5 |
 | [backend/connectors/telegram/folders.ts](backend--connectors--telegram--folders.md) | Преобразование папок и правил Telegram в общий административный каталог. | 4 |
-| [backend/connectors/telegram/media.ts](backend--connectors--telegram--media.md) | Безопасные общие метаданные фото и документов Telegram без native references. | 4 |
-| [backend/connectors/whatsapp/adapter.ts](backend--connectors--whatsapp--adapter.md) | Личный SourceAdapter WhatsApp Web, административный QR, выбранная история и отправка текста. | 16 |
-| [backend/connectors/whatsapp/bridge.ts](backend--connectors--whatsapp--bridge.md) | Ограниченный клиент приватного браузерного worker без TCP и универсального RPC. | 2 |
-| [backend/connectors/whatsapp/browser.ts](backend--connectors--whatsapp--browser.md) | Одна изолированная Chromium-сессия с sandbox, временным QR и выбранной историей. | 21 |
-| [backend/connectors/whatsapp/protocol.ts](backend--connectors--whatsapp--protocol.md) | Закрытый протокол Unix socket и проверка выбранного получателя WhatsApp. | 5 |
+| [backend/connectors/telegram/media.ts](backend--connectors--telegram--media.md) | Безопасные общие метаданные фото и документов Telegram без native references. | 2 |
+| [backend/connectors/whatsapp/adapter.ts](backend--connectors--whatsapp--adapter.md) | Личный SourceAdapter WhatsApp Web, административный QR, выбранная история и отправка текста. | 17 |
+| [backend/connectors/whatsapp/bridge.ts](backend--connectors--whatsapp--bridge.md) | Ограниченный клиент приватного браузерного worker без TCP и универсального RPC. | 3 |
+| [backend/connectors/whatsapp/browser.ts](backend--connectors--whatsapp--browser.md) | Одна изолированная Chromium-сессия с sandbox, временным QR и выбранной историей. | 22 |
+| [backend/connectors/whatsapp/protocol.ts](backend--connectors--whatsapp--protocol.md) | Закрытый протокол Unix socket и проверка выбранного получателя WhatsApp. | 7 |
 | [backend/connectors/whatsapp/thumbnails.ts](backend--connectors--whatsapp--thumbnails.md) | Распознавание JPEG-миниатюр фото и видео WhatsApp в новых сообщениях и прежнем кеше. | 3 |
 | [backend/connectors/whatsapp/worker.ts](backend--connectors--whatsapp--worker.md) | Последовательный Unix socket worker браузера с дедлайнами и безопасными отказами. | 4 |
-| [backend/core/attachments.ts](backend--core--attachments.md) | Защищённая потоковая загрузка вложений и ограниченный приватный кеш байтов. | 9 |
+| [backend/core/attachments.ts](backend--core--attachments.md) | Защищённая потоковая загрузка вложений и ограниченный приватный кеш байтов. | 11 |
 | [backend/core/errors.ts](backend--core--errors.md) | Безопасная прикладная ошибка HTTP API. | 2 |
 | [backend/core/inbox.ts](backend--core--inbox.md) | Формирование ленты только выбранных диалогов. | 3 |
 | [backend/core/media-preload.ts](backend--core--media-preload.md) | Автоматическая подготовка вложений и миниатюр выбранных чатов за последние пять дней с продолжением после рестарта. | 7 |
@@ -45,7 +45,7 @@
 | [frontend/src/App.tsx](frontend--src--App.md) | Единый React-интерфейс, веб-вход, адресат, черновики и состояние операций. | 31 |
 | [frontend/src/AppUpdates.tsx](frontend--src--AppUpdates.md) | Проверка версии сборки и обновление приложения по нажатию без смены manifest и подписок. | 6 |
 | [frontend/src/AttachmentPreview.tsx](frontend--src--AttachmentPreview.md) | Ленивая миниатюра в ленте, фиксированные размеры и открытие оригинала. | 2 |
-| [frontend/src/AttachmentViewer.tsx](frontend--src--AttachmentViewer.md) | Модальный просмотр медиа по явному запросу, скачивание и отзыв Blob URL. | 2 |
+| [frontend/src/AttachmentViewer.tsx](frontend--src--AttachmentViewer.md) | Модальный просмотр медиа по явному запросу, скачивание и отзыв Blob URL. | 4 |
 | [frontend/src/Avatar.tsx](frontend--src--Avatar.md) | Круглые фотографии разрешённых диалогов с загрузкой возле видимой области и инициалами. | 5 |
 | [frontend/src/Notifications.tsx](frontend--src--Notifications.md) | Одно системное разрешение, автоматическое восстановление и проверка уведомлений; инструкция для iPhone. | 8 |
 | [frontend/src/VoiceTranscription.tsx](frontend--src--VoiceTranscription.md) | Кнопка расшифровки голосового, частичный текст, ручной повтор и отменяемый опрос. | 2 |

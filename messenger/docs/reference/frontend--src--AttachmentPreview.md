@@ -4,6 +4,18 @@
 
 [Исходный модуль](../../frontend/src/AttachmentPreview.tsx) · [Индекс](README.md)
 
+<a id="symbol-attachmentHasPreview"></a>
+
+## attachmentHasPreview
+
+Определяет, занимает ли вложение ширину пузыря.
+
+Правило одинаково для встроенного JPEG и миниатюры по отдельному запросу.
+
+```typescript
+attachmentHasPreview(a: Attachment)
+```
+
 <a id="symbol-AttachmentPreview"></a>
 
 ## AttachmentPreview
@@ -20,19 +32,5 @@ AttachmentPreview({ attachment: a, request, version, paused, onOpen, onUnauthori
     paused: boolean;
     onOpen(): void;
     onUnauthorized(error: ApiError): void;
-})
-```
-
-<a id="symbol-AttachmentStill"></a>
-
-## AttachmentStill
-
-Показывает сохранённую JPEG-миниатюру в ширину пузыря сообщения.
-
-Пропорции изображения сохраняются и на узком экране; оригинал не загружается.
-
-```typescript
-AttachmentStill({ attachment }: {
-    attachment: Attachment;
 })
 ```

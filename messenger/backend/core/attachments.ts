@@ -7,6 +7,17 @@ import {telegramAuthIssue} from '../auth/telegram-issue.js';
 import type {MessengerService} from './service.js';
 import {privateDirectory,writePrivate} from '../storage/private-files.js';
 import {MEDIA_LIMITS,type Attachment,type AttachmentRequest} from '../../shared/types.js';
+//: Очищает отображаемое имя файла без использования его как пути.
+//: Удаляет управляющие символы, компоненты каталогов и ограничивает длину.
+export function attachmentName(name:string){return [...name.split(/[\\/]/).at(-1)!.replace(/[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/g,'').trim()].slice(0,180).join('')||'Файл';}
+//: Оставляет только безопасные встроенные форматы браузерного просмотра.
+//: SVG, HTML и произвольные документы остаются скачиваемыми файлами.
+export function attachmentKind(mime:string):Attachment['kind']{
+  if(['image/jpeg','image/png','image/gif','image/webp'].includes(mime))return 'image';
+  if(['video/mp4','video/webm','video/quicktime'].includes(mime))return 'video';
+  if(['audio/mpeg','audio/mp4','audio/ogg','audio/wav','audio/x-wav','audio/webm','audio/aac'].includes(mime))return 'audio';
+  return 'file';
+}
 //: Проверяет сигнатуру растрового изображения перед встроенным просмотром.
 //: Несоответствие MIME переводит содержимое в обычный скачиваемый файл.
 export function safeAttachmentType(attachment:Attachment,head:Buffer):Attachment{
@@ -46,7 +57,8 @@ export class AttachmentService {
     if(!background){this.lastInteractive=Date.now();this.interruptPreload?.();}
     const preview=input.variant==='preview';const fileLimit=preview?MEDIA_LIMITS.previewBytes:this.limits.fileBytes;
     authorize();const original=this.core.attachmentMessage(input);const previous=original.attachments.find(a=>a.id===input.attachmentId)!;
-    if(previous.downloadable===false)throw new AppError(415,'Это вложение доступно только в Telegram.');
+    const writeMetadata=preview||original.sourceId==='whatsapp';
+    if(previous.downloadable===false)throw new AppError(415,'Оригинал вложения недоступен.');
     if(this.active>=this.limits.parallel)throw new AppError(429,'Уже загружаются два вложения. Дождитесь завершения.');
     const parts=[original.sourceId,input.conversationId,input.messageId,input.attachmentId,original.editedAt||original.date];if(preview)parts.push('preview');
     const key=createHash('sha256').update(JSON.stringify(parts)).digest('hex');
@@ -63,7 +75,13 @@ export class AttachmentService {
       assertAllowed();
       const cached=await lstat(path).catch(()=>undefined);
       let metadata:Attachment|undefined=previous;
-      if(preview){let record:Record<string,unknown>|undefined;try{record=JSON.parse(await readFile(metaPath,'utf8'));}catch{/* Незавершённая пара кеша перечитывается у источника. */}if(record?.missing)throw new AppError(415,'Для этого вложения нет миниатюры.');metadata=record?.id===input.attachmentId&&record.kind==='image'&&typeof record.name==='string'&&typeof record.mimeType==='string'&&typeof record.size==='number'?record as unknown as Attachment:undefined;}
+      if(writeMetadata&&(preview||cached?.isFile())){
+        let record:Record<string,unknown>|undefined;
+        try{record=JSON.parse(await readFile(metaPath,'utf8'));}catch{/* Старые оригиналы хранят метаданные в сообщении. */}
+        if(preview&&record?.missing)throw new AppError(415,'Для этого вложения нет миниатюры.');
+        if(record?.id===input.attachmentId&&(!preview||record.kind==='image')&&typeof record.name==='string'&&typeof record.mimeType==='string'&&typeof record.size==='number')metadata=record as unknown as Attachment;
+        else if(preview)metadata=undefined;
+      }
       if(cached?.isFile()&&cached.size<=fileLimit&&cached.size===metadata?.size&&metadata.kind!=='unsupported'){
         assertAllowed();const handle=await open(path,constants.O_RDONLY|constants.O_NOFOLLOW);const header=Buffer.alloc(16);let count=0;try{count=(await handle.read(header,0,16,0)).bytesRead;}finally{await handle.close();}const attachment=safeAttachmentType({...metadata,size:cached.size},header.subarray(0,count));
         if(preview&&attachment.kind!=='image')throw new AppError(415,'Миниатюра недоступна.');
@@ -79,7 +97,7 @@ export class AttachmentService {
         await handle.sync();
       }finally{await handle.close();}
       const attachment={...safeAttachmentType(content.attachment,head),size,downloadable:true};if(preview&&attachment.kind!=='image')throw new AppError(415,'Миниатюра недоступна.');
-      this.core.attachmentMetadata(input,original,attachment);assertAllowed();await rename(temp,path);if(preview)writePrivate(metaPath,JSON.stringify(attachment));await this.trim();assertAllowed();
+      this.core.attachmentMetadata(input,original,attachment);assertAllowed();await rename(temp,path);if(writeMetadata)writePrivate(metaPath,JSON.stringify(attachment));await this.trim();assertAllowed();
       return {path,attachment,assertAllowed,release};
     }catch(error){release();if(preview&&fromSource&&error instanceof AppError&&[404,415].includes(error.status)){try{assertAllowed();writePrivate(metaPath,JSON.stringify({missing:true}));await this.trim();}catch{/* Отзыв доступа не сохраняет результат. */}}if(error instanceof AppError)throw error;if(signal.aborted)throw new AppError(408,'Загрузка вложения прервана.');const wait=telegramAuthIssue(error).retryAfterSeconds;if(wait)throw new AppError(429,'Telegram временно ограничил загрузку вложений.',wait);throw new AppError(503,'Не удалось загрузить вложение. Повторите открытие.');}
     finally{await unlink(temp).catch(()=>{});}

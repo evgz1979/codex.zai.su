@@ -5,7 +5,7 @@ import { privateDirectory } from './private-files.js';
 import { LIMITS,messagePreview,comparePosition,positionSequence, type Snapshot, type Conversation, type Message, type MessagePage,type Attachment,type AttachmentRequest, type SyncStatus } from '../../shared/types.js';
 import {AppError} from '../core/errors.js';
 import type {SourceTranscription} from '../core/source-adapter.js';
-import {isJpegThumbnail,whatsappThumbnailMessage} from '../connectors/whatsapp/thumbnails.js';
+import {isJpegThumbnail,whatsappAttachmentMessage} from '../connectors/whatsapp/thumbnails.js';
 //: Хранит приватную расшифровку отдельно от синхронизируемого сообщения.
 //: Версия и ID вложения запрещают показывать текст после замены голосового.
 export interface StoredTranscription extends SourceTranscription {attachmentId:string;version:string;updatedAt:number}
@@ -71,7 +71,7 @@ export class Store {
   //: Числовой порядок источника различает сообщения одной секунды.
   private latestStoredMessage(id:string):Message|undefined{
     const row=this.db.prepare("SELECT payload FROM message_cache WHERE conversation_id=? ORDER BY date DESC,COALESCE(json_extract(payload,'$.sequence'),message_sequence(id)) DESC,id DESC LIMIT 1").get(id) as {payload:string}|undefined;
-    return row?whatsappThumbnailMessage(JSON.parse(row.payload)):undefined;
+    return row?whatsappAttachmentMessage(JSON.parse(row.payload)):undefined;
   }
   //: Обновляет превью по последнему сообщению из SQLite.
   //: Позиция предыдущего превью берётся из его сообщения, сохраняя свежую дату каталога для списка.
@@ -93,7 +93,7 @@ export class Store {
   //: Отделяет JPEG старой миниатюры от текста и подставляет актуальную расшифровку голосового.
   //: Медиаданные и расшифровка обрабатываются в пределах выданного сообщения.
   private withMessageDetails(message:Message):Message{
-    message=whatsappThumbnailMessage(message);
+    message=whatsappAttachmentMessage(message);
     delete message.voiceTranscription;
     if(!message.attachments.some(a=>a.kind==='audio'&&a.isVoice&&a.downloadable!==false))return message;
     const saved=this.transcription(message.id);
@@ -272,7 +272,7 @@ export class Store {
   //: JSON разворачивается только для выбранных диалогов; выполненные задания не повторяются после рестарта.
   mediaJobs(since:string,now:number,preview:boolean){
     const variant=preview?'preview':'original';
-    const rows=this.db.prepare(`SELECT m.payload,a.value AS attachment FROM message_cache m JOIN selected_conversations s ON s.id=m.conversation_id JOIN json_each(m.payload,'$.attachments') a LEFT JOIN media_preload p ON p.message_id=m.id AND p.attachment_id=json_extract(a.value,'$.id') AND p.version=COALESCE(json_extract(m.payload,'$.editedAt'),m.date) AND p.variant=? WHERE m.date>=? AND COALESCE(json_extract(a.value,'$.downloadable'),1)<>0 AND (p.message_id IS NULL OR (p.next_attempt>0 AND p.next_attempt<=?)) ORDER BY m.date DESC,m.id DESC LIMIT 20`).all(variant,since,now) as {payload:string;attachment:string}[];
+    const rows=this.db.prepare(`SELECT m.payload,a.value AS attachment FROM message_cache m JOIN selected_conversations s ON s.id=m.conversation_id JOIN json_each(m.payload,'$.attachments') a LEFT JOIN media_preload p ON p.message_id=m.id AND p.attachment_id=json_extract(a.value,'$.id') AND p.version=COALESCE(json_extract(m.payload,'$.editedAt'),m.date) AND p.variant=? WHERE m.date>=? AND json_extract(m.payload,'$.sourceId')<>'whatsapp' AND COALESCE(json_extract(a.value,'$.downloadable'),1)<>0 AND (p.message_id IS NULL OR (p.next_attempt>0 AND p.next_attempt<=?)) ORDER BY m.date DESC,m.id DESC LIMIT 20`).all(variant,since,now) as {payload:string;attachment:string}[];
     return rows.map(row=>({message:JSON.parse(row.payload) as Message,attachment:JSON.parse(row.attachment) as Attachment}));
   }
   //: Сохраняет результат фонового задания или время следующей попытки.
