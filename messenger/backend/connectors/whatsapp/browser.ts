@@ -102,7 +102,7 @@ export class WhatsAppBrowser {
     if(!key.startsWith(`false_${jid}_`)&&!key.startsWith(`true_${jid}_`))throw new Error('invalid_destination');
     const message=await this.client!.getMessageById(key);
     if(!message)throw new Error('attachment_missing');
-    if(message.id._serialized!==key||message.id.remote!==jid)throw new Error('invalid_destination');
+    if(message.id._serialized!==key||message.id.remote!==jid)await this.matchAttachmentAlias(message,jid,key);
     const raw=message.rawData as {size?:number|string;isViewOnce?:boolean;viewOnce?:boolean;isViewOnceV2?:boolean};
     if(raw.isViewOnce||raw.viewOnce||raw.isViewOnceV2||!['image','audio','ptt','document','sticker'].includes(message.type))throw new Error('attachment_unsupported');
     if(!message.hasMedia)throw new Error('attachment_missing');
@@ -113,6 +113,21 @@ export class WhatsAppBrowser {
     if(!file?.data)throw new Error('attachment_missing');
     if(file.data.length>4*Math.ceil(WHATSAPP_ATTACHMENT_BYTES/3))throw new Error('attachment_too_large');
     return {data:file.data,mimeType:file.mimetype.slice(0,128),...(file.filename?{name:file.filename.slice(0,256)}:{})};
+  }
+  //: Проверяет совпадение сообщения, если WhatsApp заменил LID на номер или наоборот.
+  //: Пара адресов подтверждается клиентом WhatsApp, а ID и направление остаются точными.
+  private async matchAttachmentAlias(message:WA.Message,jid:string,key:string){
+    const [direction,,stanza,participant]=key.split('_');
+    const {id,fromMe,remote}=message.id;
+    if(participant!==undefined||!stanza||id!==stanza||typeof remote!=='string'||fromMe!==(direction==='true'))throw new Error('invalid_destination');
+    if(remote!==jid){
+      const lid=jid.endsWith('@lid')?jid:remote;
+      const pn=jid.endsWith('@c.us')?jid:remote;
+      if(!lid.endsWith('@lid')||!pn.endsWith('@c.us'))throw new Error('invalid_destination');
+      const [pair]=await this.client!.getContactLidAndPhone([jid]);
+      if(pair?.lid!==lid||pair?.pn!==pn)throw new Error('invalid_destination');
+    }
+    message.id={...message.id,_serialized:key,remote:jid};
   }
   //: Запускает Chromium с включённым sandbox и профилем текущего аккаунта.
   //: Без interactive восстанавливается только профиль, ранее достигший ready.

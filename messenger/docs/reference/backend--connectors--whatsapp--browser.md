@@ -194,6 +194,18 @@ private async markRead(jid: string, messageId: string): Promise<void>
 serialized(id: any)
 ```
 
+<a id="symbol-WhatsAppBrowser.matchAttachmentAlias"></a>
+
+## WhatsAppBrowser.matchAttachmentAlias
+
+Проверяет совпадение сообщения, если WhatsApp заменил LID на номер или наоборот.
+
+Пара адресов подтверждается клиентом WhatsApp, а ID и направление остаются точными.
+
+```typescript
+private async matchAttachmentAlias(message: WA.Message, jid: string, key: string)
+```
+
 <a id="symbol-WhatsAppBrowser.page"></a>
 
 ## WhatsAppBrowser.page

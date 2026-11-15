@@ -143,6 +143,7 @@
   {"path":"backend/connectors/whatsapp/browser.ts","name":"WhatsAppBrowser.handle","anchor":"symbol-WhatsAppBrowser.handle"},
   {"path":"backend/connectors/whatsapp/browser.ts","name":"WhatsAppBrowser.markRead","anchor":"symbol-WhatsAppBrowser.markRead"},
   {"path":"backend/connectors/whatsapp/browser.ts","name":"WhatsAppBrowser.markRead.serialized","anchor":"symbol-WhatsAppBrowser.markRead.serialized"},
+  {"path":"backend/connectors/whatsapp/browser.ts","name":"WhatsAppBrowser.matchAttachmentAlias","anchor":"symbol-WhatsAppBrowser.matchAttachmentAlias"},
   {"path":"backend/connectors/whatsapp/browser.ts","name":"WhatsAppBrowser.page","anchor":"symbol-WhatsAppBrowser.page"},
   {"path":"backend/connectors/whatsapp/browser.ts","name":"WhatsAppBrowser.page.key","anchor":"symbol-WhatsAppBrowser.page.key"},
   {"path":"backend/connectors/whatsapp/browser.ts","name":"WhatsAppBrowser.page.quote","anchor":"symbol-WhatsAppBrowser.page.quote"},

@@ -62,7 +62,8 @@ test('WhatsApp: миниатюры фото и видео отделены от 
 test('WhatsApp: оригиналы фото, голосового и PDF открываются только из выбранного сообщения',async t=>{
  const root=mkdtempSync(join(tmpdir(),'wa-attachment-'));const store=new Store(root);
  const account='a'.repeat(64);let candidate:any;let downloads=0;
- const client=Object.assign(new EventEmitter(),{pupBrowser:{async close(){}},async initialize(){},async destroy(){},async getMessageById(){return candidate;}});
+ const alias='123@lid';let confirmedAlias=false;
+ const client=Object.assign(new EventEmitter(),{pupBrowser:{async close(){}},async initialize(){},async destroy(){},async getMessageById(){return candidate;},async getContactLidAndPhone(ids:string[]){assert.deepEqual(ids,[jid]);return confirmedAlias?[{lid:alias,pn:jid}]:[];}});
  const browser=new WhatsAppBrowser(join(root,'profile'),'/unused/chrome',()=>client as never);
  t.after(async()=>{await browser.stop();store.close();rmSync(root,{recursive:true,force:true});});
  const adapter=new WhatsAppAdapter(root,store,async request=>browser.handle(browserRequest({...request,account})));
@@ -86,6 +87,11 @@ test('WhatsApp: оригиналы фото, голосового и PDF отк�
   candidate.rawData.isViewOnce=true;
   await assert.rejects(media.open(input,signal,()=>{}),{status:415});
   candidate.rawData.isViewOnce=false;
+  if(type==='image'){
+   candidate.id={id:type,fromMe:false,remote:alias,_serialized:`false_${alias}_${type}`};
+   await assert.rejects(media.open(input,signal,()=>{}),{status:403});
+   confirmedAlias=true;
+  }
   const opened=await media.open(input,signal,()=>{});assert.equal(opened.attachment.kind,kind);assert.equal(opened.attachment.mimeType,mime);opened.release();
   store.upsertMessages([message]);
   const again=await media.open(input,signal,()=>{});assert.equal(again.attachment.size,bytes.length);again.release();
