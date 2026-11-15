@@ -280,16 +280,16 @@ pruneMediaJobs(since: string)
 readPosition(id: string): Pick<Message, 'id' | 'date' | 'sequence'> | undefined
 ```
 
-<a id="symbol-Store.releaseEmptyContact"></a>
+<a id="symbol-Store.releaseEmptyContacts"></a>
 
-## Store.releaseEmptyContact
+## Store.releaseEmptyContacts
 
-Снимает прежнее разрешение пустого чата с записью о регистрации контакта.
+Снимает прежние ошибочные разрешения новых личных чатов с проверенной пустой историей.
 
-Сохраняет явный выбор, незавершённую историю и возможность принять следующее входящее.
+Сохраняет ручной выбор, прежние диалоги и чаты с сообщением в кеше или свежем каталоге.
 
 ```typescript
-releaseEmptyContact(id: string)
+releaseEmptyContacts(sourceId: string, previewIds: string[])
 ```
 
 <a id="symbol-Store.remove"></a>

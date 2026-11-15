@@ -82,7 +82,7 @@ test('контакты: старые невыбранные остаются з�
 });
 
 test('контакты: обнаружение из метаданных после пропуска, начальная история не создаёт лишних уведомлений',async t=>{
-  const {adapter,core}=context(t);await core.refresh();const {conversation,message}=contact(adapter);adapter.conversations.push({...conversation,unreadCount:1,contactEvent:'incoming'});const received:Message[]=[];core.onIncoming(m=>received.push(m));
+  const {adapter,core}=context(t);await core.refresh();const {conversation,message}=contact(adapter);adapter.conversations.push({...conversation,unreadCount:1,hasIncomingMessage:true});const received:Message[]=[];core.onIncoming(m=>received.push(m));
   await core.refresh();assert.equal(core.selection.allows(conversation.id),true);
   core.cacheMessages(conversation.id,[{...message,id:'older-history',date:new Date(Date.parse(message.date)-3600000).toISOString()},message]);assert.deepEqual(received.map(m=>m.id),[message.id]);
   core.cacheMessages(conversation.id,[message]);assert.equal(received.length,1);

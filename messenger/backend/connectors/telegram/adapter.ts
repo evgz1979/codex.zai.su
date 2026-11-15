@@ -130,10 +130,9 @@ export class TelegramAdapter implements SourceAdapter {
           conversation.preview=messagePreview(latest);
           conversation.previewMessageId=latest.id;
         }else if(!top.out){
-          conversation.contactEvent='incoming';
+          conversation.hasIncomingMessage=true;
         }
       }else if(allowed&&d.isUser&&top instanceof Api.MessageService&&top.action instanceof Api.MessageActionContactSignUp){
-        conversation.contactEvent='registration';
         const readMax=d.dialog instanceof Api.Dialog?d.dialog.readInboxMaxId:0;
         if(!top.out&&top.id>readMax)conversation.unreadCount=Math.max(0,conversation.unreadCount-1);
       }

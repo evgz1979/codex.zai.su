@@ -142,13 +142,25 @@ export class Store {
     const selected=this.selected();if(selected.includes(conversation.id))return true;if(selected.length>=LIMITS.conversations)return false;
     this.db.exec('BEGIN IMMEDIATE');try{this.db.prepare('INSERT INTO selected_conversations(id) VALUES (?)').run(conversation.id);this.db.prepare('INSERT OR REPLACE INTO conversation_policy(id,source_id,excluded) VALUES (?,?,0)').run(conversation.id,conversation.sourceId);this.db.prepare('INSERT OR REPLACE INTO conversation_cache(id,payload) VALUES (?,?)').run(conversation.id,JSON.stringify(conversation));this.set(`discovery.notify.${conversation.id}`,conversation.updatedAt);this.db.exec('COMMIT');this.revision++;return true;}catch(error){this.db.exec('ROLLBACK');throw error;}
   }
-  //: Снимает прежнее разрешение пустого чата с записью о регистрации контакта.
-  //: Сохраняет явный выбор, незавершённую историю и возможность принять следующее входящее.
-  releaseEmptyContact(id:string){
-    if(!this.progress(id).historyComplete||this.conversation(id)?.previewMessageId)return false;
-    const result=this.db.prepare(`DELETE FROM selected_conversations WHERE id=?
-      AND NOT EXISTS (SELECT 1 FROM conversation_policy WHERE id=? AND manual=1)
-      AND NOT EXISTS (SELECT 1 FROM message_cache WHERE conversation_id=?)`).run(id,id,id);
+  //: Снимает прежние ошибочные разрешения новых личных чатов с проверенной пустой историей.
+  //: Сохраняет ручной выбор, прежние диалоги и чаты с сообщением в кеше или свежем каталоге.
+  releaseEmptyContacts(sourceId:string,previewIds:string[]){
+    const result=this.db.prepare(`DELETE FROM selected_conversations AS s WHERE EXISTS (
+      SELECT 1 FROM conversation_cache c
+      JOIN sync_state t ON t.id=c.id
+      JOIN settings b ON b.key='discovery.baseline.'||?
+      WHERE c.id=s.id AND json_extract(c.payload,'$.sourceId')=?
+        AND json_extract(c.payload,'$.kind')='direct'
+        AND COALESCE(json_extract(c.payload,'$.isBot'),0)=0
+        AND COALESCE(json_extract(c.payload,'$.recipient.isSelf'),0)=0
+        AND unixepoch(json_extract(c.payload,'$.updatedAt'))>=CAST(b.value AS INTEGER)/1000
+        AND json_extract(c.payload,'$.previewMessageId') IS NULL
+        AND json_extract(t.payload,'$.historyComplete')=1
+        AND json_extract(t.payload,'$.newerCursor') IS NULL
+    )
+      AND NOT EXISTS (SELECT 1 FROM conversation_policy p WHERE p.id=s.id AND p.manual=1)
+      AND NOT EXISTS (SELECT 1 FROM message_cache m WHERE m.conversation_id=s.id)
+      AND s.id NOT IN (SELECT value FROM json_each(?))`).run(sourceId,sourceId,JSON.stringify(previewIds));
     if(!Number(result.changes))return false;
     this.revision++;
     return true;

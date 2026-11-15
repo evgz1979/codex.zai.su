@@ -303,7 +303,7 @@
   {"path":"backend/storage/store.ts","name":"Store.progress","anchor":"symbol-Store.progress"},
   {"path":"backend/storage/store.ts","name":"Store.pruneMediaJobs","anchor":"symbol-Store.pruneMediaJobs"},
   {"path":"backend/storage/store.ts","name":"Store.readPosition","anchor":"symbol-Store.readPosition"},
-  {"path":"backend/storage/store.ts","name":"Store.releaseEmptyContact","anchor":"symbol-Store.releaseEmptyContact"},
+  {"path":"backend/storage/store.ts","name":"Store.releaseEmptyContacts","anchor":"symbol-Store.releaseEmptyContacts"},
   {"path":"backend/storage/store.ts","name":"Store.remove","anchor":"symbol-Store.remove"},
   {"path":"backend/storage/store.ts","name":"Store.saveCache","anchor":"symbol-Store.saveCache"},
   {"path":"backend/storage/store.ts","name":"Store.saveProgress","anchor":"symbol-Store.saveProgress"},

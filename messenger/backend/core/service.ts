@@ -122,7 +122,7 @@ export class MessengerService {
       for(const catalog of catalogs){
         const adapter=this.registry.get(catalog.sourceId);
         if(adapter.source.connected&&adapter.canDiscoverContacts?.())this.selection.observe(catalog.sourceId,catalog.conversations);
-        for(const {contactEvent,...conversation} of catalog.conversations)if(this.selection.allows(conversation.id))conversations.push(conversation);
+        for(const {hasIncomingMessage,...conversation} of catalog.conversations)if(this.selection.allows(conversation.id))conversations.push(conversation);
       }
       for(const c of conversations){
         const current=this.store.conversation(c.id);if(!current)continue;

@@ -8,9 +8,9 @@ export type SourceEvent={type:'message';message:Message;edited?:boolean}|{type:'
 //: Передаёт поток байтов одного вложения внутри backend.
 //: В браузер не передаются native location, ключи и объект клиента.
 export interface AttachmentContent {attachment:Attachment;chunks:AsyncIterable<Uint8Array>}
-//: Дополняет строку каталога типом верхней записи для обнаружения контактов.
+//: Отмечает новое личное входящее по верхней записи каталога.
 //: Признак используется только ядром и не сохраняется в публичном снимке.
-export interface ListedConversation extends Conversation {contactEvent?:'incoming'|'registration'}
+export interface ListedConversation extends Conversation {hasIncomingMessage?:true}
 //: Задаёт контракт чтения страниц, отправки и необязательного каталога папок источника.
 //: allows разрешает превью выбранных ID; discoveryCandidate разрешает проверить только тип верхней записи.
 export interface SourceAdapter {

@@ -34,12 +34,13 @@ export class ConversationSelectionService {
       conversation.unreadCount>0&&Date.parse(conversation.updatedAt)>=Math.floor(since/1000)*1000&&!this.store.excluded(conversation.id);
   }
   //: Фиксирует исходный каталог и разрешает новые диалоги с подтверждённым входящим.
-  //: Служебные записи и счётчик сам по себе не разрешают автоматическое подключение.
+  //: Снимает ошибочный выбор после проверки истории, даже если каталог пропустил диалог.
   observe(sourceId:string,catalog:ListedConversation[]){
     const first=this.store.observeCatalog(sourceId,catalog);if(first)return;
-    for(const {contactEvent,...conversation} of catalog){
-      if(contactEvent==='incoming'&&this.isDiscoveryCandidate(conversation))this.admit(conversation);
-      if(contactEvent==='registration'&&this.store.releaseEmptyContact(conversation.id))this.revision++;
+    const previewIds=catalog.filter(c=>c.previewMessageId).map(c=>c.id);
+    if(this.store.releaseEmptyContacts(sourceId,previewIds))this.revision++;
+    for(const {hasIncomingMessage,...conversation} of catalog){
+      if(hasIncomingMessage&&this.isDiscoveryCandidate(conversation))this.admit(conversation);
     }
   }
   //: Разрешает новый входящий личный контакт до преобразования его сообщения.

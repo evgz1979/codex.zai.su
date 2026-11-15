@@ -119,7 +119,7 @@ test('Telegram: регистрация контакта не добавляет 
  let histories=0;
  const fake={connected:false,async connect(){this.connected=true;},async checkAuthorization(){return true;},async destroy(){this.connected=false;},
   async getDialogs(){return dialogs;},async invoke(){return {filters:[]};},
-  async getMessages(peer:Api.InputPeerUser){histories++;return dialogs.filter(row=>row.inputEntity===peer).flatMap(row=>row.message?[row.message]:[]);}};
+  async getMessages(peer:Api.InputPeerUser){histories++;return dialogs.filter(row=>row.inputEntity===peer).map(row=>row.message??row.registration);}};
  const adapter=new TelegramAdapter(vault,()=>fake as unknown as TelegramClient);
  const core=new MessengerService([adapter],store);
  const sync=new AutoSyncService(core,store);
@@ -128,12 +128,12 @@ test('Telegram: регистрация контакта не добавляет 
  await sync.tick();
 
  const date=Math.floor(Date.now()/1000);
- const rows=[51,52,53].map((id,index)=>{
+ const rows=[51,52,53,54].map((id,index)=>{
   const entity=new Api.User({id:BigInt(id) as never,firstName:`Контакт ${id}`});
   const peerId=new Api.PeerUser({userId:entity.id});
   const inputEntity=new Api.InputPeerUser({userId:entity.id,accessHash:42n as never});
   const registration=new Api.MessageService({id,peerId,date,action:new Api.MessageActionContactSignUp()});
-  return {entity,peerId,inputEntity,message:(index===2?undefined:registration) as Api.TypeMessage|undefined,id:entity.id,title:entity.firstName,isUser:true,unreadCount:1,date};
+  return {entity,peerId,inputEntity,registration,message:(index<2?registration:undefined) as Api.TypeMessage|undefined,id:entity.id,title:entity.firstName,isUser:true,unreadCount:1,date};
  });
  dialogs=rows;
  assert.deepEqual((await core.refresh()).conversations,[]);
@@ -141,8 +141,8 @@ test('Telegram: регистрация контакта не добавляет 
  assert.equal(histories,0);
 
  const catalog=await admin.dialogs();
- const [first,manual,empty]=catalog.conversations;
- assert.ok(first&&manual&&empty);
+ const [first,manual,empty,unlisted]=catalog.conversations;
+ assert.ok(first&&manual&&empty&&unlisted);
  assert.deepEqual(catalog.selectedIds,[]);
  assert.ok(store.admitContact(first)); // Состояние после прежней сверки по одному счётчику.
  await core.refresh();
@@ -153,6 +153,18 @@ test('Telegram: регистрация контакта не добавляет 
  assert.deepEqual((await core.refresh()).conversations,[]);
  assert.deepEqual((await admin.dialogs()).selectedIds,[]);
  assert.equal(store.excluded(first.id),false);
+
+ // Рабочий случай: счётчик есть, каталог не вернул верхнюю запись, история содержит только служебную запись.
+ assert.ok(store.admitContact(empty));
+ assert.ok(store.admitContact(unlisted));
+ await sync.tick();
+ await sync.tick();
+ assert.ok(store.progress(empty.id).historyComplete);
+ assert.ok(store.progress(unlisted.id).historyComplete);
+ dialogs=rows.slice(0,3);
+ assert.deepEqual((await core.refresh()).conversations,[]);
+ assert.equal(store.badgeCount(),0);
+ assert.ok((await admin.dialogs()).conversations.some(c=>c.id===empty.id));
 
  const incoming=new Api.Message({id:100,peerId:rows[0].peerId,date,message:'Первое сообщение'});
  Object.defineProperty(incoming,'message',{get(){assert.ok(core.selection.allows(first.id));return 'Первое сообщение';}});
@@ -168,5 +180,8 @@ test('Telegram: регистрация контакта не добавляет 
  const snapshot=await core.refresh();
  assert.equal(snapshot.conversations.find(c=>c.id===manual.id)?.unreadCount,0);
  assert.equal(store.badgeCount(),1);
- assert.ok(snapshot.conversations.every(c=>!('contactEvent' in c)));
+ assert.ok(snapshot.conversations.every(c=>!('hasIncomingMessage' in c)));
+
+ assert.ok(store.admitContact({...unlisted,updatedAt:'2026-11-07T00:00:00Z',unreadCount:0}));
+ assert.ok((await core.refresh()).conversations.some(c=>c.id===unlisted.id));
 });

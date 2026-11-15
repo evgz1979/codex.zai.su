@@ -23,13 +23,13 @@ export interface AttachmentContent {
 
 ## ListedConversation
 
-Дополняет строку каталога типом верхней записи для обнаружения контактов.
+Отмечает новое личное входящее по верхней записи каталога.
 
 Признак используется только ядром и не сохраняется в публичном снимке.
 
 ```typescript
 export interface ListedConversation extends Conversation {
-    contactEvent?: 'incoming' | 'registration';
+    hasIncomingMessage?: true;
 }
 ```
 
