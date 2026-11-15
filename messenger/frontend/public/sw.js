@@ -39,10 +39,12 @@ async function currentBadge(fallback){
   return {count:fallback,fresh:false};
 }
 self.addEventListener('push',event=>{
-  let payload={};try{payload=event.data?.json()||{};}catch{/* Нейтральное уведомление обязательно и при некорректном payload. */}
+  let payload={};try{payload=event.data?.json()||{};}catch{/* Показываем общее уведомление при некорректном payload. */}
   event.waitUntil((async()=>{
-    await self.registration.showNotification('Z AI Messenger',{
-      body:payload.kind==='test'?'Уведомления включены':'Новое сообщение',
+    const title=payload.kind==='message'&&typeof payload.title==='string'&&payload.title.trim()&&payload.title.length<=128?payload.title:'Z AI Messenger';
+    const body=payload.kind==='message'&&typeof payload.body==='string'&&payload.body.trim()&&payload.body.length<=320?payload.body:'Новое сообщение';
+    await self.registration.showNotification(title,{
+      body:payload.kind==='test'?'Уведомления включены':body,
       icon:'/icon-192.png',badge:'/icon-192.png',tag:payload.kind==='test'?'messenger-test':'messenger-incoming',
       data:{conversationId:typeof payload.conversationId==='string'&&payload.conversationId.length<=2048?payload.conversationId:undefined},
     });

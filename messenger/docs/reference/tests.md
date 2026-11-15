@@ -126,14 +126,14 @@
 - [test/paging.test.ts](../../test/paging.test.ts): страницы: обновление не читает историю всех чатов; активный диалог получает 10 + 10 + 5
 - [test/paging.test.ts](../../test/paging.test.ts): страницы: отметка прочитанного работает после вытеснения из общего кеша
 - [test/push.test.ts](../../test/push.test.ts): push HTTP: приватность, CSRF, allowlist статики и отзыв при выходе
-- [test/push.test.ts](../../test/push.test.ts): push worker: видимое нейтральное уведомление, badge и переход только в свой чат
+- [test/push.test.ts](../../test/push.test.ts): push worker: sender и превью новых сообщений, общий текст для старых и проверочных
 - [test/push.test.ts](../../test/push.test.ts): push worker: подтверждение открытого чата и запасной маршрут при потерянной команде
 - [test/push.test.ts](../../test/push.test.ts): push worker: поздний push при закрытом чате не возвращает прочитанный badge
 - [test/push.test.ts](../../test/push.test.ts): push: HTTP 410 удаляет устройство; временный отказ сохраняет подписку и не раскрывает ошибку
 - [test/push.test.ts](../../test/push.test.ts): push: VAPID и устройства переживают рестарт; смена пароля отзывает доставку
-- [test/push.test.ts](../../test/push.test.ts): push: библиотека формирует зашифрованный aes128gcm запрос с VAPID
 - [test/push.test.ts](../../test/push.test.ts): push: доставка не истекает через 90 дней, прежние подписки сохраняются без повторного включения
-- [test/push.test.ts](../../test/push.test.ts): push: новые входящие доставляются один раз без текста, история и исходящие исключены
+- [test/push.test.ts](../../test/push.test.ts): push: имя и текст шифруются в запросе aes128gcm с VAPID
+- [test/push.test.ts](../../test/push.test.ts): push: новые входящие доставляются один раз, история и исходящие исключены
 - [test/push.test.ts](../../test/push.test.ts): push: объединённое уведомление открывает самый свежий разрешённый диалог
 - [test/push.test.ts](../../test/push.test.ts): push: подписки проверяют провайдера, схему, порт и P-256 ключи
 - [test/push.test.ts](../../test/push.test.ts): push: пропущенная свежая голова уведомляет, история и сообщения до подписки молчат

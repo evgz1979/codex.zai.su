@@ -31,7 +31,15 @@ export function pushSubscription(input:unknown):webpush.PushSubscription {
   } catch {throw new AppError(400,'Некорректная подписка уведомлений.');}
 }
 
-//: Доставляет нейтральные уведомления только о новых входящих выбранных диалогов.
+//: Ограничивает имя отправителя или превью первой непустой строкой.
+//: Считает символы Unicode, чтобы усечение не разорвало суррогатную пару.
+function notificationLine(value:string,limit:number):string{
+  const line=value.trimStart().split(/[\r\n\u0085\u2028\u2029]/,1)[0].trim();
+  const characters=[...line];
+  return characters.length>limit?`${characters.slice(0,limit-1).join('')}…`:line;
+}
+
+//: Доставляет краткие уведомления только о новых входящих выбранных диалогов.
 //: История, правки и отправки исключены; секреты и содержимое сообщений не логируются.
 export class PushService {
   private pending=new Map<string,Message>();
@@ -114,7 +122,10 @@ export class PushService {
         const fresh=messages.filter(message=>!message.outgoing&&Date.parse(message.date)>=device.createdAt&&Date.parse(message.date)>=this.now()-3600000&&this.core.selection.allows(message.conversationId)&&!!this.store.message(message.id)).sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id))[0];
         if(!fresh)continue;
         const badge=this.store.badgeCount();
-        const payload=JSON.stringify({title:'Z AI Messenger',body:'Новое сообщение',badge,conversationId:fresh.conversationId});
+        const sender=notificationLine(fresh.sender.name,64);
+        const title=sender&&sender!=='Участник'?sender:notificationLine(this.store.conversation(fresh.conversationId)?.title||'',64)||'Z AI Messenger';
+        const body=notificationLine(fresh.text,160)||'Новое сообщение';
+        const payload=JSON.stringify({kind:'message',title,body,badge,conversationId:fresh.conversationId});
         try{await this.transport(device.subscription,payload,{vapidDetails:{subject:this.origin,...this.keys()},TTL:300,urgency:'high',topic:'messenger-incoming',timeout:10000});}
         catch(error){const status=(error as {statusCode?:number})?.statusCode;if(status===404||status===410)this.remove(device.subscription.endpoint);}
       }

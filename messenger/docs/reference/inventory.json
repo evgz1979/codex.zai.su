@@ -192,6 +192,7 @@
   {"path":"backend/core/media-preload.ts","name":"MediaPreloadService.stop","anchor":"symbol-MediaPreloadService.stop"},
   {"path":"backend/core/media-preload.ts","name":"MediaPreloadService.tick","anchor":"symbol-MediaPreloadService.tick"},
   {"path":"backend/core/push.ts","name":"Device","anchor":"symbol-Device"},
+  {"path":"backend/core/push.ts","name":"notificationLine","anchor":"symbol-notificationLine"},
   {"path":"backend/core/push.ts","name":"PushService","anchor":"symbol-PushService"},
   {"path":"backend/core/push.ts","name":"PushService.clear","anchor":"symbol-PushService.clear"},
   {"path":"backend/core/push.ts","name":"PushService.configuration","anchor":"symbol-PushService.configuration"},

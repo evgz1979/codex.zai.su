@@ -21,9 +21,9 @@ function subscription(name='device'){
 }
 //: Изолирует SQLite, адаптер и push-транспорт одного теста.
 //: Рабочая БД, Telegram и Apple не используются.
-async function context(t:{after(fn:()=>void|Promise<void>):void}){
+async function context(t:{after(fn:()=>void|Promise<void>):void},source?:'telegram'|'whatsapp'){
   const dir=mkdtempSync(join(tmpdir(),'zai-push-'));const store=new Store(dir);
-  const adapter=new TestAdapter();store.select([adapter.conversations[0].id]);
+  const adapter=new TestAdapter(source);if(source)adapter.source.kind=source;store.select([adapter.conversations[0].id]);
   const core=new MessengerService([adapter],store);await core.refresh();
   const deliveries:{subscription:webpush.PushSubscription;payload:string;options:webpush.RequestOptions}[]=[];
   const now=Date.now();
@@ -38,9 +38,9 @@ test('push: подписки проверяют провайдера, схему
   for(const keys of [{...sub.keys,auth:'short'},{...sub.keys,p256dh:Buffer.alloc(65,4).toString('base64url')}])assert.throws(()=>pushSubscription({...sub,keys}),/Некорректная/);
 });
 
-test('push: новые входящие доставляются один раз без текста, история и исходящие исключены',async t=>{
+test('push: новые входящие доставляются один раз, история и исходящие исключены',async t=>{
   const {adapter,core,push,deliveries,now}=await context(t);push.subscribe(subscription());
-  const original={...adapter.messages[0],id:'incoming',text:'PRIVATE_MESSAGE',date:new Date(now).toISOString()};
+  const original={...adapter.messages[0],id:'incoming',text:'Привет!\r\nPRIVATE_SECOND_LINE',date:new Date(now).toISOString()};
   core.cacheMessages(original.conversationId,[{...original,id:'history'}]);
   core.ingest({type:'message',message:{...original,id:'outgoing',outgoing:true}});
   core.ingest({type:'message',message:{...original,id:'old',date:new Date(now-7200000).toISOString()}});
@@ -48,10 +48,27 @@ test('push: новые входящие доставляются один раз
   core.ingest({type:'message',message:original});core.ingest({type:'message',message:original});
   core.ingest({type:'message',message:{...original,text:'PRIVATE_EDIT',editedAt:new Date(now).toISOString()},edited:true});
   await push.flush();assert.equal(deliveries.length,1);
-  assert.deepEqual(Object.keys(JSON.parse(deliveries[0].payload)).sort(),['badge','body','conversationId','title']);
-  assert.ok(!deliveries[0].payload.includes('PRIVATE'));assert.equal(JSON.parse(deliveries[0].payload).conversationId,original.conversationId);
+  const payload=JSON.parse(deliveries[0].payload);
+  assert.deepEqual(Object.keys(payload).sort(),['badge','body','conversationId','kind','title']);
+  assert.ok(!deliveries[0].payload.includes('PRIVATE'));
+  assert.equal(payload.conversationId,original.conversationId);
+  assert.equal(payload.title,original.sender.name);assert.equal(payload.body,'Привет!');
   assert.equal(deliveries[0].options.TTL,300);
   core.ingest({type:'message',message:original});await push.flush();assert.equal(deliveries.length,1);
+});
+
+for(const source of ['telegram','whatsapp'] as const)test(`push ${source}: имя отправителя и короткая первая строка из выбранной группы`,async t=>{
+  const {adapter,core,push,deliveries,now}=await context(t,source);
+  const group=adapter.conversations[1];core.selection.replace([group.id],adapter.conversations);await core.refresh();push.subscribe(subscription());
+  const original=adapter.messages[1];
+  const message={...original,id:'fresh-group-message',sender:{...original.sender,name:'Лена'},text:` \n${'🙂'.repeat(160)}!\nВторая строка`,date:new Date(now).toISOString()};
+  core.ingest({type:'message',message});await push.flush();
+  assert.equal(deliveries.length,1);
+  const payload=JSON.parse(deliveries[0].payload);
+  assert.equal(payload.title,'Лена');assert.equal(payload.body,`${'🙂'.repeat(159)}…`);assert.equal(payload.conversationId,group.id);
+
+  core.ingest({type:'message',message:{...message,id:'empty-group-message',text:'\n  '}});await push.flush();
+  assert.equal(JSON.parse(deliveries[1].payload).body,'Новое сообщение');
 });
 
 test('push: снятие выбора, удаление и отзыв подписки проверяются перед доставкой',async t=>{
@@ -106,13 +123,17 @@ test('push: HTTP 410 удаляет устройство; временный о�
   await assert.rejects(failure.test('https://web.push.apple.com/Qother'),/Сначала включите/);
 });
 
-test('push: библиотека формирует зашифрованный aes128gcm запрос с VAPID',async t=>{
-  const {store,core,push}=await context(t);await push.stop();let encrypted=false;
+test('push: имя и текст шифруются в запросе aes128gcm с VAPID',async t=>{
+  const {store,core,push,adapter,now}=await context(t);await push.stop();let encrypted=false;
+  const title='Синтетический отправитель';const body='Синтетический текст';
   const transport=new PushService(core,store,'https://msg.zai.su:8443',async(sub,payload,options)=>{
+    assert.equal(JSON.parse(payload).title,title);assert.equal(JSON.parse(payload).body,body);
     const request=webpush.generateRequestDetails(sub,payload,options);
     assert.equal(request.headers['Content-Encoding'],'aes128gcm');assert.ok(request.headers.Authorization);
-    assert.ok(Buffer.isBuffer(request.body));assert.ok(!request.body!.includes(Buffer.from('kind')));encrypted=true;
-  });t.after(()=>transport.stop());const sub=subscription();transport.subscribe(sub);await transport.test(sub.endpoint);assert.equal(encrypted,true);
+    assert.ok(Buffer.isBuffer(request.body));assert.ok(!request.body.includes(Buffer.from(title)));assert.ok(!request.body.includes(Buffer.from(body)));encrypted=true;
+  },()=>now);t.after(()=>transport.stop());transport.subscribe(subscription());
+  const message=adapter.messages[0];core.ingest({type:'message',message:{...message,id:'encrypt-preview',sender:{...message.sender,name:title},text:body,date:new Date(now).toISOString()}});
+  await transport.flush();assert.equal(encrypted,true);
 });
 
 test('push HTTP: приватность, CSRF, allowlist статики и отзыв при выходе',async t=>{
@@ -140,7 +161,7 @@ test('push HTTP: приватность, CSRF, allowlist статики и от�
   assert.equal((await request('/api/chat/push/config',undefined,headers)).status,401);
 });
 
-test('push worker: видимое нейтральное уведомление, badge и переход только в свой чат',async()=>{
+test('push worker: sender и превью новых сообщений, общий текст для старых и проверочных',async()=>{
   const listeners=new Map<string,(event:any)=>void>();const shown:{title:string;body:string}[]=[];const opened:string[]=[];const badges:number[]=[];
   const self={location:{origin:'https://msg.zai.su:8443'},addEventListener:(name:string,callback:(event:any)=>void)=>listeners.set(name,callback),registration:{showNotification:async(title:string,options:{body:string})=>{shown.push({title,body:options.body});}},clients:{matchAll:async()=>[{url:'https://msg.zai.su:8443/admin',focus:async()=>{throw new Error('Admin must not be focused');}}],openWindow:async(url:string)=>{opened.push(url);}}};
   runInNewContext(readFileSync(new URL('../frontend/public/sw.js',import.meta.url),'utf8'),{self,navigator:{setAppBadge:async(count:number)=>{badges.push(count);}},URL,URLSearchParams});
@@ -149,6 +170,9 @@ test('push worker: видимое нейтральное уведомление,
   assert.deepEqual(shown,[{title:'Z AI Messenger',body:'Новое сообщение'}]);assert.deepEqual(badges,[7]);assert.equal(listeners.has('fetch'),true);
   for(const path of ['/api/chat/session','/api/chat/snapshot','/api/chat/attachment','/admin','/version.json','/u/anna/'])listeners.get('fetch')!({request:{url:`https://msg.zai.su:8443${path}`,method:'GET',mode:'navigate'},respondWith(){throw new Error('Private or foreign route must not be intercepted');}});
   listeners.get('push')!({data:{json:()=>{throw new Error();}},waitUntil:(promise:Promise<void>)=>{pending=promise;}});await pending;assert.equal(shown.length,2);
+  listeners.get('push')!({data:{json:()=>({kind:'message',title:'Анна',body:'Как дела?'})},waitUntil:(promise:Promise<void>)=>{pending=promise;}});await pending;
+  listeners.get('push')!({data:{json:()=>({kind:'test',title:'Анна',body:'Как дела?'})},waitUntil:(promise:Promise<void>)=>{pending=promise;}});await pending;
+  assert.deepEqual(shown.slice(2),[{title:'Анна',body:'Как дела?'},{title:'Z AI Messenger',body:'Уведомления включены'}]);
   listeners.get('notificationclick')!({notification:{close:()=>{}},waitUntil:(promise:Promise<void>)=>{pending=promise;}});await pending;assert.deepEqual(opened,['/']);
 });
 

@@ -26,7 +26,7 @@
 | [backend/core/errors.ts](backend--core--errors.md) | Безопасная прикладная ошибка HTTP API. | 2 |
 | [backend/core/inbox.ts](backend--core--inbox.md) | Формирование ленты только выбранных диалогов. | 3 |
 | [backend/core/media-preload.ts](backend--core--media-preload.md) | Автоматическая подготовка вложений и миниатюр выбранных чатов за последние пять дней с продолжением после рестарта. | 7 |
-| [backend/core/push.ts](backend--core--push.md) | Приватные подписки Web Push, VAPID и доставка нейтральных уведомлений новых входящих. | 19 |
+| [backend/core/push.ts](backend--core--push.md) | Приватные подписки Web Push, VAPID и доставка нейтральных уведомлений новых входящих. | 20 |
 | [backend/core/registry.ts](backend--core--registry.md) | Реестр подключённых SourceAdapter. | 5 |
 | [backend/core/selection.ts](backend--core--selection.md) | Постоянный выбор разрешённых диалогов и ревизия доступа. | 10 |
 | [backend/core/service.ts](backend--core--service.md) | Единая лента, маршруты, лимиты, кеш и дедупликация отправок. | 26 |

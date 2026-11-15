@@ -68,7 +68,7 @@ export default function Notifications(){
   return <details className="notification-settings" open={state==='permission'||state==='retry'}>
     <summary>Уведомления{state==='on'?': включены':''}</summary>
     {state==='loading'?<p role="status">Проверка…</p>:state==='install'?<p>На iPhone: откройте сайт в Safari → «Поделиться» → «На экран Домой». Запустите Messenger с новой иконки и разрешите уведомления один раз. Требуется iOS 16.4 или новее.</p>:state==='unsupported'?<p>Этот браузер не поддерживает уведомления. На iPhone добавьте Messenger на экран «Домой»; требуется iOS 16.4 или новее.</p>:state==='blocked'?<p>Уведомления запрещены. Разрешите их для Messenger в настройках уведомлений устройства и откройте приложение снова.</p>:<>
-      <p>{state==='on'?'Уведомления включены постоянно. Текст сообщения скрыт.':state==='permission'?'Разрешите уведомления один раз. Дальше они включаются автоматически, в том числе после обновления приложения. Текст сообщения скрыт.':'Восстанавливаем уведомления автоматически.'}</p>
+      <p>{state==='on'?'В уведомлении видны отправитель и первая строка сообщения.':state==='permission'?'Разрешите уведомления один раз. В них будут видны отправитель и первая строка сообщения.':'Восстанавливаем уведомления автоматически.'}</p>
       <div className="notification-actions">{state!=='on'&&<button type="button" onClick={()=>void enable(state==='permission')} disabled={busy}>{state==='permission'?'Разрешить уведомления':'Повторить'}</button>}{state==='on'&&<button type="button" onClick={test} disabled={busy}>Проверить</button>}</div>
     </>}
     {message&&<p role="status">{message}</p>}
