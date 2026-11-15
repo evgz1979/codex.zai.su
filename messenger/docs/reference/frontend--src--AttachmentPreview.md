@@ -27,9 +27,9 @@ AttachmentPreview({ attachment: a, request, version, paused, onOpen, onUnauthori
 
 ## AttachmentStill
 
-Показывает сохранённый JPEG-кадр видео в ленте.
+Показывает сохранённый JPEG-кадр в ширину пузыря сообщения.
 
-Кадр остаётся статическим и доступен в сохранённой переписке.
+Пропорции кадра сохраняются и на узком экране; оригинал не загружается.
 
 ```typescript
 AttachmentStill({ attachment }: {

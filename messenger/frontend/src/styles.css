@@ -144,7 +144,15 @@ svg { width: 21px; height: 21px; flex-shrink: 0; }
 .message-context strong { color: #2584ca; font-weight: 600; }
 .source-label { color: var(--muted); font-size: 10px; }
 .sender-name { display: block; margin-bottom: 3px; color: #2584ca; font-size: 12px; line-height: 16px; font-weight: 600; }
-.attachment { margin: 3px 0; padding: 7px; border-radius: 6px; background: var(--hover); color: var(--muted); font-size: 12px; }
+.attachment { margin: 3px 0; padding: 3px 0; background: transparent; color: var(--muted); font-size: 12px; }
+.message-quote { margin: 3px 0 5px; padding: 4px 7px; border-inline-start: 3px solid #2584ca; border-radius: 5px; background: #233c5010; font-size: 12px; line-height: 17px; }
+.message-quote strong { display: block; color: #247cb9; font-weight: 600; }
+.message-quote span { display: -webkit-box; overflow: hidden; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.bubble.bubble-frame { padding: 0; overflow: hidden; }
+.bubble-frame > :is(.message-context, .sender-name, .message-quote, p, .message-meta) { contain: inline-size; margin-inline: 10px; }
+.bubble-frame > :is(.message-context, .sender-name):first-child { margin-top: 7px; }
+.bubble-frame > p { margin-block: 5px; }
+.bubble-frame > .message-meta { margin-block: 2px 4px; }
 .message-meta { display: flex; align-items: center; justify-content: flex-end; gap: 5px; min-height: 15px; margin-top: 2px; color: #708b9d; font-size: 10px; line-height: 15px; }
 .message-meta time { flex-shrink: 0; }
 .outgoing .message-meta { color: #5b8d4f; }
@@ -286,11 +294,11 @@ svg { width: 21px; height: 21px; flex-shrink: 0; }
 .media-viewer footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
 .media-viewer footer a { display: inline-flex; align-items: center; min-height: 44px; color: #247cb9; text-decoration: none; font-weight: 600; }
 
-.attachment-button.attachment-preview, .attachment-still { display: flex; flex-direction: column; align-items: stretch; gap: 0; width: 210px; max-width: 100%; padding: 0; overflow: hidden; }
+.attachment-button.attachment-preview { display: flex; flex-direction: column; align-items: stretch; gap: 0; width: 210px; max-width: 100%; padding: 0; overflow: hidden; }
 .attachment-preview .attachment-thumb-surface { position: relative; display: grid; place-items: center; width: 100%; height: 126px; background: #e4edf5; color: #7b9bb5; font-size: 32px; }
 .attachment-thumb-surface img { display: block; width: 100%; height: 126px; object-fit: cover; }
-.attachment-still img { object-fit: contain; }
-.attachment-preview .attachment-thumb-label { display: block; padding: 5px 7px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; line-height: 15px; }
+.attachment-still { display: block; max-width: 100%; height: auto; }
+.attachment-preview .attachment-thumb-label { display: block; padding: 4px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; line-height: 15px; }
 .attachment-preview .attachment-thumb-play { position: absolute; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: #17212b88; color: white; font-size: 16px; }
 
 .media-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px 12px; }

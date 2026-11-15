@@ -17,6 +17,9 @@ export interface AttachmentRequest {conversationId:EntityId;messageId:EntityId;a
 //: Передаёт текст встроенной расшифровки голосового сообщения источника.
 //: pending означает промежуточный текст; native ID задания остаётся на сервере.
 export interface VoiceTranscription {text:string;pending:boolean}
+//: Показывает короткую цитату в полученном ответе.
+//: Цитата приходит вместе с сообщением, без отдельной загрузки переписки.
+export interface MessageQuote {author?:string;text:string}
 //: Ограничивает фоновое заполнение и размер браузерного кеша выбранных диалогов.
 //: По пять последних сообщений каждого чата сохраняются без его открытия и отметки прочтения.
 export const OFFLINE_LIMITS={conversations:200,messages:1000,perConversation:100,headMessages:5,batch:20,bytes:4*1024*1024,refreshMs:30000} as const;
@@ -75,6 +78,7 @@ export interface Message {
   outgoing: boolean;
   status: DeliveryStatus;
   attachments: Attachment[];
+  quote?:MessageQuote;
   voiceTranscription?:VoiceTranscription;
   sourceKey?:EntityId;
   editedAt?:string;

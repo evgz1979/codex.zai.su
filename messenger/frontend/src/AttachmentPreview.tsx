@@ -2,13 +2,14 @@ import {useEffect,useRef,useState} from 'react';
 import type {Attachment,AttachmentRequest} from '../../shared/types';
 import {ApiError} from './api';
 import {previewData} from './previews';
-//: Показывает сохранённый JPEG-кадр видео в ленте.
-//: Кадр остаётся статическим и доступен в сохранённой переписке.
+//: Показывает сохранённый JPEG-кадр в ширину пузыря сообщения.
+//: Пропорции кадра сохраняются и на узком экране; оригинал не загружается.
 export function AttachmentStill({attachment}:{attachment:Attachment}){
-  return <figure className="attachment attachment-preview attachment-still">
-    <span className="attachment-thumb-surface"><img src={`data:image/jpeg;base64,${attachment.thumbnailJpeg}`} alt="Кадр видео" loading="lazy" /></span>
-    <figcaption className="attachment-thumb-label">{attachment.name}</figcaption>
-  </figure>;
+  const [width,setWidth]=useState(210);
+  return <img className="attachment-still" width={width} src={`data:image/jpeg;base64,${attachment.thumbnailJpeg}`} alt="Кадр видео" loading="lazy" onLoad={event=>{
+    const {naturalWidth,naturalHeight}=event.currentTarget;
+    if(naturalHeight)setWidth(Math.max(1,Math.min(218,Math.round(320*naturalWidth/naturalHeight))));
+  }} />;
 }
 //: Показывает небольшую миниатюру только рядом с видимой областью ленты.
 //: Оригинал открывается отдельным действием; уход с экрана отменяет запрос и отзывает URL.

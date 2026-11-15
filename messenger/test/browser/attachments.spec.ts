@@ -1,15 +1,17 @@
 import {test,expect} from '@playwright/test';
-test('вложения: кадр видео WhatsApp отображается вместе с подписью',async({page})=>{
+test('вложения: кадр и голосовое без плашек, отдельный блок только у цитаты',async({page})=>{
  await page.goto('/');
  const thumbnailJpeg=await page.evaluate(()=>{
-  const canvas=document.createElement('canvas');canvas.width=16;canvas.height=9;
-  const context=canvas.getContext('2d')!;context.fillStyle='#5184ad';context.fillRect(0,0,16,9);
+  const canvas=document.createElement('canvas');canvas.width=9;canvas.height=16;
+  const context=canvas.getContext('2d')!;context.fillStyle='#5184ad';context.fillRect(0,0,9,16);
   return canvas.toDataURL('image/jpeg').split(',')[1];
  });
  await page.route('**/api/chat/inbox',async route=>{
   const response=await route.fetch();const json=await response.json();
   const message=json.page.messages.at(-1);
   message.text='Подпись к видео';message.attachments=[{id:'synthetic-video',kind:'video',name:'Видео',downloadable:false,thumbnailJpeg}];
+  Object.assign(json.page.messages.at(-2),{text:'',attachments:[{id:'synthetic-voice',kind:'unsupported',name:'Голосовое сообщение',downloadable:false}]});
+  Object.assign(json.page.messages.at(-3),{text:'Текст ответа',attachments:[],quote:{author:'Вы',text:'Текст цитаты'}});
   await route.fulfill({response,json});
  });
  const attachmentRequests:string[]=[];page.on('request',request=>{if(request.url().endsWith('/api/chat/attachment')&&request.postDataJSON()?.attachmentId==='synthetic-video')attachmentRequests.push(request.url());});
@@ -17,10 +19,19 @@ test('вложения: кадр видео WhatsApp отображается в
  await page.getByRole('button',{name:'Общая лента',exact:true}).click();
  const message=page.getByRole('article').filter({hasText:'Подпись к видео'});
  const frame=message.getByRole('img',{name:'Кадр видео'});
- await frame.scrollIntoViewIfNeeded();await expect(frame).toHaveJSProperty('naturalWidth',16);
- await expect(message.getByText('Видео',{exact:true})).toBeVisible();
+ await frame.scrollIntoViewIfNeeded();await expect(frame).toHaveJSProperty('naturalWidth',9);
+ await expect(frame).toHaveAttribute('width','180');
+ const frameBox=await frame.boundingBox();const bubbleBox=await message.locator('.bubble').boundingBox();
+ expect(frameBox!.width).toBeCloseTo(bubbleBox!.width,0);expect(frameBox!.width/frameBox!.height).toBeCloseTo(9/16,2);
+ await expect(message.getByText('Видео',{exact:true})).toHaveCount(0);
  await expect(message.getByRole('button',{name:'Открыть вложение: Видео'})).toHaveCount(0);
  await expect(message.getByText(thumbnailJpeg,{exact:false})).toHaveCount(0);
+ const voice=page.getByRole('article').filter({hasText:'Голосовое сообщение'});
+ await expect(voice.locator('.attachment')).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
+ await expect(voice.locator('blockquote')).toHaveCount(0);await expect(message.locator('blockquote')).toHaveCount(0);
+ const reply=page.getByRole('article').filter({hasText:'Текст ответа'});
+ await expect(reply.locator('blockquote')).toContainText('Текст цитаты');
+ await expect(reply.locator('blockquote')).toHaveCSS('border-inline-start-width','3px');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  expect(attachmentRequests).toEqual([]);
 });

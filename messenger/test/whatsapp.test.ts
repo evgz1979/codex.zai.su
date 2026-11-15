@@ -312,12 +312,15 @@ test('WhatsApp: worker запускается через symlink релиза и
 test('WhatsApp: выбранная история читает кеш и одну старую порцию без сериализатора чата',async t=>{
  const root=mkdtempSync(join(tmpdir(),'wa-history-'));const account='a'.repeat(64);let calls=0;
  const model=(n:number)=>({id:{toString:()=>`false_${jid}_${n}`,remote:{_serialized:jid},fromMe:false},from:{_serialized:jid},to:{_serialized:'self'},t:String(1794153600+n),body:`Синтетическое ${n}`,type:'chat',ack:1});
- let current=[model(1),model(2),model(3)];let earlier=[model(0)];const chat={id:{_serialized:jid},name:'Тест',msgs:{getModelsArray:()=>current}};
+ let current=[model(1),{...model(2),quotedMsg:{type:'chat',body:'Исходный текст',id:{fromMe:true}}},{...model(3),quotedRemoteJid:'other@c.us',quotedMsg:{type:'chat',body:'Вне выбранного чата'}}];let earlier=[model(0)];const chat={id:{_serialized:jid},name:'Тест',msgs:{getModelsArray:()=>current}};
  const w={WWebJS:{async getChat(actual:string,options:any){assert.equal(actual,jid);assert.equal(options.getAsModel,false);return chat;}},require:(name:string)=>{assert.equal(name,'WAWebChatLoadMessages');return {async loadEarlierMsgs(){calls++;const batch=earlier;earlier=[];return batch;}};}};
  const client=Object.assign(new EventEmitter(),{pupBrowser:{async close(){}},pupPage:{async evaluate(fn:Function,arg:any){return runInNewContext(`(${fn.toString()})(input)`,{window:w,input:arg,setTimeout,clearTimeout,__name:(fn:Function)=>fn});}},async initialize(){},async destroy(){},async getChatById(){throw Error('full chat serializer accessed');}});
  const browser=new WhatsAppBrowser(root,'/trusted/chrome',()=>client as never);t.after(async()=>{await browser.stop();rmSync(root,{recursive:true,force:true});});
  await browser.handle({account,action:'start',interactive:true});client.emit('ready');
  const head=await browser.handle({account,action:'messages',conversationId:id,allowed:[id]});assert.equal(head.messages?.length,3);assert.equal(calls,0);assert.ok(head.nextCursor);
+ assert.equal(head.messages?.[0].quote,undefined);
+ assert.deepEqual(head.messages?.[1].quote,{author:'Вы',text:'Исходный текст'});
+ assert.equal(head.messages?.[2].quote,undefined);
  current=current.slice(1);const older=await browser.handle({account,action:'messages',conversationId:id,allowed:[id],before:head.nextCursor!});assert.equal(older.messages?.length,1);assert.equal(older.messages![0].text,'Синтетическое 0');assert.equal(calls,1);
  const end=await browser.handle({account,action:'messages',conversationId:id,allowed:[id],before:older.nextCursor!});assert.equal(end.messages?.length,0);assert.equal(end.nextCursor,null);assert.equal(calls,2);
 });

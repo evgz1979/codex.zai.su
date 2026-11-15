@@ -49,7 +49,7 @@
 - [test/browser/arrival.spec.ts](../../test/browser/arrival.spec.ts): возврат: сохраняет выбранный чат с черновиком и без него, явный push меняет адресата
 - [test/browser/arrival.spec.ts](../../test/browser/arrival.spec.ts): уведомление: открытое окно входа сохраняет выбранный в push диалог
 - [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: исключение диалога закрывает уже открытое изображение
-- [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: кадр видео WhatsApp отображается вместе с подписью
+- [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: кадр и голосовое без плашек, отдельный блок только у цитаты
 - [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: миниатюры в ленте, оригинал по нажатию, открытие PDF, скачивание и мобильные границы
 - [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: системное меню вызывается только явным нажатием, без скачивания
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): аватары: временный отказ повторяется, видимые фото загружаются без всплеска запросов

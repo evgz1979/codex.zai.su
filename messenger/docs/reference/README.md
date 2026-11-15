@@ -18,7 +18,7 @@
 | [backend/connectors/telegram/media.ts](backend--connectors--telegram--media.md) | Безопасные общие метаданные фото и документов Telegram без native references. | 4 |
 | [backend/connectors/whatsapp/adapter.ts](backend--connectors--whatsapp--adapter.md) | Личный SourceAdapter WhatsApp Web, административный QR, выбранная история и отправка текста. | 16 |
 | [backend/connectors/whatsapp/bridge.ts](backend--connectors--whatsapp--bridge.md) | Ограниченный клиент приватного браузерного worker без TCP и универсального RPC. | 2 |
-| [backend/connectors/whatsapp/browser.ts](backend--connectors--whatsapp--browser.md) | Одна изолированная Chromium-сессия с sandbox, временным QR и выбранной историей. | 20 |
+| [backend/connectors/whatsapp/browser.ts](backend--connectors--whatsapp--browser.md) | Одна изолированная Chromium-сессия с sandbox, временным QR и выбранной историей. | 21 |
 | [backend/connectors/whatsapp/protocol.ts](backend--connectors--whatsapp--protocol.md) | Закрытый протокол Unix socket и проверка выбранного получателя WhatsApp. | 5 |
 | [backend/connectors/whatsapp/video.ts](backend--connectors--whatsapp--video.md) | Распознавание небольших JPEG-кадров WhatsApp в новых сообщениях и прежнем кеше. | 3 |
 | [backend/connectors/whatsapp/worker.ts](backend--connectors--whatsapp--worker.md) | Последовательный Unix socket worker браузера с дедлайнами и безопасными отказами. | 4 |
@@ -72,4 +72,4 @@
 | [scripts/start.sh](scripts--start-sh.md) | Запуск собранного сервера по абсолютному пути для безопасной проверки PID. | 0 |
 | [scripts/stop.mjs](scripts--stop.md) | Проверка PID и команды процесса перед SIGTERM только Messenger. | 0 |
 | [scripts/stop.sh](scripts--stop-sh.md) | Выбор Node.js и запуск штатного stop.mjs. | 0 |
-| [shared/types.ts](shared--types.md) | Общие DTO ленты и каталога, статусы веб-авторизации, лимиты, ID и Destination. | 40 |
+| [shared/types.ts](shared--types.md) | Общие DTO ленты и каталога, статусы веб-авторизации, лимиты, ID и Destination. | 41 |

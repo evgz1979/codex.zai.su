@@ -328,6 +328,7 @@ export interface Message {
     outgoing: boolean;
     status: DeliveryStatus;
     attachments: Attachment[];
+    quote?: MessageQuote;
     voiceTranscription?: VoiceTranscription;
     sourceKey?: EntityId;
     editedAt?: string;
@@ -365,6 +366,21 @@ export interface MessagePage {
 
 ```typescript
 messagePreview(message: Pick<Message, 'text' | 'attachments'>): string
+```
+
+<a id="symbol-MessageQuote"></a>
+
+## MessageQuote
+
+Показывает короткую цитату в полученном ответе.
+
+Цитата приходит вместе с сообщением, без отдельной загрузки переписки.
+
+```typescript
+export interface MessageQuote {
+    author?: string;
+    text: string;
+}
 ```
 
 <a id="symbol-messengerPageBase"></a>

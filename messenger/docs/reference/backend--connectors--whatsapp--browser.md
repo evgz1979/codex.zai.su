@@ -77,6 +77,11 @@ export interface WebMessage {
     type: string;
     ack: number;
     hasMedia?: boolean;
+    quote?: {
+        text: string;
+        type?: string;
+        fromMe: boolean;
+    };
 }
 ```
 
@@ -198,6 +203,18 @@ private async page(jid: string, before?: string): Promise<BrowserResult>
 
 ```typescript
 key(m: any): string | undefined
+```
+
+<a id="symbol-WhatsAppBrowser.page.quote"></a>
+
+## WhatsAppBrowser.page.quote
+
+Берёт только вложенную цитату выбранного сообщения.
+
+Ссылки на другой чат игнорируются, поиск исходной записи не запускается.
+
+```typescript
+quote(message: any)
 ```
 
 <a id="symbol-WhatsAppBrowser.start"></a>
