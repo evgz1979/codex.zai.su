@@ -84,12 +84,18 @@ export interface Message {
   editedAt?:string;
   sequence?:number;
 }
+//: Возвращает короткое название типа вложения для интерфейса и уведомлений.
+//: Голосовое отделено от аудиофайла; метаданные файла в подпись не входят.
+export function attachmentTypeLabel(attachment:Pick<Attachment,'kind'|'isVoice'>):string{
+  return attachment.kind==='image'?'Фото':attachment.kind==='video'?'Видео':attachment.kind==='audio'?(attachment.isVoice?'Голосовое сообщение':'Аудио'):attachment.kind==='file'?'Файл':'Вложение';
+}
 //: Формирует короткое превью последнего сообщения для общего списка чатов.
 //: Текст имеет приоритет; медиа без подписи получают фактический тип или имя файла.
 export function messagePreview(message:Pick<Message,'text'|'attachments'>):string{
   const text=message.text.trim();if(text)return [...text].slice(0,300).join('');
   const attachment=message.attachments[0];if(!attachment)return 'Сообщение';
-  return attachment.kind==='image'?'Фото':attachment.kind==='video'?'Видео':attachment.kind==='audio'?(attachment.isVoice?'Голосовое сообщение':'Аудио'):attachment.kind==='file'?attachment.name||'Файл':attachment.name||'Вложение';
+  if((attachment.kind==='file'||attachment.kind==='unsupported')&&attachment.name)return attachment.name;
+  return attachmentTypeLabel(attachment);
 }
 //: Сравнивает позиции сообщений одного диалога для подтверждения просмотра.
 //: При равной дате использует последовательность источника, затем общий ID.

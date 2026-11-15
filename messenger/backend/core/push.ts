@@ -1,7 +1,7 @@
 import {createHash, ECDH} from 'node:crypto';
 import * as webpush from 'web-push';
 import type {Store} from '../storage/store.js';
-import type {Message} from '../../shared/types.js';
+import {attachmentTypeLabel,type Message} from '../../shared/types.js';
 import type {MessengerService} from './service.js';
 import {AppError} from './errors.js';
 
@@ -34,7 +34,7 @@ export function pushSubscription(input:unknown):webpush.PushSubscription {
 //: Ограничивает имя отправителя или превью первой непустой строкой.
 //: Считает символы Unicode, чтобы усечение не разорвало суррогатную пару.
 function notificationLine(value:string,limit:number):string{
-  const line=value.trimStart().split(/[\r\n\u0085\u2028\u2029]/,1)[0].trim();
+  const line=value.replace(/^[\s\u0085]+/,'').split(/[\r\n\u0085\u2028\u2029]/,1)[0].trim();
   const characters=[...line];
   return characters.length>limit?`${characters.slice(0,limit-1).join('')}…`:line;
 }
@@ -124,7 +124,8 @@ export class PushService {
         const badge=this.store.badgeCount();
         const sender=notificationLine(fresh.sender.name,64);
         const title=sender&&sender!=='Участник'?sender:notificationLine(this.store.conversation(fresh.conversationId)?.title||'',64)||'Z AI Messenger';
-        const body=notificationLine(fresh.text,160)||'Новое сообщение';
+        const attachment=fresh.attachments[0];
+        const body=notificationLine(fresh.text,160)||(attachment?attachmentTypeLabel(attachment):'Новое сообщение');
         const payload=JSON.stringify({kind:'message',title,body,badge,conversationId:fresh.conversationId});
         try{await this.transport(device.subscription,payload,{vapidDetails:{subject:this.origin,...this.keys()},TTL:300,urgency:'high',topic:'messenger-incoming',timeout:10000});}
         catch(error){const status=(error as {statusCode?:number})?.statusCode;if(status===404||status===410)this.remove(device.subscription.endpoint);}

@@ -108,6 +108,18 @@ export interface AttachmentRequest {
 }
 ```
 
+<a id="symbol-attachmentTypeLabel"></a>
+
+## attachmentTypeLabel
+
+Возвращает короткое название типа вложения для интерфейса и уведомлений.
+
+Голосовое отделено от аудиофайла; метаданные файла в подпись не входят.
+
+```typescript
+attachmentTypeLabel(attachment: Pick<Attachment, 'kind' | 'isVoice'>): string
+```
+
 <a id="symbol-compareConversations"></a>
 
 ## compareConversations

@@ -11,6 +11,7 @@ import {MessengerService} from '../backend/core/service.js';
 import {PushService,pushSubscription} from '../backend/core/push.js';
 import {createApp} from '../backend/http.js';
 import {passwordHash} from '../backend/auth/auth.js';
+import type {Attachment} from '../shared/types.js';
 import {TestAdapter} from './fixtures.js';
 
 //: Создаёт синтетические ключи и endpoint без реальной регистрации устройства.
@@ -61,7 +62,7 @@ for(const source of ['telegram','whatsapp'] as const)test(`push ${source}: им�
   const {adapter,core,push,deliveries,now}=await context(t,source);
   const group=adapter.conversations[1];core.selection.replace([group.id],adapter.conversations);await core.refresh();push.subscribe(subscription());
   const original=adapter.messages[1];
-  const message={...original,id:'fresh-group-message',sender:{...original.sender,name:'Лена'},text:` \n${'🙂'.repeat(160)}!\nВторая строка`,date:new Date(now).toISOString()};
+  const message={...original,id:'fresh-group-message',sender:{...original.sender,name:'Лена'},text:` \u0085\n${'🙂'.repeat(160)}!\nВторая строка`,date:new Date(now).toISOString()};
   core.ingest({type:'message',message});await push.flush();
   assert.equal(deliveries.length,1);
   const payload=JSON.parse(deliveries[0].payload);
@@ -69,6 +70,30 @@ for(const source of ['telegram','whatsapp'] as const)test(`push ${source}: им�
 
   core.ingest({type:'message',message:{...message,id:'empty-group-message',text:'\n  '}});await push.flush();
   assert.equal(JSON.parse(deliveries[1].payload).body,'Новое сообщение');
+});
+
+for(const source of ['telegram','whatsapp'] as const)test(`push ${source}: подпись к медиа или тип вложения`,async t=>{
+  const {adapter,core,push,deliveries,now}=await context(t,source);push.subscribe(subscription());
+  const original={...adapter.messages[0],date:new Date(now).toISOString()};
+  const cases: {kind:Attachment['kind'];isVoice?:boolean;text?:string;label:string}[]=[
+    {kind:'image',label:'Фото'},
+    {kind:'image',text:'Подпись к фото\nВторая строка',label:'Подпись к фото'},
+    {kind:'video',label:'Видео'},
+    {kind:'audio',isVoice:true,label:'Голосовое сообщение'},
+    {kind:'audio',label:'Аудио'},
+    {kind:'file',label:'Файл'},
+    {kind:'unsupported',label:'Вложение'},
+  ];
+  for(const [index,{kind,isVoice,text,label}] of cases.entries()){
+    const id=`incoming-media-${index}`;
+    const attachment={id:`${id}-attachment`,kind,isVoice,name:'PRIVATE_ATTACHMENT_NAME'};
+    core.ingest({type:'message',message:{...original,id,text:text||' ',attachments:[attachment]}});
+    await push.flush();
+    assert.equal(deliveries.length,index+1);
+    const {body,conversationId}=JSON.parse(deliveries[index].payload);
+    assert.equal(body,label);
+    assert.equal(conversationId,original.conversationId);
+  }
 });
 
 test('push: снятие выбора, удаление и отзыв подписки проверяются перед доставкой',async t=>{

@@ -495,6 +495,7 @@
   {"path":"shared/types.ts","name":"AdminStatus","anchor":"symbol-AdminStatus"},
   {"path":"shared/types.ts","name":"Attachment","anchor":"symbol-Attachment"},
   {"path":"shared/types.ts","name":"AttachmentRequest","anchor":"symbol-AttachmentRequest"},
+  {"path":"shared/types.ts","name":"attachmentTypeLabel","anchor":"symbol-attachmentTypeLabel"},
   {"path":"shared/types.ts","name":"compareConversations","anchor":"symbol-compareConversations"},
   {"path":"shared/types.ts","name":"comparePosition","anchor":"symbol-comparePosition"},
   {"path":"shared/types.ts","name":"Conversation","anchor":"symbol-Conversation"},
