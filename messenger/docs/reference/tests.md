@@ -49,6 +49,7 @@
 - [test/browser/arrival.spec.ts](../../test/browser/arrival.spec.ts): возврат: сохраняет выбранный чат с черновиком и без него, явный push меняет адресата
 - [test/browser/arrival.spec.ts](../../test/browser/arrival.spec.ts): уведомление: открытое окно входа сохраняет выбранный в push диалог
 - [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: исключение диалога закрывает уже открытое изображение
+- [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: кадр видео WhatsApp отображается вместе с подписью
 - [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: миниатюры в ленте, оригинал по нажатию, открытие PDF, скачивание и мобильные границы
 - [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: системное меню вызывается только явным нажатием, без скачивания
 - [test/browser/messenger.spec.ts](../../test/browser/messenger.spec.ts): аватары: временный отказ повторяется, видимые фото загружаются без всплеска запросов
@@ -183,6 +184,7 @@
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: готовый Stream восстанавливает пропущенную инициализацию без подмены ready
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: закрытый протокол отклоняет RPC, путь профиля и невыбранного получателя
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: история недоступного Telegram не задерживает синхронизацию WhatsApp
+- [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: кадр видео отделён от подписи в новых и сохранённых сообщениях
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: каталог использует WAWebCollections без window.Store и не читает сообщения
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: неотсканированный QR завершается через три минуты
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: новая дата каталога не оставляет старое голосовое в превью

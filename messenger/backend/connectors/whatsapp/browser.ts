@@ -5,6 +5,7 @@ import QRCode from 'qrcode';
 import {entityId,LIMITS,type Conversation,type Message,type WhatsAppStatus} from '../../../shared/types.js';
 import {privateDirectory,writePrivate} from '../../storage/private-files.js';
 import type {BrowserRequest,BrowserResult,BrowserStartup} from './protocol.js';
+import {VIDEO_THUMBNAIL_CHARS,whatsappVideoMessage} from './video.js';
 //: Использует WhatsApp Web без автоматической передачи всех входящих текстов в Node.
 //: История извлекается только явной командой выбранного диалога; состояние проверяется отдельно.
 class PollingClient extends WA.Client {
@@ -14,7 +15,7 @@ class PollingClient extends WA.Client {
 }
 //: Описывает только используемые поля сообщения из браузерного клиента.
 //: Не сохраняет ссылки на native message, функции, медиа или ключи шифрования.
-export interface WebMessage {id:{_serialized:string;remote?:string;fromMe?:boolean};from:string;to:string;author?:string;fromMe:boolean;timestamp:number;body:string;type:string;ack:number;hasMedia?:boolean}
+export interface WebMessage {id:{_serialized:string;remote?:string;fromMe?:boolean};from:string;to:string;author?:string;fromMe:boolean;timestamp:number;body:string;caption?:string;type:string;ack:number;hasMedia?:boolean}
 //: Проверяет и декодирует точный native маршрут WhatsApp.
 //: Статусы, рассылки, каналы и произвольные URL не становятся диалогами Messenger.
 export function nativeChat(id:string):string {
@@ -27,11 +28,12 @@ export function webMessage(value:WebMessage,chatId:string,title:string):Message 
   const actual=value.id.remote|| (value.fromMe?value.to:value.from);if(actual!==chatId)throw new Error('message_destination_mismatch');
   const conversationId=entityId('whatsapp','conversation',chatId);const outgoing=!!value.fromMe;
   const mediaNames:Record<string,string>={image:'Фото',video:'Видео',ptt:'Голосовое сообщение',audio:'Аудио',document:'Документ',sticker:'Стикер'};
-  return {id:entityId('whatsapp','message',value.id._serialized),sourceKey:entityId('whatsapp','message',value.id._serialized),sourceId:'whatsapp',conversationId,
+  const message:Message={id:entityId('whatsapp','message',value.id._serialized),sourceKey:entityId('whatsapp','message',value.id._serialized),sourceId:'whatsapp',conversationId,
     sender:{id:entityId('whatsapp','recipient',outgoing?'self':value.author||value.from),name:outgoing?'Вы':value.author?.split('@')[0]||title,isSelf:outgoing},
     date:new Date(value.timestamp*1000).toISOString(),text:String(value.body||'').slice(0,LIMITS.text),outgoing,
     status:!outgoing?'received':value.ack>=3?'read':value.ack===2?'delivered':value.ack===1?'sent':value.ack===-1?'failed':'pending',
     attachments:value.hasMedia||mediaNames[value.type]?[{id:entityId('whatsapp','attachment',value.id._serialized),kind:'unsupported',name:mediaNames[value.type]||'Вложение WhatsApp',downloadable:false}]:[]};
+  return value.type==='video'?whatsappVideoMessage(message,value.body,value.caption):message;
 }
 //: Управляет единственной ограниченной браузерной сессией VPS.
 //: Разные аккаунты не делят профиль; чужой start возвращает busy без отключения владельца.
@@ -213,7 +215,7 @@ export class WhatsAppBrowser {
   private async page(jid:string,before?:string):Promise<BrowserResult>{
     let cursor:string|undefined;
     if(before){const prefix='whatsapp:message:';if(!before.startsWith(prefix))throw new Error('invalid_cursor');cursor=decodeURIComponent(before.slice(prefix.length));}
-    const result=await this.client!.pupPage!.evaluate(async({jid,cursor})=>{
+    const result=await this.client!.pupPage!.evaluate(async({jid,cursor,thumbnailChars})=>{
       const w=window as any;const chat=await w.WWebJS.getChat(jid,{getAsModel:false});if(!chat||chat.id?._serialized!==jid)throw new Error('invalid_destination');
       //: Нормализует MsgKey текущих сборок, где строка доступна через toString или serialize.
       //: Не сериализует весь чат; запасной путь касается только выбранного сообщения.
@@ -234,9 +236,9 @@ export class WhatsAppBrowser {
       if(end<0)throw new Error('invalid_cursor');
       const slice=list.slice(Math.max(0,end-100),end);if(!slice.length&&!exhausted)throw new Error('history_pending');
       if(slice.length){const oldest=slice[0];if(!anchor||Number(oldest.t)<=Number(anchor.t)){if(!anchors.has(jid)&&anchors.size>=1000)anchors.delete(anchors.keys().next().value!);anchors.set(jid,oldest);}}
-      const messages=slice.map((m:any)=>({id:{_serialized:key(m)!,remote:key(m)!.split('_')[1]},from:m.from?._serialized||m.from,to:m.to?._serialized||m.to,author:m.author?._serialized||m.author,fromMe:typeof m.id?.fromMe==='boolean'?m.id.fromMe:key(m)!.startsWith('true_'),timestamp:Number(m.t),body:String(m.body||'').slice(0,4096),type:m.type,ack:m.ack,hasMedia:!!m.isMedia}));
+      const messages=slice.map((m:any)=>({id:{_serialized:key(m)!,remote:key(m)!.split('_')[1]},from:m.from?._serialized||m.from,to:m.to?._serialized||m.to,author:m.author?._serialized||m.author,fromMe:typeof m.id?.fromMe==='boolean'?m.id.fromMe:key(m)!.startsWith('true_'),timestamp:Number(m.t),body:String(m.body||'').slice(0,m.type==='video'?thumbnailChars:4096),...(m.type==='video'&&typeof m.caption==='string'?{caption:m.caption.slice(0,4096)}:{}),type:m.type,ack:m.ack,hasMedia:!!m.isMedia}));
       return {messages,more:!exhausted||end>100,title:String(chat.formattedTitle||chat.name||'')};
-    },{jid,cursor});
+    },{jid,cursor,thumbnailChars:VIDEO_THUMBNAIL_CHARS});
     const messages=result.messages.map((value:WebMessage)=>webMessage(value,jid,result.title||jid));
     return {messages,nextCursor:result.more&&messages.length?messages[0].id:null};
   }

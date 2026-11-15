@@ -460,6 +460,18 @@ updateCachedPreview(conversation: Conversation)
 upsertMessages(messages: Message[], countUnread = false)
 ```
 
+<a id="symbol-Store.withMessageDetails"></a>
+
+## Store.withMessageDetails
+
+Отделяет JPEG старого видео от текста и подставляет актуальную расшифровку голосового.
+
+Медиаданные и расшифровка обрабатываются в пределах выданного сообщения.
+
+```typescript
+private withMessageDetails(message: Message): Message
+```
+
 <a id="symbol-Store.withReadPosition"></a>
 
 ## Store.withReadPosition
@@ -470,18 +482,6 @@ upsertMessages(messages: Message[], countUnread = false)
 
 ```typescript
 withReadPosition(conversation: Conversation)
-```
-
-<a id="symbol-Store.withTranscription"></a>
-
-## Store.withTranscription
-
-Дополняет сообщение только расшифровкой той же версии голосового.
-
-Синхронизация исходного DTO не удаляет текст и не возвращает устаревший результат.
-
-```typescript
-private withTranscription(message: Message): Message
 ```
 
 <a id="symbol-StoredTranscription"></a>

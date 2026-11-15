@@ -73,6 +73,7 @@ export interface WebMessage {
     fromMe: boolean;
     timestamp: number;
     body: string;
+    caption?: string;
     type: string;
     ack: number;
     hasMedia?: boolean;

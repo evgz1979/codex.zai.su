@@ -22,3 +22,17 @@ AttachmentPreview({ attachment: a, request, version, paused, onOpen, onUnauthori
     onUnauthorized(error: ApiError): void;
 })
 ```
+
+<a id="symbol-AttachmentStill"></a>
+
+## AttachmentStill
+
+Показывает сохранённый JPEG-кадр видео в ленте.
+
+Кадр остаётся статическим и доступен в сохранённой переписке.
+
+```typescript
+AttachmentStill({ attachment }: {
+    attachment: Attachment;
+})
+```

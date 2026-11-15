@@ -1,4 +1,30 @@
 import {test,expect} from '@playwright/test';
+test('вложения: кадр видео WhatsApp отображается вместе с подписью',async({page})=>{
+ await page.goto('/');
+ const thumbnailJpeg=await page.evaluate(()=>{
+  const canvas=document.createElement('canvas');canvas.width=16;canvas.height=9;
+  const context=canvas.getContext('2d')!;context.fillStyle='#5184ad';context.fillRect(0,0,16,9);
+  return canvas.toDataURL('image/jpeg').split(',')[1];
+ });
+ await page.route('**/api/chat/inbox',async route=>{
+  const response=await route.fetch();const json=await response.json();
+  const message=json.page.messages.at(-1);
+  message.text='Подпись к видео';message.attachments=[{id:'synthetic-video',kind:'video',name:'Видео',downloadable:false,thumbnailJpeg}];
+  await route.fulfill({response,json});
+ });
+ const attachmentRequests:string[]=[];page.on('request',request=>{if(request.url().endsWith('/api/chat/attachment')&&request.postDataJSON()?.attachmentId==='synthetic-video')attachmentRequests.push(request.url());});
+ await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();
+ await page.getByRole('button',{name:'Общая лента',exact:true}).click();
+ const message=page.getByRole('article').filter({hasText:'Подпись к видео'});
+ const frame=message.getByRole('img',{name:'Кадр видео'});
+ await frame.scrollIntoViewIfNeeded();await expect(frame).toHaveJSProperty('naturalWidth',16);
+ await expect(message.getByText('Видео',{exact:true})).toBeVisible();
+ await expect(message.getByRole('button',{name:'Открыть вложение: Видео'})).toHaveCount(0);
+ await expect(message.getByText(thumbnailJpeg,{exact:false})).toHaveCount(0);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(attachmentRequests).toEqual([]);
+});
+
 test('вложения: миниатюры в ленте, оригинал по нажатию, открытие PDF, скачивание и мобильные границы',async({page},testInfo)=>{
  const requests:{attachmentId:string;variant?:string}[]=[];page.on('request',request=>{if(request.url().endsWith('/api/chat/attachment'))requests.push(request.postDataJSON());});
  await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();await page.getByRole('button',{name:'Общая лента',exact:true}).click();

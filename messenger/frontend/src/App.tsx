@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 're
 import { destinationFor,messagePreview,compareConversations, LIMITS, type Conversation, type ConversationPageResult, type Message, type MessagePage, type SessionInfo, type Snapshot, type Source, type SyncStatus } from '../../shared/types';
 import AppUpdates,{useAppUpdates} from './AppUpdates';
 import Avatar,{clearAvatars} from './Avatar';
-import AttachmentPreview from './AttachmentPreview';
+import AttachmentPreview,{AttachmentStill} from './AttachmentPreview';
 import {clearPreviews} from './previews';
 import AttachmentViewer from './AttachmentViewer';
 import VoiceTranscription from './VoiceTranscription';
@@ -434,7 +434,7 @@ export function App() {
               <div className="bubble">
                 {!target&&<div className="message-context"><strong>{c?.title || 'Диалог'}</strong><span className="source-label">{snapshot?.sources.find(s => s.id === m.sourceId)?.name || 'Источник'}</span></div>}
                 {!m.outgoing && c?.kind === 'group' && <strong className="sender-name">{m.sender.name}</strong>}
-                {m.text && <p>{m.text}</p>}{m.attachments.map(a => a.downloadable===false?<div key={a.id} className="attachment">{a.name}</div>:<AttachmentPreview key={a.id} attachment={a} request={{conversationId:m.conversationId,messageId:m.id,attachmentId:a.id}} version={m.editedAt||m.date} paused={offline||!!attachmentTarget} onOpen={()=>{if(offline)setError('Для загрузки вложения нужна связь.');else setAttachmentTarget({conversationId:m.conversationId,messageId:m.id,attachmentId:a.id});}} onUnauthorized={fail}/>)}
+                {m.text && <p>{m.text}</p>}{m.attachments.map(a => a.thumbnailJpeg?<AttachmentStill key={a.id} attachment={a}/>:a.downloadable===false?<div key={a.id} className="attachment">{a.name}</div>:<AttachmentPreview key={a.id} attachment={a} request={{conversationId:m.conversationId,messageId:m.id,attachmentId:a.id}} version={m.editedAt||m.date} paused={offline||!!attachmentTarget} onOpen={()=>{if(offline)setError('Для загрузки вложения нужна связь.');else setAttachmentTarget({conversationId:m.conversationId,messageId:m.id,attachmentId:a.id});}} onUnauthorized={fail}/>)}
                 {voice&&chatOpen&&<VoiceTranscription key={m.editedAt||m.date} request={{conversationId:m.conversationId,messageId:m.id,attachmentId:voice.id}} value={m.voiceTranscription} offline={offline} onUnauthorized={fail}/>}
                 <div className="message-meta">{!target&&c?.canSend&&<button className="reply-button" disabled={busy} onClick={() => choose(c)}>Ответить <span aria-hidden="true">↗</span></button>}<time dateTime={m.date}>{time(m.date)}</time>{m.outgoing && <span aria-label="Отправлено">✓</span>}</div>
               </div>

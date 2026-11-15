@@ -2,6 +2,14 @@ import {useEffect,useRef,useState} from 'react';
 import type {Attachment,AttachmentRequest} from '../../shared/types';
 import {ApiError} from './api';
 import {previewData} from './previews';
+//: Показывает сохранённый JPEG-кадр видео в ленте.
+//: Кадр остаётся статическим и доступен в сохранённой переписке.
+export function AttachmentStill({attachment}:{attachment:Attachment}){
+  return <figure className="attachment attachment-preview attachment-still">
+    <span className="attachment-thumb-surface"><img src={`data:image/jpeg;base64,${attachment.thumbnailJpeg}`} alt="Кадр видео" loading="lazy" /></span>
+    <figcaption className="attachment-thumb-label">{attachment.name}</figcaption>
+  </figure>;
+}
 //: Показывает небольшую миниатюру только рядом с видимой областью ленты.
 //: Оригинал открывается отдельным действием; уход с экрана отменяет запрос и отзывает URL.
 export default function AttachmentPreview({attachment:a,request,version,paused,onOpen,onUnauthorized}:{attachment:Attachment;request:AttachmentRequest;version:string;paused:boolean;onOpen():void;onUnauthorized(error:ApiError):void}){

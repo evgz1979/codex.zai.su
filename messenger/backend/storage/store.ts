@@ -5,6 +5,7 @@ import { privateDirectory } from './private-files.js';
 import { LIMITS,messagePreview,comparePosition,positionSequence, type Snapshot, type Conversation, type Message, type MessagePage,type Attachment,type AttachmentRequest, type SyncStatus } from '../../shared/types.js';
 import {AppError} from '../core/errors.js';
 import type {SourceTranscription} from '../core/source-adapter.js';
+import {isVideoThumbnail,whatsappVideoMessage} from '../connectors/whatsapp/video.js';
 //: Хранит приватную расшифровку отдельно от синхронизируемого сообщения.
 //: Версия и ID вложения запрещают показывать текст после замены голосового.
 export interface StoredTranscription extends SourceTranscription {attachmentId:string;version:string;updatedAt:number}
@@ -65,12 +66,12 @@ export class Store {
   }
   //: Читает ровно одно сообщение по общему ID для защищённого доступа к медиа.
   //: Проверку выбора выполняет ядро перед обращением к этому методу.
-  message(id:string):Message|undefined{const row=this.db.prepare('SELECT payload FROM message_cache WHERE id=?').get(id) as {payload:string}|undefined;return row?this.withTranscription(JSON.parse(row.payload)):undefined;}
+  message(id:string):Message|undefined{const row=this.db.prepare('SELECT payload FROM message_cache WHERE id=?').get(id) as {payload:string}|undefined;return row?this.withMessageDetails(JSON.parse(row.payload)):undefined;}
   //: Выбирает последнее сохранённое сообщение одного диалога.
   //: Числовой порядок источника различает сообщения одной секунды.
   private latestStoredMessage(id:string):Message|undefined{
     const row=this.db.prepare("SELECT payload FROM message_cache WHERE conversation_id=? ORDER BY date DESC,COALESCE(json_extract(payload,'$.sequence'),message_sequence(id)) DESC,id DESC LIMIT 1").get(id) as {payload:string}|undefined;
-    return row?JSON.parse(row.payload):undefined;
+    return row?whatsappVideoMessage(JSON.parse(row.payload)):undefined;
   }
   //: Обновляет превью по последнему сообщению из SQLite.
   //: Позиция предыдущего превью берётся из его сообщения, сохраняя свежую дату каталога для списка.
@@ -89,9 +90,10 @@ export class Store {
   //: Читает внутреннее состояние одного ранее запрошенного задания.
   //: Проверку доступа к диалогу выполняет сервис до чтения этой записи.
   transcription(id:string):StoredTranscription|undefined{const row=this.db.prepare('SELECT payload FROM voice_transcriptions WHERE message_id=?').get(id) as {payload:string}|undefined;return row?JSON.parse(row.payload):undefined;}
-  //: Дополняет сообщение только расшифровкой той же версии голосового.
-  //: Синхронизация исходного DTO не удаляет текст и не возвращает устаревший результат.
-  private withTranscription(message:Message):Message{
+  //: Отделяет JPEG старого видео от текста и подставляет актуальную расшифровку голосового.
+  //: Медиаданные и расшифровка обрабатываются в пределах выданного сообщения.
+  private withMessageDetails(message:Message):Message{
+    message=whatsappVideoMessage(message);
     delete message.voiceTranscription;
     if(!message.attachments.some(a=>a.kind==='audio'&&a.isVoice&&a.downloadable!==false))return message;
     const saved=this.transcription(message.id);
@@ -192,9 +194,10 @@ export class Store {
     if (!ids.length) return empty;
     const placeholders = ids.map(()=>'?').join(',');
     const conversations = (this.db.prepare(`SELECT payload FROM conversation_cache WHERE id IN (${placeholders})`).all(...ids) as {payload:string}[]).map(r=>JSON.parse(r.payload) as Conversation);
+    for(const c of conversations)if(c.sourceId==='whatsapp'&&isVideoThumbnail(c.preview))this.updateCachedPreview(c);
     const recent=this.db.prepare('SELECT payload FROM message_cache WHERE conversation_id=? ORDER BY date DESC,id DESC LIMIT ?');
     const messages=ids.flatMap(id=>(recent.all(id,LIMITS.pageMessages) as {payload:string}[]).map(r=>JSON.parse(r.payload) as Message)).sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id)).slice(-LIMITS.cachedMessages);
-    return { ...empty,conversations,messages:messages.map(message=>this.withTranscription(message)) };
+    return { ...empty,conversations,messages:messages.map(message=>this.withMessageDetails(message)) };
   }
   //: Сохраняет метаданные и сообщения без усечения накопленной истории.
   //: Объём памяти ответа ограничен отдельно; исключённый архив не удаляется.
@@ -221,7 +224,7 @@ export class Store {
     const rows=ids.flatMap(conversationId=>(anchor?query.all(conversationId,anchor.date,anchor.date,anchor.id,LIMITS.pageMessages+1):query.all(conversationId,LIMITS.pageMessages+1)) as {payload:string}[]).map(r=>JSON.parse(r.payload) as Message).sort((a,b)=>a.date===b.date?(a.id<b.id?1:a.id>b.id?-1:0):a.date<b.date?1:-1);
     const progress=ids.map(conversationId=>this.progress(conversationId));const historyComplete=progress.every(p=>p.historyComplete);const more=rows.length>LIMITS.pageMessages;const messages=rows.slice(0,LIMITS.pageMessages).reverse();const oldest=messages[0];
     const cursor=oldest?Buffer.from(JSON.stringify({conversationId:id,date:oldest.date,id:oldest.id})).toString('base64url'):before||null;
-    return {conversationId:id,messages:messages.map(message=>this.withTranscription(message)),nextCursor:more||!historyComplete?cursor:null,oldestCursor:cursor,historyComplete,cached:true,sourceUpdatedAt:progress.length?Math.min(...progress.map(p=>p.lastHeadAt||0)):undefined};
+    return {conversationId:id,messages:messages.map(message=>this.withMessageDetails(message)),nextCursor:more||!historyComplete?cursor:null,oldestCursor:cursor,historyComplete,cached:true,sourceUpdatedAt:progress.length?Math.min(...progress.map(p=>p.lastHeadAt||0)):undefined};
   }
   //: Читает сохранённый прогресс или начальное состояние нового выбранного чата.
   //: Завершённая история не загружается заново при обычном рестарте.

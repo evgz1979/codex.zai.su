@@ -9,6 +9,7 @@ const purposes = {
   'backend/connectors/whatsapp/bridge.ts':'Ограниченный клиент приватного браузерного worker без TCP и универсального RPC.',
   'backend/connectors/whatsapp/adapter.ts':'Личный SourceAdapter WhatsApp Web, административный QR, выбранная история и отправка текста.',
   'backend/connectors/whatsapp/browser.ts':'Одна изолированная Chromium-сессия с sandbox, временным QR и выбранной историей.',
+  'backend/connectors/whatsapp/video.ts':'Распознавание небольших JPEG-кадров WhatsApp в новых сообщениях и прежнем кеше.',
   'backend/connectors/whatsapp/worker.ts':'Последовательный Unix socket worker браузера с дедлайнами и безопасными отказами.',
   'frontend/src/admin/WhatsAppPanel.tsx':'Временный серверный QR и независимый выбор чатов WhatsApp в личной админке.',
   'frontend/src/useOfflinePrefetch.ts':'Фоновая последовательная подготовка голов выбранных чатов для чтения без сети без переключения адресата.',

@@ -29,6 +29,33 @@ const jid='79990000001@c.us';const id=entityId('whatsapp','conversation',jid);
 const conversation:Conversation={id,sourceId:'whatsapp',title:'Тест',kind:'direct',recipient:{id:entityId('whatsapp','recipient',jid),name:'Тест'},unreadCount:1,updatedAt:'2026-11-08T12:00:00.000Z',preview:'',canSend:true};
 const native:WebMessage={id:{_serialized:'false_79990000001@c.us_NATIVE',remote:jid},from:jid,to:'self',fromMe:false,timestamp:1794139200,body:'Синтетическое сообщение',type:'chat',ack:0};
 
+test('WhatsApp: кадр видео отделён от подписи в новых и сохранённых сообщениях',async t=>{
+ const root=mkdtempSync(join(tmpdir(),'wa-video-'));const store=new Store(root);
+ t.after(()=>{store.close();rmSync(root,{recursive:true,force:true});});
+ const jpeg=Buffer.from([255,216,255,224,1,2,255,217]).toString('base64');
+ const video={...native,type:'video',body:jpeg};
+ const frame=webMessage({...video,caption:'Подпись к ролику'},jid,'Тест');
+ assert.equal(frame.text,'Подпись к ролику');
+ assert.equal(frame.attachments[0].kind,'video');
+ assert.equal(frame.attachments[0].thumbnailJpeg,jpeg);
+ assert.equal(frame.attachments[0].downloadable,false);
+ assert.equal(webMessage(video,jid,'Тест').text,'');
+ assert.equal(webMessage({...video,body:'Обычная подпись'},jid,'Тест').text,'Обычная подпись');
+ const truncated=webMessage({...video,body:jpeg.slice(0,-4)},jid,'Тест');
+ assert.equal(truncated.text,'');assert.equal(truncated.attachments[0].thumbnailJpeg,undefined);
+ assert.equal(webMessage({...native,body:jpeg},jid,'Тест').text,jpeg);
+
+ const legacy={...frame,text:jpeg,attachments:[{...frame.attachments[0],kind:'unsupported' as const,thumbnailJpeg:undefined}]};
+ store.select([id]);
+ store.saveCache({conversations:[{...conversation,preview:jpeg,previewMessageId:legacy.id}],messages:[legacy],sources:[],refreshedAt:null,stale:true});
+ const core=new MessengerService([],store);
+ const opened=await core.open(id);
+ assert.equal(opened.page.messages[0].text,'');
+ assert.equal(opened.page.messages[0].attachments[0].thumbnailJpeg,jpeg);
+ assert.equal(opened.snapshot.conversations[0].preview,'Видео');
+ assert.equal(core.offlineBatch([id]).messages[0].attachments[0].thumbnailJpeg,jpeg);
+});
+
 test('WhatsApp: закрытый протокол отклоняет RPC, путь профиля и невыбранного получателя',()=>{
  const account='a'.repeat(64);
  assert.throws(()=>browserRequest({account,action:'evaluate',script:'example'}),/invalid_request/);

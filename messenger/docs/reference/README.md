@@ -20,6 +20,7 @@
 | [backend/connectors/whatsapp/bridge.ts](backend--connectors--whatsapp--bridge.md) | Ограниченный клиент приватного браузерного worker без TCP и универсального RPC. | 2 |
 | [backend/connectors/whatsapp/browser.ts](backend--connectors--whatsapp--browser.md) | Одна изолированная Chromium-сессия с sandbox, временным QR и выбранной историей. | 20 |
 | [backend/connectors/whatsapp/protocol.ts](backend--connectors--whatsapp--protocol.md) | Закрытый протокол Unix socket и проверка выбранного получателя WhatsApp. | 5 |
+| [backend/connectors/whatsapp/video.ts](backend--connectors--whatsapp--video.md) | Распознавание небольших JPEG-кадров WhatsApp в новых сообщениях и прежнем кеше. | 3 |
 | [backend/connectors/whatsapp/worker.ts](backend--connectors--whatsapp--worker.md) | Последовательный Unix socket worker браузера с дедлайнами и безопасными отказами. | 4 |
 | [backend/core/attachments.ts](backend--core--attachments.md) | Защищённая потоковая загрузка вложений и ограниченный приватный кеш байтов. | 9 |
 | [backend/core/errors.ts](backend--core--errors.md) | Безопасная прикладная ошибка HTTP API. | 2 |
@@ -43,7 +44,7 @@
 | [frontend/public/sw.js](frontend--public--sw.js.md) | Service Worker: offline-оболочка личного чата и push, без кеширования API или переписки. | 0 |
 | [frontend/src/App.tsx](frontend--src--App.md) | Единый React-интерфейс, веб-вход, адресат, черновики и состояние операций. | 31 |
 | [frontend/src/AppUpdates.tsx](frontend--src--AppUpdates.md) | Проверка версии сборки и обновление приложения по нажатию без смены manifest и подписок. | 6 |
-| [frontend/src/AttachmentPreview.tsx](frontend--src--AttachmentPreview.md) | Ленивая миниатюра в ленте, фиксированные размеры и открытие оригинала. | 1 |
+| [frontend/src/AttachmentPreview.tsx](frontend--src--AttachmentPreview.md) | Ленивая миниатюра в ленте, фиксированные размеры и открытие оригинала. | 2 |
 | [frontend/src/AttachmentViewer.tsx](frontend--src--AttachmentViewer.md) | Модальный просмотр медиа по явному запросу, скачивание и отзыв Blob URL. | 2 |
 | [frontend/src/Avatar.tsx](frontend--src--Avatar.md) | Круглые фотографии разрешённых диалогов с загрузкой возле видимой области и инициалами. | 5 |
 | [frontend/src/Notifications.tsx](frontend--src--Notifications.md) | Одно системное разрешение, автоматическое восстановление и проверка уведомлений; инструкция для iPhone. | 8 |

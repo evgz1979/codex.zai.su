@@ -75,7 +75,7 @@ export interface AdminStatus {
 
 Описывает метаданные вложения общей модели.
 
-Содержимое кешируется отдельно; DTO не содержит реквизитов провайдера.
+Оригинал кешируется отдельно; thumbnailJpeg передаёт только небольшой кадр WhatsApp.
 
 ```typescript
 export interface Attachment {
@@ -87,6 +87,7 @@ export interface Attachment {
     downloadable?: boolean;
     hasPreview?: boolean;
     isVoice?: boolean;
+    thumbnailJpeg?: string;
 }
 ```
 
