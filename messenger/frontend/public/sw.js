@@ -54,14 +54,42 @@ self.addEventListener('push',event=>{
     for(const client of visible)client.postMessage({type:'messenger:badge-refresh'});
   })());
 });
+//: Передаёт клик уже открытой странице после её пробуждения.
+//: Без подтверждения страница получит тот же ID через fragment.
+function requestConversation(client,conversationId){
+  return new Promise(resolve=>{
+    const {port1,port2}=new MessageChannel();
+    const finish=received=>{clearTimeout(timer);port1.close();resolve(received);};
+    const timer=setTimeout(()=>finish(false),750);
+    port1.onmessage=event=>{if(event.data===true)finish(true);};
+    try{client.postMessage({type:'messenger:open-conversation',conversationId},[port2]);}
+    catch{port2.close();finish(false);}
+  });
+}
+let lastNotificationClick=0;
 self.addEventListener('notificationclick',event=>{
+  const click=++lastNotificationClick;
   event.notification.close();
   event.waitUntil((async()=>{
     const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+    if(click!==lastNotificationClick)return;
     const chat=windows.find(client=>{const url=new URL(client.url);return url.origin===self.location.origin&&url.pathname===`${workerBase}/`;});
     const id=event.notification.data?.conversationId;
     const conversationId=typeof id==='string'&&id.length>0&&id.length<=2048?id:undefined;
-    if(chat){chat.postMessage(conversationId?{type:'messenger:open-conversation',conversationId}:{type:'messenger:open-latest'});await chat.focus();}
-    else await self.clients.openWindow(conversationId?`${workerBase}/#conversation=${encodeURIComponent(conversationId)}`:`${workerBase}/`);
+    const hash=conversationId?`#${new URLSearchParams({conversation:conversationId})}`:'';
+    if(chat){
+      const focused=await chat.focus().catch(()=>null);
+      if(click!==lastNotificationClick)return;
+      if(!conversationId&&focused){focused.postMessage({type:'messenger:open-latest'});return;}
+      if(conversationId){
+        if(focused&&await requestConversation(focused,conversationId))return;
+        if(click!==lastNotificationClick)return;
+        const destination=new URL(chat.url);
+        destination.hash=hash;
+        const navigated=await chat.navigate(destination.href).catch(()=>null);
+        if(navigated){if(!focused)await navigated.focus().catch(()=>{});return;}
+      }
+    }
+    if(click===lastNotificationClick)await self.clients.openWindow(`${workerBase}/${hash}`);
   })());
 });

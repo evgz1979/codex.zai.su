@@ -3,7 +3,13 @@ import {ApiError} from './api';
 
 //: Описывает открытие по уведомлению либо возвращению в приложение.
 //: Общий ID проверяется по актуальному серверному списку перед запросом диалога.
-export interface ArrivalIntent {conversationId?:string;explicit:boolean}
+export interface ArrivalIntent {conversationId?:string;explicit:boolean;replaceHistory?:boolean}
+//: Читает намерение перехода из адреса уведомления.
+//: Браузерный fragment не передаётся в HTTP-запросе.
+export function readNotificationHash():ArrivalIntent|undefined{
+  const id=new URLSearchParams(location.hash.slice(1)).get('conversation');
+  if(id!==null)return {conversationId:id&&id.length<=2048?id:undefined,explicit:!!id};
+}
 //: Связывает состояние чата с очередью переходов при открытии приложения.
 //: Обычное возвращение сохраняет текущую переписку, явный клик сохраняет черновики.
 interface Options {authenticated:boolean;busy:boolean;blocked:boolean;navigate(intent:ArrivalIntent,signal:AbortSignal):Promise<void>;fail(error:unknown):void}
@@ -35,13 +41,15 @@ export function useConversationArrival(options:Options){
   const enqueueRef=useRef(enqueue);enqueueRef.current=enqueue;
   //: Отменяет переход при ручном выборе диалога или общей ленты.
   //: Не прерывает Telegram-отправку и не удаляет черновики.
-  const cancel=()=>{queued.current=undefined;running.current?.abort();running.current=undefined;setOpening(false);};
+  const cancel=()=>{
+    queued.current=undefined;running.current?.abort();running.current=undefined;setOpening(false);
+    if(readNotificationHash())history.replaceState(history.state,'',location.pathname+location.search);
+  };
   const cancelRef=useRef(cancel);cancelRef.current=cancel;
   useEffect(()=>{
     if(!options.authenticated){running.current?.abort();running.current=undefined;if(!queued.current?.explicit)queued.current=undefined;setOpening(true);return;}
     waitingForLogin.current=false;
-    const id=new URLSearchParams(location.hash.slice(1)).get('conversation');
-    if(queued.current?.explicit)pump.current();else enqueueRef.current({conversationId:id&&id.length<=2048?id:undefined,explicit:!!id});
+    if(queued.current?.explicit)pump.current();else enqueueRef.current(readNotificationHash()||{explicit:false});
     let hidden=document.hidden;
     //: Обрабатывает возвращение из фона ровно один раз.
     //: Изменения в уже видимом приложении не создают новых переходов.
@@ -54,10 +62,22 @@ export function useConversationArrival(options:Options){
     //: URL не принимается, некорректный или слишком длинный ID игнорируется.
     const message=(event:MessageEvent)=>{
       if(event.data?.type==='messenger:open-latest')enqueueRef.current({explicit:true});
-      else if(event.data?.type==='messenger:open-conversation'&&typeof event.data.conversationId==='string'&&event.data.conversationId.length>0&&event.data.conversationId.length<=2048)enqueueRef.current({conversationId:event.data.conversationId,explicit:true});
+      else if(event.data?.type==='messenger:open-conversation'&&typeof event.data.conversationId==='string'&&event.data.conversationId.length>0&&event.data.conversationId.length<=2048){
+        enqueueRef.current({conversationId:event.data.conversationId,explicit:true});
+        const reply=event.ports[0];
+        reply?.postMessage(true);
+        reply?.close();
+      }
+    };
+    //: Принимает запасной переход в уже открытом окне, в том числе до входа.
+    //: Использует созданную браузером запись истории для целевого чата.
+    const hashchange=()=>{
+      const intent=readNotificationHash();
+      if(intent?.explicit)enqueueRef.current({...intent,replaceHistory:true});
     };
     navigator.serviceWorker?.addEventListener?.('message',message);
-    return()=>{navigator.serviceWorker?.removeEventListener?.('message',message);cancelRef.current();};
+    window.addEventListener('hashchange',hashchange);
+    return()=>{navigator.serviceWorker?.removeEventListener?.('message',message);window.removeEventListener('hashchange',hashchange);cancelRef.current();};
   },[]);
   useEffect(()=>{pump.current();},[options.authenticated,options.busy]);
   return {opening,cancel};

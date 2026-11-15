@@ -40,7 +40,12 @@ for(const valid of [true,false])test(`уведомление: ${valid?'точн�
 
 test('уведомление: открытое окно входа сохраняет выбранный в push диалог',async({page})=>{
   const {conversations,opened}=await context(page);await page.goto('/');await expect(page.getByLabel('Пароль',{exact:true})).toBeVisible();
-  await page.evaluate(id=>navigator.serviceWorker.dispatchEvent(new MessageEvent('message',{data:{type:'messenger:open-conversation',conversationId:id}})),conversations[0].id);
+  const acknowledged=await page.evaluate(id=>new Promise(resolve=>{
+    const {port1,port2}=new MessageChannel();
+    port1.onmessage=event=>{port1.close();resolve(event.data);};
+    navigator.serviceWorker.dispatchEvent(new MessageEvent('message',{data:{type:'messenger:open-conversation',conversationId:id},ports:[port2]}));
+  }),conversations[0].id);
+  expect(acknowledged).toBe(true);
   await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();await expect(page.getByRole('heading',{name:'Раннее уведомление',exact:true})).toBeVisible();expect(opened[0]).toBe(conversations[0].id);
 });
 
@@ -54,6 +59,24 @@ test('возврат: сохраняет выбранный чат с черно
   conversations[0].updatedAt='2026-11-08T14:00:00.000Z';conversations[0].unreadCount=1;conversations[0].preview='Новое в активном приложении';control.revision++;
   await expect(page.locator('.conversation').filter({hasText:'Раннее уведомление'})).toContainText('Черновик первого диалога',{timeout:7000});await expect(page.getByRole('heading',{name:'Последнее уведомление',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Назад к чатам'}).click();await page.getByRole('button',{name:/Раннее уведомление/}).click();await expect(page.getByLabel('Сообщение',{exact:true})).toHaveValue('Черновик первого диалога');
+});
+
+test('уведомление: запасной fragment переключает уже открытый чат и сохраняет черновик',async({page})=>{
+  const {login,conversations,opened}=await context(page);
+  await login();
+  await page.getByRole('button',{name:/Последнее уведомление/}).click();
+  await page.getByLabel('Сообщение',{exact:true}).fill('Черновик второго диалога');
+
+  await page.evaluate(id=>{location.hash=`conversation=${encodeURIComponent(id)}`;},conversations[0].id);
+  await expect(page.getByRole('heading',{name:'Раннее уведомление',exact:true})).toBeVisible();
+  await expect(page.getByText('Текст Раннее уведомление',{exact:true})).toBeVisible();
+  expect(opened).toContain(conversations[0].id);
+  expect(await page.evaluate(()=>location.hash)).toBe('');
+
+  await page.getByRole('button',{name:'Назад к чатам'}).click();
+  await expect(page.getByRole('heading',{name:'Чаты',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:/Последнее уведомление/}).click();
+  await expect(page.getByLabel('Сообщение',{exact:true})).toHaveValue('Черновик второго диалога');
 });
 
 test('возврат: ручной выбор отменяет запоздалое обновление списка',async({page})=>{

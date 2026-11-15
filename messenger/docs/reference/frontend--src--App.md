@@ -46,7 +46,7 @@ back(event: PopStateEvent)
 
 Обрабатывает кнопку назад без выхода со страницы Messenger.
 
-У открытого уведомлением чата также есть собственная запись истории.
+Пропускает записи предыдущих чатов после перехода по адресу уведомления.
 
 ```typescript
 backToList()
@@ -205,10 +205,7 @@ async logout()
 Возврат из фона сохраняет текущую переписку; ID уведомления проверяется до open.
 
 ```typescript
-async openArrival(intent: {
-    conversationId?: string;
-    explicit: boolean;
-}, signal: AbortSignal)
+async openArrival(intent: ArrivalIntent, signal: AbortSignal)
 ```
 
 <a id="symbol-App.openInbox"></a>

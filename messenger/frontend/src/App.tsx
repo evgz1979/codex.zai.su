@@ -13,7 +13,7 @@ import {useOfflinePrefetch} from './useOfflinePrefetch';
 import Notifications,{notificationEndpoint,unsubscribeNotifications} from './Notifications';
 import {useVisibleReads} from './useVisibleReads';
 import {useAppBadge} from './useAppBadge';
-import {useConversationArrival} from './useConversationArrival';
+import {readNotificationHash,useConversationArrival,type ArrivalIntent} from './useConversationArrival';
 
 //: Форматирует время сообщения для интерфейса.
 //: Использует локаль ru-RU и часовой пояс браузера.
@@ -70,6 +70,7 @@ export function App() {
   const [chatOpen,setChatOpen]=useState(false);
   const [onlyUnread,setOnlyUnread]=useState(false);
   const viewOpen=useRef(false);viewOpen.current=chatOpen;
+  const returningToList=useRef(false);
   const [uncertain, setUncertain] = useState(false);
   const conversationList = useRef<HTMLElement>(null);
   const showPinnedAtTop = useRef(false);
@@ -141,7 +142,8 @@ export function App() {
       const reconnecting=isOffline();
       try {
         const result=await api<{ids:string[];revision?:number;deletedIds?:string[];reset?:boolean;sync?:SyncStatus}>(`access?since=${seenRevision.current}`);
-        if(disposed)return;
+        // Переход сам получает свежий список. Запоздавшая сверка может отменить его запрос.
+        if(disposed||arrivalOpening.current)return;
         const ids=new Set(result.ids);const previous=access.current.ids;
         if(previous&&(previous.size!==ids.size||[...previous].some(id=>!ids.has(id)))){clearPreviews();access.current.revision++;cancelView();}
         access.current.ids=ids;
@@ -179,7 +181,9 @@ export function App() {
     //: Восстанавливает список либо разрешённый чат кнопками браузера.
     //: История содержит только ID; переходы не переносят черновики между адресатами.
     const back=(event:PopStateEvent)=>{
-      if(!event.state?.messengerChat){showList();return;}
+      if(readNotificationHash()?.explicit)return;
+      if(!event.state?.messengerChat){returningToList.current=false;showList();return;}
+      if(returningToList.current){history.back();return;}
       const c=snapshot?.conversations.find(c=>c.id===event.state.conversationId);
       if(c)void choose(c,false);else if(event.state.conversationId==='inbox')void openInbox(false);else showList();
     };
@@ -197,7 +201,7 @@ export function App() {
   },[targetId,page?.nextCursor,cacheRevision,loading,chatOpen]);
   //: Открывает список при обычном входе и точный разрешённый диалог по push.
   //: Возврат из фона сохраняет текущую переписку; ID уведомления проверяется до open.
-  async function openArrival(intent:{conversationId?:string;explicit:boolean},signal:AbortSignal){
+  async function openArrival(intent:ArrivalIntent,signal:AbortSignal){
     if(!intent.explicit&&viewOpen.current)return;
     const generation=request.current.id;
     const inbox=await api<ConversationPageResult>('inbox',{},signal);
@@ -208,8 +212,8 @@ export function App() {
     live.current.targetId=conversation?.id;setTargetId(conversation?.id);olderAttempt.current='';
     setAttachmentTarget(undefined);scrollPlan.current={mode:'bottom'};
     setSnapshot(result.snapshot);setPage(conversation?result.page:undefined);setError('');
-    if(new URLSearchParams(location.hash.slice(1)).has('conversation'))history.replaceState(null,'',location.pathname+location.search);
-    if(conversation){enterChat(conversation.id);}else{if(history.state?.messengerChat)history.replaceState(null,'');viewOpen.current=false;setChatOpen(false);}
+    if(readNotificationHash())history.replaceState(intent.replaceHistory&&conversation?{messengerChat:true,conversationId:conversation.id}:history.state,'',location.pathname+location.search);
+    if(conversation){enterChat(conversation.id,!intent.replaceHistory);}else{if(history.state?.messengerChat)history.replaceState(null,'');viewOpen.current=false;setChatOpen(false);}
   }
   //: Автоматически перечитывает изменившийся кеш без ожидания MTProto.
   //: Сохраняет старые страницы и не прерывает явный выбор или прокрутку.
@@ -305,8 +309,8 @@ export function App() {
     arrival.cancel();cancelView();live.current.targetId=undefined;viewOpen.current=false;setChatOpen(false);setTargetId(undefined);setPage(undefined);setAttachmentTarget(undefined);
   }
   //: Обрабатывает кнопку назад без выхода со страницы Messenger.
-  //: У открытого уведомлением чата также есть собственная запись истории.
-  function backToList(){if(busy)return;if(history.state?.messengerChat)history.back();else showList();}
+  //: Пропускает записи предыдущих чатов после перехода по адресу уведомления.
+  function backToList(){if(busy)return;if(history.state?.messengerChat){returningToList.current=true;history.back();}else showList();}
   //: Открывает общую ленту отдельным действием из списка чатов.
   //: Общее поле ввода остаётся заблокированным до выбора точного адресата.
   async function openInbox(push=true){

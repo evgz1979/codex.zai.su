@@ -59,7 +59,7 @@
 | [frontend/src/previews.ts](frontend--src--previews.md) | Последовательная очередь и ограниченный оперативный кеш миниатюр без хранилища браузера. | 2 |
 | [frontend/src/styles.css](frontend--src--styles.md) | Компактная светлая палитра Telegram, общая лента и отдельная админка; safe-area и короткий viewport. | 0 |
 | [frontend/src/useAppBadge.ts](frontend--src--useAppBadge.md) | Согласование значка приложения и уведомлений при чтении, возврате фокуса и позднем push. | 4 |
-| [frontend/src/useConversationArrival.ts](frontend--src--useConversationArrival.md) | Отменяемое открытие свежего непрочитанного при запуске и возврате, точного диалога по уведомлению. | 7 |
+| [frontend/src/useConversationArrival.ts](frontend--src--useConversationArrival.md) | Отменяемое открытие свежего непрочитанного при запуске и возврате, точного диалога по уведомлению. | 9 |
 | [frontend/src/useOffline.ts](frontend--src--useOffline.md) | Режим локального чтения после потери связи и подтверждённого восстановления сервера. | 1 |
 | [frontend/src/useOfflinePrefetch.ts](frontend--src--useOfflinePrefetch.md) | Фоновая последовательная подготовка голов выбранных чатов для чтения без сети без переключения адресата. | 3 |
 | [frontend/src/useVisibleReads.ts](frontend--src--useVisibleReads.md) | Подтверждение просмотра реально видимых сообщений после остановки прокрутки в активной ленте. | 5 |

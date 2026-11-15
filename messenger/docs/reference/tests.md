@@ -47,6 +47,7 @@
 - [test/browser/admin.spec.ts](../../test/browser/admin.spec.ts): админка: причина отказа получения кода видна после очистки секретных полей
 - [test/browser/arrival.spec.ts](../../test/browser/arrival.spec.ts): возврат: ручной выбор отменяет запоздалое обновление списка
 - [test/browser/arrival.spec.ts](../../test/browser/arrival.spec.ts): возврат: сохраняет выбранный чат с черновиком и без него, явный push меняет адресата
+- [test/browser/arrival.spec.ts](../../test/browser/arrival.spec.ts): уведомление: запасной fragment переключает уже открытый чат и сохраняет черновик
 - [test/browser/arrival.spec.ts](../../test/browser/arrival.spec.ts): уведомление: открытое окно входа сохраняет выбранный в push диалог
 - [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: исключение диалога закрывает уже открытое изображение
 - [test/browser/attachments.spec.ts](../../test/browser/attachments.spec.ts): вложения: миниатюры в ленте, оригинал по нажатию, открытие PDF, скачивание и мобильные границы
@@ -126,7 +127,7 @@
 - [test/paging.test.ts](../../test/paging.test.ts): страницы: отметка прочитанного работает после вытеснения из общего кеша
 - [test/push.test.ts](../../test/push.test.ts): push HTTP: приватность, CSRF, allowlist статики и отзыв при выходе
 - [test/push.test.ts](../../test/push.test.ts): push worker: видимое нейтральное уведомление, badge и переход только в свой чат
-- [test/push.test.ts](../../test/push.test.ts): push worker: клик передаёт общий ID открытому чату или в безопасный hash нового окна
+- [test/push.test.ts](../../test/push.test.ts): push worker: подтверждение открытого чата и запасной маршрут при потерянной команде
 - [test/push.test.ts](../../test/push.test.ts): push worker: поздний push при закрытом чате не возвращает прочитанный badge
 - [test/push.test.ts](../../test/push.test.ts): push: HTTP 410 удаляет устройство; временный отказ сохраняет подписку и не раскрывает ошибку
 - [test/push.test.ts](../../test/push.test.ts): push: VAPID и устройства переживают рестарт; смена пароля отзывает доставку

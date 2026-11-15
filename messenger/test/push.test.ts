@@ -143,7 +143,7 @@ test('push HTTP: приватность, CSRF, allowlist статики и от�
 test('push worker: видимое нейтральное уведомление, badge и переход только в свой чат',async()=>{
   const listeners=new Map<string,(event:any)=>void>();const shown:{title:string;body:string}[]=[];const opened:string[]=[];const badges:number[]=[];
   const self={location:{origin:'https://msg.zai.su:8443'},addEventListener:(name:string,callback:(event:any)=>void)=>listeners.set(name,callback),registration:{showNotification:async(title:string,options:{body:string})=>{shown.push({title,body:options.body});}},clients:{matchAll:async()=>[{url:'https://msg.zai.su:8443/admin',focus:async()=>{throw new Error('Admin must not be focused');}}],openWindow:async(url:string)=>{opened.push(url);}}};
-  runInNewContext(readFileSync(new URL('../frontend/public/sw.js',import.meta.url),'utf8'),{self,navigator:{setAppBadge:async(count:number)=>{badges.push(count);}},URL});
+  runInNewContext(readFileSync(new URL('../frontend/public/sw.js',import.meta.url),'utf8'),{self,navigator:{setAppBadge:async(count:number)=>{badges.push(count);}},URL,URLSearchParams});
   let pending=Promise.resolve();
   listeners.get('push')!({data:{json:()=>({badge:7,title:'PRIVATE',body:'PRIVATE',url:'https://evil.example/'})},waitUntil:(promise:Promise<void>)=>{pending=promise;}});await pending;
   assert.deepEqual(shown,[{title:'Z AI Messenger',body:'Новое сообщение'}]);assert.deepEqual(badges,[7]);assert.equal(listeners.has('fetch'),true);
@@ -160,12 +160,35 @@ test('push worker: поздний push при закрытом чате не в�
   assert.deepEqual(requests,['/api/chat/badge']);assert.deepEqual(counts,[0]);assert.equal(closed,1);assert.equal(shown,1);
 });
 
-test('push worker: клик передаёт общий ID открытому чату или в безопасный hash нового окна',async()=>{
-  const listeners=new Map<string,(event:any)=>void>();const commands:unknown[]=[];const opened:string[]=[];let focused=0;let existing=true;
-  const self={location:{origin:'https://msg.zai.su:8443'},addEventListener:(name:string,callback:(event:any)=>void)=>listeners.set(name,callback),clients:{matchAll:async()=>existing?[{url:'https://msg.zai.su:8443/',postMessage:(value:unknown)=>{commands.push(value);},focus:async()=>{focused++;}}]:[],openWindow:async(url:string)=>{opened.push(url);}}};
-  runInNewContext(readFileSync(new URL('../frontend/public/sw.js',import.meta.url),'utf8'),{self,URL});
-  let pending=Promise.resolve();const id='telegram-47:conversation:51';
-  const event={notification:{data:{conversationId:id},close:()=>{}},waitUntil:(promise:Promise<void>)=>{pending=promise;}};
-  listeners.get('notificationclick')!(event);await pending;assert.deepEqual(JSON.parse(JSON.stringify(commands)),[{type:'messenger:open-conversation',conversationId:id}]);assert.equal(focused,1);
-  existing=false;listeners.get('notificationclick')!(event);await pending;assert.deepEqual(opened,[`/#conversation=${encodeURIComponent(id)}`]);
+test('push worker: подтверждение открытого чата и запасной маршрут при потерянной команде',async()=>{
+  const listeners=new Map<string,(event:any)=>void>();const actions:string[]=[];
+  let existing=true;let acknowledged=true;let navigationFails=false;
+  const client={
+    url:'https://msg.zai.su:8443/?keep=1',
+    focus:async()=>{actions.push('focus');return client;},
+    postMessage:(value:{type:string;conversationId:string},[port]:MessagePort[])=>{
+      assert.equal(value.type,'messenger:open-conversation');actions.push(value.conversationId);
+      if(acknowledged)port.postMessage(true);port.close();
+    },
+    navigate:async(url:string)=>{actions.push(url);if(navigationFails)throw new Error('Window gone');return client;},
+  };
+  const self={location:{origin:'https://msg.zai.su:8443'},addEventListener:(name:string,callback:(event:any)=>void)=>listeners.set(name,callback),clients:{matchAll:async()=>existing?[client]:[],openWindow:async(url:string)=>{actions.push(url);}}};
+  runInNewContext(readFileSync(new URL('../frontend/public/sw.js',import.meta.url),'utf8'),{self,URL,URLSearchParams,MessageChannel,setTimeout,clearTimeout});
+  //: Запускает один клик и дожидается всех действий worker.
+  //: Фиксирует порядок пробуждения, доставки команды и навигации.
+  const click=async(conversationId:string)=>{
+    let pending=Promise.resolve();
+    listeners.get('notificationclick')!({notification:{data:{conversationId},close:()=>{}},waitUntil:(promise:Promise<void>)=>{pending=promise;}});
+    await pending;
+    return actions.splice(0);
+  };
+  const telegram='telegram-47:conversation:51';const whatsapp='whatsapp:conversation:52';
+  const hash=`#conversation=${encodeURIComponent(whatsapp)}`;
+  assert.deepEqual(await click(telegram),['focus',telegram]);
+  acknowledged=false;
+  assert.deepEqual(await click(whatsapp),['focus',whatsapp,`${client.url}${hash}`]);
+  navigationFails=true;
+  assert.deepEqual(await click(whatsapp),['focus',whatsapp,`${client.url}${hash}`,`/${hash}`]);
+  existing=false;
+  assert.deepEqual(await click(whatsapp),[`/${hash}`]);
 });

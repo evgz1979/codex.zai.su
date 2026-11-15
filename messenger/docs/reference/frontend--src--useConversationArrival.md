@@ -16,6 +16,7 @@
 export interface ArrivalIntent {
     conversationId?: string;
     explicit: boolean;
+    replaceHistory?: boolean;
 }
 ```
 
@@ -35,6 +36,18 @@ interface Options {
     navigate(intent: ArrivalIntent, signal: AbortSignal): Promise<void>;
     fail(error: unknown): void;
 }
+```
+
+<a id="symbol-readNotificationHash"></a>
+
+## readNotificationHash
+
+Читает намерение перехода из адреса уведомления.
+
+Браузерный fragment не передаётся в HTTP-запросе.
+
+```typescript
+readNotificationHash(): ArrivalIntent | undefined
 ```
 
 <a id="symbol-useConversationArrival"></a>
@@ -71,6 +84,18 @@ cancel()
 
 ```typescript
 enqueue(intent: ArrivalIntent)
+```
+
+<a id="symbol-useConversationArrival.hashchange"></a>
+
+## useConversationArrival.hashchange
+
+Принимает запасной переход в уже открытом окне, в том числе до входа.
+
+Использует созданную браузером запись истории для целевого чата.
+
+```typescript
+hashchange()
 ```
 
 <a id="symbol-useConversationArrival.message"></a>

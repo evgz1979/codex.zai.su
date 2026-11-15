@@ -125,12 +125,13 @@ test('личные пользователи: ссылки, пароли, cookie,
 
 for(const base of ['/u/anna','/anna'])test(`личный worker ${base}: badge и уведомление открывают только свой Messenger среди нескольких аккаунтов`,async()=>{
   const callbacks=new Map<string,(event:any)=>void>();const requests:string[]=[];const focused:string[]=[];const opened:string[]=[];const commands:unknown[]=[];
-  const self={location:{origin:'https://msg.zai.su:8443'},registration:{scope:`https://msg.zai.su:8443${base}/`,showNotification:async()=>{}},addEventListener:(name:string,callback:(event:any)=>void)=>callbacks.set(name,callback),clients:{matchAll:async()=>['/','/friend/','/u/friend/',`${base}/admin`,`${base}/`].map(path=>({url:`https://msg.zai.su:8443${path}`,visibilityState:'visible',postMessage:(value:unknown)=>{commands.push({path,value});},focus:async()=>{focused.push(path);}})),openWindow:async(path:string)=>{opened.push(path);}}};
-  runInNewContext(readFileSync(new URL('../frontend/public/sw.js',import.meta.url),'utf8'),{self,URL,AbortController,setTimeout,clearTimeout,navigator:{setAppBadge:async()=>{}},fetch:async(path:string)=>{requests.push(path);return {ok:true,json:async()=>({count:2})};}});
+  const self={location:{origin:'https://msg.zai.su:8443'},registration:{scope:`https://msg.zai.su:8443${base}/`,showNotification:async()=>{}},addEventListener:(name:string,callback:(event:any)=>void)=>callbacks.set(name,callback),clients:{matchAll:async()=>['/','/friend/','/u/friend/',`${base}/admin`,`${base}/`].map(path=>({url:`https://msg.zai.su:8443${path}`,visibilityState:'visible',postMessage(value:unknown,ports?:MessagePort[]){commands.push({path,value});ports?.[0].postMessage(true);ports?.[0].close();},async focus(){focused.push(path);return this;}})),openWindow:async(path:string)=>{opened.push(path);}}};
+  runInNewContext(readFileSync(new URL('../frontend/public/sw.js',import.meta.url),'utf8'),{self,URL,URLSearchParams,MessageChannel,AbortController,setTimeout,clearTimeout,navigator:{setAppBadge:async()=>{}},fetch:async(path:string)=>{requests.push(path);return {ok:true,json:async()=>({count:2})};}});
   let pending=Promise.resolve();const waitUntil=(promise:Promise<void>)=>{pending=promise;};
   callbacks.get('push')!({data:{json:()=>({badge:3,conversationId:'personal-conversation'})},waitUntil});await pending;
   assert.deepEqual(requests,['/api/u/anna/chat/badge']);assert.deepEqual(JSON.parse(JSON.stringify(commands)),[{path:`${base}/`,value:{type:'messenger:badge-refresh'}}]);
   callbacks.get('notificationclick')!({notification:{data:{conversationId:'personal-conversation'},close(){}},waitUntil});await pending;assert.deepEqual(focused,[`${base}/`]);
+  assert.deepEqual(JSON.parse(JSON.stringify(commands[1])),{path:`${base}/`,value:{type:'messenger:open-conversation',conversationId:'personal-conversation'}});
   self.clients.matchAll=async()=>[];callbacks.get('notificationclick')!({notification:{data:{conversationId:'personal-conversation'},close(){}},waitUntil});await pending;assert.deepEqual(opened,[`${base}/#conversation=personal-conversation`]);
 });
 
