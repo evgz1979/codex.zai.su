@@ -165,6 +165,7 @@
 - [test/telegram.test.ts](../../test/telegram.test.ts): Telegram-превью: последние сообщения выбранных чатов доступны без истории и прочтения
 - [test/telegram.test.ts](../../test/telegram.test.ts): Telegram-события: выбор до преобразования, правки, области ID удалений и снятие подписки
 - [test/telegram.test.ts](../../test/telegram.test.ts): Telegram: DTO, фильтр broadcast, уникальность message ID и буквальная отправка
+- [test/telegram.test.ts](../../test/telegram.test.ts): Telegram: регистрация контакта не добавляет пустой чат, а первое входящее добавляет
 - [test/transcription.test.ts](../../test/transcription.test.ts): HTTP расшифровки: chat-cookie, CSRF, роли и отзыв сессии во время RPC
 - [test/transcription.test.ts](../../test/transcription.test.ts): расшифровка: дубли объединяются, частичный текст завершается только своим update
 - [test/transcription.test.ts](../../test/transcription.test.ts): расшифровка: незавершённый кеш после рестарта можно продолжить

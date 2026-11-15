@@ -11,12 +11,13 @@ import {MessengerService} from '../backend/core/service.js';
 import {AutoSyncService} from '../backend/core/sync.js';
 import {TelegramAdapter} from '../backend/connectors/telegram/adapter.js';
 import {compareConversations,entityId,type Conversation,type Message} from '../shared/types.js';
-import type {SourceEvent} from '../backend/core/source-adapter.js';
+import type {ListedConversation,SourceEvent} from '../backend/core/source-adapter.js';
 import {TestAdapter} from './fixtures.js';
 
 //: Создаёт источник обнаружения новых контактов без реальной сети.
 //: Тесты получают тот же третий callback подписки, который использует Telegram.
 class DiscoveryAdapter extends TestAdapter{
+  declare conversations:ListedConversation[];
   discover?:(conversation:Conversation)=>boolean;
   //: Объявляет синтетический источник готовым к наблюдению пустого списка.
   //: Production этот адаптер не регистрирует.
@@ -81,7 +82,7 @@ test('контакты: старые невыбранные остаются з�
 });
 
 test('контакты: обнаружение из метаданных после пропуска, начальная история не создаёт лишних уведомлений',async t=>{
-  const {adapter,core}=context(t);await core.refresh();const {conversation,message}=contact(adapter);adapter.conversations.push({...conversation,unreadCount:1});const received:Message[]=[];core.onIncoming(m=>received.push(m));
+  const {adapter,core}=context(t);await core.refresh();const {conversation,message}=contact(adapter);adapter.conversations.push({...conversation,unreadCount:1,contactEvent:'incoming'});const received:Message[]=[];core.onIncoming(m=>received.push(m));
   await core.refresh();assert.equal(core.selection.allows(conversation.id),true);
   core.cacheMessages(conversation.id,[{...message,id:'older-history',date:new Date(Date.parse(message.date)-3600000).toISOString()},message]);assert.deepEqual(received.map(m=>m.id),[message.id]);
   core.cacheMessages(conversation.id,[message]);assert.equal(received.length,1);

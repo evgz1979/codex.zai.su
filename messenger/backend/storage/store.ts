@@ -29,7 +29,8 @@ export class Store {
     if(!(this.db.prepare('PRAGMA table_info(message_cache)').all() as {name:string}[]).some(c=>c.name==='source_key'))this.db.exec('ALTER TABLE message_cache ADD COLUMN source_key TEXT;');
     this.db.exec('CREATE INDEX IF NOT EXISTS message_page_order ON message_cache(conversation_id,date DESC,id DESC); CREATE INDEX IF NOT EXISTS message_source_key ON message_cache(source_key); CREATE TABLE IF NOT EXISTS sync_state (id TEXT PRIMARY KEY,payload TEXT NOT NULL); CREATE TABLE IF NOT EXISTS message_tombstones (source_key TEXT PRIMARY KEY);');
     this.db.exec("CREATE INDEX IF NOT EXISTS message_date_order ON message_cache(date DESC,id DESC); CREATE TABLE IF NOT EXISTS media_preload (message_id TEXT NOT NULL,attachment_id TEXT NOT NULL,version TEXT NOT NULL,variant TEXT NOT NULL,message_date TEXT NOT NULL,next_attempt INTEGER NOT NULL,PRIMARY KEY(message_id,attachment_id,version,variant));");
-    this.db.exec('CREATE TABLE IF NOT EXISTS conversation_policy (id TEXT PRIMARY KEY,source_id TEXT NOT NULL,excluded INTEGER NOT NULL);');
+    this.db.exec('CREATE TABLE IF NOT EXISTS conversation_policy (id TEXT PRIMARY KEY,source_id TEXT NOT NULL,excluded INTEGER NOT NULL,manual INTEGER NOT NULL DEFAULT 0);');
+    if(!(this.db.prepare('PRAGMA table_info(conversation_policy)').all() as {name:string}[]).some(c=>c.name==='manual'))this.db.exec('ALTER TABLE conversation_policy ADD COLUMN manual INTEGER NOT NULL DEFAULT 0;');
     this.db.exec('CREATE TABLE IF NOT EXISTS voice_transcriptions (message_id TEXT PRIMARY KEY,payload TEXT NOT NULL);');
     this.db.exec('CREATE TABLE IF NOT EXISTS conversation_pins (pin_order INTEGER PRIMARY KEY, id TEXT NOT NULL UNIQUE);');
     // Мигрируем только прежний локальный кеш. Выбор по умолчанию остаётся пустым.
@@ -111,7 +112,16 @@ export class Store {
   //: При ошибке транзакция откатывается, кеш не удаляется.
   select(ids: string[],catalog?:Conversation[]) {
     this.db.exec('BEGIN IMMEDIATE');
-    try { this.db.exec('DELETE FROM selected_conversations'); for (const id of ids) this.db.prepare('INSERT INTO selected_conversations (id) VALUES (?)').run(id);if(catalog)for(const c of catalog)this.db.prepare('INSERT OR REPLACE INTO conversation_policy(id,source_id,excluded) VALUES (?,?,?)').run(c.id,c.sourceId,ids.includes(c.id)?0:1);this.db.exec('COMMIT');this.revision++; }
+    try {
+      this.db.exec('DELETE FROM selected_conversations');
+      for(const id of ids)this.db.prepare('INSERT INTO selected_conversations(id) VALUES (?)').run(id);
+      if(catalog){
+        const selected=new Set(ids);
+        const policy=this.db.prepare('INSERT OR REPLACE INTO conversation_policy(id,source_id,excluded,manual) VALUES (?,?,?,?)');
+        for(const c of catalog){const manual=selected.has(c.id);policy.run(c.id,c.sourceId,manual?0:1,manual?1:0);}
+      }
+      this.db.exec('COMMIT');this.revision++;
+    }
     catch (e) { this.db.exec('ROLLBACK'); throw e; }
   }
   //: Запоминает метаданные каталога без чтения истории невыбранных диалогов.
@@ -131,6 +141,17 @@ export class Store {
     if(this.excluded(conversation.id)||!this.get(`discovery.baseline.${conversation.sourceId}`))return false;
     const selected=this.selected();if(selected.includes(conversation.id))return true;if(selected.length>=LIMITS.conversations)return false;
     this.db.exec('BEGIN IMMEDIATE');try{this.db.prepare('INSERT INTO selected_conversations(id) VALUES (?)').run(conversation.id);this.db.prepare('INSERT OR REPLACE INTO conversation_policy(id,source_id,excluded) VALUES (?,?,0)').run(conversation.id,conversation.sourceId);this.db.prepare('INSERT OR REPLACE INTO conversation_cache(id,payload) VALUES (?,?)').run(conversation.id,JSON.stringify(conversation));this.set(`discovery.notify.${conversation.id}`,conversation.updatedAt);this.db.exec('COMMIT');this.revision++;return true;}catch(error){this.db.exec('ROLLBACK');throw error;}
+  }
+  //: Снимает прежнее разрешение пустого чата с записью о регистрации контакта.
+  //: Сохраняет явный выбор, незавершённую историю и возможность принять следующее входящее.
+  releaseEmptyContact(id:string){
+    if(!this.progress(id).historyComplete||this.conversation(id)?.previewMessageId)return false;
+    const result=this.db.prepare(`DELETE FROM selected_conversations WHERE id=?
+      AND NOT EXISTS (SELECT 1 FROM conversation_policy WHERE id=? AND manual=1)
+      AND NOT EXISTS (SELECT 1 FROM message_cache WHERE conversation_id=?)`).run(id,id,id);
+    if(!Number(result.changes))return false;
+    this.revision++;
+    return true;
   }
   //: Загружает кеш только переданных разрешённых ID.
   //: Пустой выбор даёт пустую ленту, исключённый архив не читается для UI.

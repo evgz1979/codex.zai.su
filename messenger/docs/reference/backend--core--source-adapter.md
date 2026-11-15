@@ -19,20 +19,34 @@ export interface AttachmentContent {
 }
 ```
 
+<a id="symbol-ListedConversation"></a>
+
+## ListedConversation
+
+Дополняет строку каталога типом верхней записи для обнаружения контактов.
+
+Признак используется только ядром и не сохраняется в публичном снимке.
+
+```typescript
+export interface ListedConversation extends Conversation {
+    contactEvent?: 'incoming' | 'registration';
+}
+```
+
 <a id="symbol-SourceAdapter"></a>
 
 ## SourceAdapter
 
 Задаёт контракт чтения страниц, отправки и необязательного каталога папок источника.
 
-allows разрешает превью только выбранных ID; каталог папок остаётся без текстов.
+allows разрешает превью выбранных ID; discoveryCandidate разрешает проверить только тип верхней записи.
 
 ```typescript
 export interface SourceAdapter {
     readonly source: Source;
     connect(): Promise<void>;
     disconnect(): Promise<void>;
-    listConversations(allows?: (conversationId: string) => boolean): Promise<Conversation[]>;
+    listConversations(allows?: (conversationId: string) => boolean, discoveryCandidate?: (conversation: Conversation) => boolean): Promise<ListedConversation[]>;
     listConversationCatalog?(): Promise<ConversationCatalog>;
     recentMessages(conversationId: string, limit: number): Promise<Message[]>;
     messagePage?(conversationId: string, limit: number, before?: string): Promise<MessagePage>;

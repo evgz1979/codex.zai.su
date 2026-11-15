@@ -10,7 +10,7 @@ import {NewMessage,EditedMessage,DeletedMessage,Raw,type NewMessageEvent,type De
 import {telegramAttachments,telegramPreview} from './media.js';
 import {type AttachmentRequest,MEDIA_LIMITS} from '../../../shared/types.js';
 import type {AttachmentContent} from '../../core/source-adapter.js';
-import type {SourceEvent,SourceTranscription} from '../../core/source-adapter.js';
+import type {ListedConversation,SourceEvent,SourceTranscription} from '../../core/source-adapter.js';
 import {telegramAuthIssue} from '../../auth/telegram-issue.js';
 import type {HistoryPage} from '../../../shared/types.js';
 
@@ -76,9 +76,9 @@ export class TelegramAdapter implements SourceAdapter {
     if (this.client) await this.client.destroy();
   }
   //: Получает ограниченный список диалогов для общей ленты.
-  //: Последнее сообщение преобразуется только для разрешённых ID; история отдельно.
-  async listConversations(allows?:(conversationId:string)=>boolean): Promise<Conversation[]> {
-    return (await this.loadCatalog(false,allows)).conversations;
+  //: Для новых кандидатов проверяет тип верхней записи без преобразования сообщения.
+  async listConversations(allows?:(conversationId:string)=>boolean,discoveryCandidate?:(conversation:Conversation)=>boolean): Promise<ListedConversation[]> {
+    return (await this.loadCatalog(false,allows,discoveryCandidate)).conversations;
   }
   //: Разрешает наблюдение новых личных входящих после существующего входа Telegram.
   //: Проверяет только наличие vault, не запускает интерактивную авторизацию.
@@ -89,12 +89,12 @@ export class TelegramAdapter implements SourceAdapter {
     return this.loadCatalog(true);
   }
   //: Читает метаданные и при необходимости правила папок одним каталогом.
-  //: Без allows каталог не содержит превью; сообщения не сохраняются в памяти адаптера.
-  private async loadCatalog(withFolders:boolean,allows?:(conversationId:string)=>boolean):Promise<ConversationCatalog> {
+  //: Превью доступно выбранным ID; административный каталог получает только метаданные.
+  private async loadCatalog(withFolders:boolean,allows?:(conversationId:string)=>boolean,discoveryCandidate?:(conversation:Conversation)=>boolean):Promise<ConversationCatalog & {conversations:ListedConversation[]}> {
     await this.connect();
     const dialogs = await this.client!.getDialogs({ limit: LIMITS.conversations });
     this.dialogs.clear();
-    const result: Conversation[] = [];
+    const result: ListedConversation[] = [];
     for (const d of dialogs) {
       // Метаданные каналов доступны для административного выбора.
       if ((!d.isUser && !d.isGroup && !d.isChannel) || d.isCommunity || !d.id || !d.entity) continue;
@@ -110,20 +110,34 @@ export class TelegramAdapter implements SourceAdapter {
       const broadcast = e instanceof Api.Channel && e.broadcast && !(e.creator || e.adminRights?.postMessages);
       const forum = e instanceof Api.Channel && e.forum;
       const allowed=!!allows?.(conversationId);const thumbnail=allowed?avatarThumbnail(photo):undefined;
-      const top=allowed?d.message:undefined;
-      const latest=top instanceof Api.Message&&entityId(this.source.id,'conversation',top.chatId?.toString()||utils.getPeerId(top.peerId))===conversationId?this.mapMessage(top,conversationId):undefined;
       const paid = e instanceof Api.User && BigInt(e.sendPaidMessagesStars?.toString() || '0') > 0n;
-      result.push({
+      const conversation:ListedConversation={
         id: conversationId, sourceId: this.source.id, title: d.title || d.name || 'Без названия',
         kind: d.isUser ? 'direct' : d.isGroup ? 'group' : 'channel', recipient: { id: entityId(this.source.id, 'recipient', native), name: d.title || d.name || 'Без названия',...(e instanceof Api.User&&e.self?{isSelf:true}:{}) },
         unreadCount: d.unreadCount, updatedAt: new Date((d.date || 0) * 1000).toISOString(),
-        preview: latest?messagePreview(latest):'',
-        ...(latest?{previewMessageId:latest.id}:{}),
+        preview:'',
         ...(photo?{avatarVersion:photo.photoId.toString()}:{}),
         ...(thumbnail?{avatarThumbnail:thumbnail}:{}),
         canSend: !banned && !userBanned && !forum && !paid && !broadcast,
         ...(e instanceof Api.User&&e.bot?{isBot:true}:{}),
-      });
+      };
+      const candidate=!allowed&&discoveryCandidate?.(conversation);
+      // Dialog в teleproto типизирует верхнюю запись как Message, но передаёт и MessageService.
+      const top=allowed||candidate?d.message as Api.TypeMessage|undefined:undefined;
+      if(top instanceof Api.Message&&entityId(this.source.id,'conversation',top.chatId?.toString()||utils.getPeerId(top.peerId))===conversationId){
+        if(allowed){
+          const latest=this.mapMessage(top,conversationId);
+          conversation.preview=messagePreview(latest);
+          conversation.previewMessageId=latest.id;
+        }else if(!top.out){
+          conversation.contactEvent='incoming';
+        }
+      }else if(allowed&&d.isUser&&top instanceof Api.MessageService&&top.action instanceof Api.MessageActionContactSignUp){
+        conversation.contactEvent='registration';
+        const readMax=d.dialog instanceof Api.Dialog?d.dialog.readInboxMaxId:0;
+        if(!top.out&&top.id>readMax)conversation.unreadCount=Math.max(0,conversation.unreadCount-1);
+      }
+      result.push(conversation);
     }
     let folders:ConversationCatalog['folders']=[];
     if(withFolders){

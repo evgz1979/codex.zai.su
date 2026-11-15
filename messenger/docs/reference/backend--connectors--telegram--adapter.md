@@ -214,10 +214,10 @@ async listConversationCatalog(): Promise<ConversationCatalog>
 
 Получает ограниченный список диалогов для общей ленты.
 
-Последнее сообщение преобразуется только для разрешённых ID; история отдельно.
+Для новых кандидатов проверяет тип верхней записи без преобразования сообщения.
 
 ```typescript
-async listConversations(allows?: (conversationId: string) => boolean): Promise<Conversation[]>
+async listConversations(allows?: (conversationId: string) => boolean, discoveryCandidate?: (conversation: Conversation) => boolean): Promise<ListedConversation[]>
 ```
 
 <a id="symbol-TelegramAdapter.loadCatalog"></a>
@@ -226,10 +226,12 @@ async listConversations(allows?: (conversationId: string) => boolean): Promise<C
 
 Читает метаданные и при необходимости правила папок одним каталогом.
 
-Без allows каталог не содержит превью; сообщения не сохраняются в памяти адаптера.
+Превью доступно выбранным ID; административный каталог получает только метаданные.
 
 ```typescript
-private async loadCatalog(withFolders: boolean, allows?: (conversationId: string) => boolean): Promise<ConversationCatalog>
+private async loadCatalog(withFolders: boolean, allows?: (conversationId: string) => boolean, discoveryCandidate?: (conversation: Conversation) => boolean): Promise<ConversationCatalog & {
+    conversations: ListedConversation[];
+}>
 ```
 
 <a id="symbol-TelegramAdapter.mapMessage"></a>

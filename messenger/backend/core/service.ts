@@ -1,5 +1,5 @@
 import {telegramAuthIssue} from '../auth/telegram-issue.js';
-import type { SourceAdapter, SourceEvent } from './source-adapter.js';
+import type { ListedConversation, SourceAdapter, SourceEvent } from './source-adapter.js';
 import type { Store } from '../storage/store.js';
 import { destinationFor,comparePosition,compareConversations, LIMITS, MEDIA_LIMITS,OFFLINE_LIMITS,type OfflineBatch, type AttachmentRequest,type Conversation, type ConversationPageResult, type Message, type SendRequest, type Snapshot } from '../../shared/types.js';
 import { AppError } from './errors.js';
@@ -103,13 +103,13 @@ export class MessengerService {
     if (!this.selection.ids().length&&!this.canDiscoverContacts()) return this.snapshot();
     try {
       const conversations: Conversation[] = [];
-      const catalogs:{sourceId:string;conversations:Conversation[]}[]=[];
+      const catalogs:{sourceId:string;conversations:ListedConversation[]}[]=[];
       let failed=false;let connected=0;let failure:unknown;
       for (const adapter of this.adapters) {
         try{
           const pause=Number(this.store.get(`sync.sourcePause.${adapter.source.id}`)||0);if(pause>Date.now())throw new AppError(503,'Источник временно недоступен.',Math.ceil((pause-Date.now())/1000));
           await adapter.connect();
-          catalogs.push({sourceId:adapter.source.id,conversations:await adapter.listConversations(id=>this.selection.allows(id))});
+          catalogs.push({sourceId:adapter.source.id,conversations:await adapter.listConversations(id=>this.selection.allows(id),c=>this.selection.isDiscoveryCandidate(c))});
           if(adapter.source.connected)connected++;else if(adapter.canDiscoverContacts?.())failed=true;
         }catch(error){
           failure??=error;const seconds=(error instanceof AppError?error.retryAfterSeconds:undefined)||telegramAuthIssue(error).retryAfterSeconds;if(this.adapters.length>1&&seconds)this.store.set(`sync.sourcePause.${adapter.source.id}`,String(Date.now()+seconds*1000));
@@ -119,7 +119,11 @@ export class MessengerService {
       }
       if(failed&&!connected)throw failure||new Error('Sources unavailable');
       if (revision !== this.selection.revision) return this.snapshot();
-      for(const catalog of catalogs){const adapter=this.registry.get(catalog.sourceId);if(adapter.source.connected&&adapter.canDiscoverContacts?.())this.selection.observe(catalog.sourceId,catalog.conversations);conversations.push(...catalog.conversations.filter(c=>this.selection.allows(c.id)));}
+      for(const catalog of catalogs){
+        const adapter=this.registry.get(catalog.sourceId);
+        if(adapter.source.connected&&adapter.canDiscoverContacts?.())this.selection.observe(catalog.sourceId,catalog.conversations);
+        for(const {contactEvent,...conversation} of catalog.conversations)if(this.selection.allows(conversation.id))conversations.push(conversation);
+      }
       for(const c of conversations){
         const current=this.store.conversation(c.id);if(!current)continue;
         if(c.avatarVersion&&c.avatarVersion===current.avatarVersion&&!c.avatarThumbnail)c.avatarThumbnail=current.avatarThumbnail;

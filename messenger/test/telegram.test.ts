@@ -3,10 +3,13 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { DatabaseSync } from 'node:sqlite';
 import { Api, type TelegramClient } from 'teleproto';
 import { TelegramAdapter } from '../backend/connectors/telegram/adapter.js';
 import { Store } from '../backend/storage/store.js';
 import { MessengerService } from '../backend/core/service.js';
+import { AdminService } from '../backend/admin/service.js';
+import { AutoSyncService } from '../backend/core/sync.js';
 import { SecretVault } from '../backend/storage/private-files.js';
 import {NewMessage,EditedMessage,DeletedMessage} from 'teleproto/events';
 import type {SourceEvent} from '../backend/core/source-adapter.js';
@@ -102,4 +105,68 @@ test('Telegram-превью: последние сообщения выбран�
  messages[0].id=98;messages[0].date=999;messages[0].message='Предыдущее после удаления';await core.refresh();assert.equal(core.snapshot().conversations.find(c=>c.id===ids[0])?.preview,'Предыдущее после удаления');
  duringList=()=>core.ingest({type:'message',message:{id:entityId(adapter.source.id,'message',`${ids[0]}/120`),conversationId:ids[0],sourceId:adapter.source.id,sender:{id:'synthetic',name:'Тест'},date:new Date(1200000).toISOString(),sequence:120,text:'Новое во время запроса списка',outgoing:false,status:'received',attachments:[]}});
  await core.refresh();assert.equal(core.snapshot().conversations.find(c=>c.id===ids[0])?.preview,'Новое во время запроса списка');assert.equal(core.snapshot().conversations.find(c=>c.id===ids[0])?.unreadCount,3);
+});
+
+test('Telegram: регистрация контакта не добавляет пустой чат, а первое входящее добавляет',async t=>{
+ const dir=mkdtempSync(join(tmpdir(),'zai-contact-registration-'));
+ const vault=new SecretVault(dir);
+ vault.save({apiId:123,apiHash:'test-only',session:'test-only'});
+ const legacy=new DatabaseSync(join(dir,'messenger.sqlite'));
+ legacy.exec('CREATE TABLE conversation_policy (id TEXT PRIMARY KEY,source_id TEXT NOT NULL,excluded INTEGER NOT NULL)');
+ legacy.close();
+ const store=new Store(dir);
+ let dialogs:typeof rows=[];
+ let histories=0;
+ const fake={connected:false,async connect(){this.connected=true;},async checkAuthorization(){return true;},async destroy(){this.connected=false;},
+  async getDialogs(){return dialogs;},async invoke(){return {filters:[]};},
+  async getMessages(peer:Api.InputPeerUser){histories++;return dialogs.filter(row=>row.inputEntity===peer).flatMap(row=>row.message?[row.message]:[]);}};
+ const adapter=new TelegramAdapter(vault,()=>fake as unknown as TelegramClient);
+ const core=new MessengerService([adapter],store);
+ const sync=new AutoSyncService(core,store);
+ const admin=new AdminService(core,adapter,vault,store);
+ t.after(async()=>{await sync.stop();await adapter.disconnect();store.close();rmSync(dir,{recursive:true,force:true});});
+ await sync.tick();
+
+ const date=Math.floor(Date.now()/1000);
+ const rows=[51,52,53].map((id,index)=>{
+  const entity=new Api.User({id:BigInt(id) as never,firstName:`Контакт ${id}`});
+  const peerId=new Api.PeerUser({userId:entity.id});
+  const inputEntity=new Api.InputPeerUser({userId:entity.id,accessHash:42n as never});
+  const registration=new Api.MessageService({id,peerId,date,action:new Api.MessageActionContactSignUp()});
+  return {entity,peerId,inputEntity,message:(index===2?undefined:registration) as Api.TypeMessage|undefined,id:entity.id,title:entity.firstName,isUser:true,unreadCount:1,date};
+ });
+ dialogs=rows;
+ assert.deepEqual((await core.refresh()).conversations,[]);
+ assert.equal(store.badgeCount(),0);
+ assert.equal(histories,0);
+
+ const catalog=await admin.dialogs();
+ const [first,manual,empty]=catalog.conversations;
+ assert.ok(first&&manual&&empty);
+ assert.deepEqual(catalog.selectedIds,[]);
+ assert.ok(store.admitContact(first)); // Состояние после прежней сверки по одному счётчику.
+ await core.refresh();
+ assert.equal(store.badgeCount(),0);
+ assert.equal(core.selection.allows(first.id),true);
+ await sync.tick();
+ assert.ok(store.progress(first.id).historyComplete);
+ assert.deepEqual((await core.refresh()).conversations,[]);
+ assert.deepEqual((await admin.dialogs()).selectedIds,[]);
+ assert.equal(store.excluded(first.id),false);
+
+ const incoming=new Api.Message({id:100,peerId:rows[0].peerId,date,message:'Первое сообщение'});
+ Object.defineProperty(incoming,'message',{get(){assert.ok(core.selection.allows(first.id));return 'Первое сообщение';}});
+ rows[0].message=incoming;
+ assert.deepEqual((await core.refresh()).conversations.map(c=>c.id),[first.id]);
+ assert.equal(store.badgeCount(),1);
+ assert.equal((await core.refresh()).conversations[0].preview,'Первое сообщение');
+
+ await admin.dialogs();
+ admin.select([first.id,manual.id]);
+ await sync.tick();
+ assert.ok(store.progress(manual.id).historyComplete);
+ const snapshot=await core.refresh();
+ assert.equal(snapshot.conversations.find(c=>c.id===manual.id)?.unreadCount,0);
+ assert.equal(store.badgeCount(),1);
+ assert.ok(snapshot.conversations.every(c=>!('contactEvent' in c)));
 });

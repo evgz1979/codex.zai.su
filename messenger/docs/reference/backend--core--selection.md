@@ -76,16 +76,28 @@ constructor(private store: Store)
 ids()
 ```
 
+<a id="symbol-ConversationSelectionService.isDiscoveryCandidate"></a>
+
+## ConversationSelectionService.isDiscoveryCandidate
+
+Отбирает новые личные диалоги для проверки типа верхней записи.
+
+Прежние невыбранные, исключённые, боты, группы и каналы не проверяются.
+
+```typescript
+isDiscoveryCandidate(conversation: Conversation)
+```
+
 <a id="symbol-ConversationSelectionService.observe"></a>
 
 ## ConversationSelectionService.observe
 
-Фиксирует исходный каталог и обнаруживает новые личные входящие по метаданным.
+Фиксирует исходный каталог и разрешает новые диалоги с подтверждённым входящим.
 
-Старые невыбранные, исключённые, боты, группы и каналы сами не разрешаются.
+Служебные записи и счётчик сам по себе не разрешают автоматическое подключение.
 
 ```typescript
-observe(sourceId: string, catalog: Conversation[])
+observe(sourceId: string, catalog: ListedConversation[])
 ```
 
 <a id="symbol-ConversationSelectionService.replace"></a>

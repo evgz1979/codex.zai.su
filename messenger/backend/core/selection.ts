@@ -1,5 +1,6 @@
 import type { Store } from '../storage/store.js';
 import {LIMITS,type Conversation} from '../../shared/types.js';
+import type {ListedConversation} from './source-adapter.js';
 import { AppError } from './errors.js';
 //: Хранит разрешённые диалоги и проверяет доступ на каждой операции.
 //: История запрещена до выбора или разрешения нового личного входящего; исключения постоянны.
@@ -25,12 +26,21 @@ export class ConversationSelectionService {
     const selected=[...new Set([...ids,...unseen])];if(selected.length>LIMITS.conversations)throw new AppError(400,'Достигнут предел диалогов.');
     this.store.select(selected,available); this.revision++;
   }
-  //: Фиксирует исходный каталог и обнаруживает новые личные входящие по метаданным.
-  //: Старые невыбранные, исключённые, боты, группы и каналы сами не разрешаются.
-  observe(sourceId:string,catalog:Conversation[]){
+  //: Отбирает новые личные диалоги для проверки типа верхней записи.
+  //: Прежние невыбранные, исключённые, боты, группы и каналы не проверяются.
+  isDiscoveryCandidate(conversation:Conversation){
+    const since=Number(this.store.get(`discovery.baseline.${conversation.sourceId}`));
+    return conversation.kind==='direct'&&!conversation.isBot&&!conversation.recipient.isSelf&&
+      conversation.unreadCount>0&&Date.parse(conversation.updatedAt)>=Math.floor(since/1000)*1000&&!this.store.excluded(conversation.id);
+  }
+  //: Фиксирует исходный каталог и разрешает новые диалоги с подтверждённым входящим.
+  //: Служебные записи и счётчик сам по себе не разрешают автоматическое подключение.
+  observe(sourceId:string,catalog:ListedConversation[]){
     const first=this.store.observeCatalog(sourceId,catalog);if(first)return;
-    const since=Number(this.store.get(`discovery.baseline.${sourceId}`));
-    for(const c of catalog)if(c.unreadCount>0&&Date.parse(c.updatedAt)>=Math.floor(since/1000)*1000)this.admit(c);
+    for(const {contactEvent,...conversation} of catalog){
+      if(contactEvent==='incoming'&&this.isDiscoveryCandidate(conversation))this.admit(conversation);
+      if(contactEvent==='registration'&&this.store.releaseEmptyContact(conversation.id))this.revision++;
+    }
   }
   //: Разрешает новый входящий личный контакт до преобразования его сообщения.
   //: Явное исключение переживает рестарт и имеет приоритет над обнаружением.

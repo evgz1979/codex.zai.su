@@ -8,13 +8,16 @@ export type SourceEvent={type:'message';message:Message;edited?:boolean}|{type:'
 //: Передаёт поток байтов одного вложения внутри backend.
 //: В браузер не передаются native location, ключи и объект клиента.
 export interface AttachmentContent {attachment:Attachment;chunks:AsyncIterable<Uint8Array>}
+//: Дополняет строку каталога типом верхней записи для обнаружения контактов.
+//: Признак используется только ядром и не сохраняется в публичном снимке.
+export interface ListedConversation extends Conversation {contactEvent?:'incoming'|'registration'}
 //: Задаёт контракт чтения страниц, отправки и необязательного каталога папок источника.
-//: allows разрешает превью только выбранных ID; каталог папок остаётся без текстов.
+//: allows разрешает превью выбранных ID; discoveryCandidate разрешает проверить только тип верхней записи.
 export interface SourceAdapter {
   readonly source: Source;
   connect(): Promise<void>;
   disconnect(): Promise<void>;
-  listConversations(allows?:(conversationId:string)=>boolean): Promise<Conversation[]>;
+  listConversations(allows?:(conversationId:string)=>boolean,discoveryCandidate?:(conversation:Conversation)=>boolean): Promise<ListedConversation[]>;
   listConversationCatalog?(): Promise<ConversationCatalog>;
   recentMessages(conversationId: string, limit: number): Promise<Message[]>;
   messagePage?(conversationId:string,limit:number,before?:string):Promise<MessagePage>;

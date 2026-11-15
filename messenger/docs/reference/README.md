@@ -27,16 +27,16 @@
 | [backend/core/media-preload.ts](backend--core--media-preload.md) | Автоматическая подготовка вложений и миниатюр выбранных чатов за последние пять дней с продолжением после рестарта. | 7 |
 | [backend/core/push.ts](backend--core--push.md) | Приватные подписки Web Push, VAPID и доставка нейтральных уведомлений новых входящих. | 19 |
 | [backend/core/registry.ts](backend--core--registry.md) | Реестр подключённых SourceAdapter. | 5 |
-| [backend/core/selection.ts](backend--core--selection.md) | Постоянный выбор разрешённых диалогов и ревизия доступа. | 9 |
+| [backend/core/selection.ts](backend--core--selection.md) | Постоянный выбор разрешённых диалогов и ревизия доступа. | 10 |
 | [backend/core/service.ts](backend--core--service.md) | Единая лента, маршруты, лимиты, кеш и дедупликация отправок. | 26 |
-| [backend/core/source-adapter.ts](backend--core--source-adapter.md) | Общий контракт операций с сообщениями и необязательного каталога папок источника. | 4 |
+| [backend/core/source-adapter.ts](backend--core--source-adapter.md) | Общий контракт операций с сообщениями и необязательного каталога папок источника. | 5 |
 | [backend/core/sync.ts](backend--core--sync.md) | Автоматическое заполнение полного SQLite-кеша выбранных диалогов, события и возобновляемая история. | 7 |
 | [backend/core/transcription.ts](backend--core--transcription.md) | Явная встроенная расшифровка голосовых, приватный кеш, дедупликация и проверка обновлений источника. | 6 |
 | [backend/http.ts](backend--http.md) | Фиксированный HTTP API, веб-вход, защита запросов и статические файлы. | 9 |
 | [backend/index.ts](backend--index.md) | Сборка production-сервера, регистрация TelegramAdapter и остановка. | 1 |
 | [backend/runtime.ts](backend--runtime.md) | Отдельные БД, Telegram, пароли, медиакеш, push и жизненный цикл личного аккаунта. | 4 |
 | [backend/storage/private-files.ts](backend--storage--private-files.md) | Права приватных файлов и AES-256-GCM хранилище Telegram-сессии. | 9 |
-| [backend/storage/store.ts](backend--storage--store.md) | SQLite: настройки ролей, выбранные диалоги и полный кеш выбранной истории с сохранением исключённого архива. | 39 |
+| [backend/storage/store.ts](backend--storage--store.md) | SQLite: настройки ролей, выбранные диалоги и полный кеш выбранной истории с сохранением исключённого архива. | 40 |
 | [frontend/index.html](frontend--index.md) | HTML-точка входа, viewport и подключение React-сборки. | 0 |
 | [frontend/public/favicon.svg](frontend--public--favicon.md) | Локальная иконка приложения без внешних ресурсов. | 0 |
 | [frontend/public/manifest.webmanifest](frontend--public--manifest.webmanifest.md) | Идентичность и режим standalone для установки Messenger на экран «Домой». | 0 |
