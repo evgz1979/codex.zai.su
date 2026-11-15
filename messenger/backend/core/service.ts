@@ -127,10 +127,12 @@ export class MessengerService {
       for(const c of conversations){
         const current=this.store.conversation(c.id);if(!current)continue;
         if(c.avatarVersion&&c.avatarVersion===current.avatarVersion&&!c.avatarThumbnail)c.avatarThumbnail=current.avatarThumbnail;
-        const newer=comparePosition({date:current.updatedAt,id:current.previewMessageId||''},{date:c.updatedAt,id:c.previewMessageId||''})>0&&(!c.previewMessageId||this.store.revision!==cacheRevision);
-        if(!c.previewMessageId||newer){c.preview=current.preview;c.previewMessageId=current.previewMessageId;}
+        const sourceHasPreview=!!c.previewMessageId;
+        const newer=comparePosition({date:current.updatedAt,id:current.previewMessageId||''},{date:c.updatedAt,id:c.previewMessageId||''})>0&&(!sourceHasPreview||this.store.revision!==cacheRevision);
+        if(!sourceHasPreview||newer){c.preview=current.preview;c.previewMessageId=current.previewMessageId;}
         if(newer||readRevision!==this.readRevision)c.unreadCount=current.unreadCount;
         if(newer)c.updatedAt=current.updatedAt;
+        if(!sourceHasPreview)this.store.updateCachedPreview(c);
       }
       this.store.saveCache({conversations,messages:[],sources:this.registry.sources(),refreshedAt:new Date().toISOString(),stale:failed});this.state.stale=failed;
       return this.snapshot();

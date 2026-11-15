@@ -36,7 +36,7 @@
 | [backend/index.ts](backend--index.md) | Сборка production-сервера, регистрация TelegramAdapter и остановка. | 1 |
 | [backend/runtime.ts](backend--runtime.md) | Отдельные БД, Telegram, пароли, медиакеш, push и жизненный цикл личного аккаунта. | 4 |
 | [backend/storage/private-files.ts](backend--storage--private-files.md) | Права приватных файлов и AES-256-GCM хранилище Telegram-сессии. | 9 |
-| [backend/storage/store.ts](backend--storage--store.md) | SQLite: настройки ролей, выбранные диалоги и полный кеш выбранной истории с сохранением исключённого архива. | 40 |
+| [backend/storage/store.ts](backend--storage--store.md) | SQLite: настройки ролей, выбранные диалоги и полный кеш выбранной истории с сохранением исключённого архива. | 42 |
 | [frontend/index.html](frontend--index.md) | HTML-точка входа, viewport и подключение React-сборки. | 0 |
 | [frontend/public/favicon.svg](frontend--public--favicon.md) | Локальная иконка приложения без внешних ресурсов. | 0 |
 | [frontend/public/manifest.webmanifest](frontend--public--manifest.webmanifest.md) | Идентичность и режим standalone для установки Messenger на экран «Домой». | 0 |

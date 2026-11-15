@@ -185,6 +185,7 @@
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: история недоступного Telegram не задерживает синхронизацию WhatsApp
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: каталог использует WAWebCollections без window.Store и не читает сообщения
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: неотсканированный QR завершается через три минуты
+- [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: новая дата каталога не оставляет старое голосовое в превью
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: остановка во время запуска ждёт только браузер, а не QR и синхронизацию
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: отметка совпадает с границей чата и сохраняет появившееся позже непрочитанное
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: отсутствие Telegram-входа не блокирует метаданные подключённого WhatsApp

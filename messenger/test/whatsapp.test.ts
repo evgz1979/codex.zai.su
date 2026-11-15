@@ -227,6 +227,39 @@ test('WhatsApp: отсутствие Telegram-входа не блокирует
  assert.ok(result.conversations.some(c=>c.id===id));assert.equal(result.sources.find(s=>s.id==='whatsapp')?.connected,true);
 });
 
+test('WhatsApp: новая дата каталога не оставляет старое голосовое в превью',async t=>{
+ const root=mkdtempSync(join(tmpdir(),'wa-preview-'));
+ const store=new Store(root);
+ t.after(()=>{store.close();rmSync(root,{recursive:true,force:true});});
+ const voice=webMessage({...native,id:{_serialized:`true_${jid}_VOICE`,remote:jid},fromMe:true,timestamp:native.timestamp-60,body:'',type:'ptt'},jid,'Тест');
+ const latest=webMessage({...native,body:'Последний текст'},jid,'Тест');
+ const catalog={...conversation,updatedAt:latest.date};
+ const whatsapp=new WhatsAppAdapter(root,store,async request=>request.action==='catalog'?{conversations:[catalog]}:{status:{stage:'connected',connected:true}});
+ await whatsapp.begin();
+ store.select([id]);
+ const snapshot={sources:[],conversations:[{...catalog,updatedAt:voice.date,preview:'Голосовое сообщение',previewMessageId:voice.id}],messages:[voice],refreshedAt:null,stale:false};
+ store.saveCache(snapshot);
+ const core=new MessengerService([whatsapp],store);
+ const waiting=(await core.refresh()).conversations[0];
+ assert.equal(waiting.updatedAt,latest.date);
+ assert.equal(waiting.previewMessageId,voice.id);
+ core.cacheMessages(id,[latest]);
+ assert.equal(core.snapshot().conversations[0].previewMessageId,latest.id);
+
+ // Прежний кеш уже содержал новый текст, но хранил ID старого голосового с датой нового каталога.
+ store.saveCache({...snapshot,conversations:[{...snapshot.conversations[0],updatedAt:latest.date}],messages:[]});
+ const repaired=(await core.refresh()).conversations[0];
+ assert.equal(repaired.previewMessageId,latest.id);
+ assert.equal(repaired.preview,latest.text);
+ assert.equal(repaired.unreadCount,catalog.unreadCount);
+
+ const reply=webMessage({...native,id:{_serialized:`true_${jid}_REPLY`,remote:jid},fromMe:true,timestamp:native.timestamp+60,body:'Мой ответ'},jid,'Тест');
+ core.cacheMessages(id,[reply]);
+ const answered=(await core.refresh()).conversations[0];
+ assert.equal(answered.preview,reply.text);
+ assert.equal(answered.updatedAt,reply.date);
+});
+
 test('WhatsApp: история недоступного Telegram не задерживает синхронизацию WhatsApp',async t=>{
  const root=mkdtempSync(join(tmpdir(),'wa-sync-'));const store=new Store(root);t.after(()=>{store.close();rmSync(root,{recursive:true,force:true});});
  const telegram=new TestAdapter();telegram.connect=async()=>{throw new Error('source offline');};

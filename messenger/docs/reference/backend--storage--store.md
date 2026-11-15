@@ -184,6 +184,18 @@ finishMediaJob(input: AttachmentRequest, message: Message, nextAttempt = 0)
 get(key: string): string | undefined
 ```
 
+<a id="symbol-Store.latestStoredMessage"></a>
+
+## Store.latestStoredMessage
+
+Выбирает последнее сохранённое сообщение одного диалога.
+
+Числовой порядок источника различает сообщения одной секунды.
+
+```typescript
+private latestStoredMessage(id: string): Message | undefined
+```
+
 <a id="symbol-Store.loadCache"></a>
 
 ## Store.loadCache
@@ -422,6 +434,18 @@ transcription(id: string): StoredTranscription | undefined
 
 ```typescript
 private unreadAfter(id: string, position: Pick<Message, 'id' | 'date' | 'sequence'>)
+```
+
+<a id="symbol-Store.updateCachedPreview"></a>
+
+## Store.updateCachedPreview
+
+Обновляет превью по последнему сообщению из SQLite.
+
+Позиция предыдущего превью берётся из его сообщения, сохраняя свежую дату каталога для списка.
+
+```typescript
+updateCachedPreview(conversation: Conversation)
 ```
 
 <a id="symbol-Store.upsertMessages"></a>

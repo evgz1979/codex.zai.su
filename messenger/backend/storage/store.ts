@@ -66,6 +66,26 @@ export class Store {
   //: Читает ровно одно сообщение по общему ID для защищённого доступа к медиа.
   //: Проверку выбора выполняет ядро перед обращением к этому методу.
   message(id:string):Message|undefined{const row=this.db.prepare('SELECT payload FROM message_cache WHERE id=?').get(id) as {payload:string}|undefined;return row?this.withTranscription(JSON.parse(row.payload)):undefined;}
+  //: Выбирает последнее сохранённое сообщение одного диалога.
+  //: Числовой порядок источника различает сообщения одной секунды.
+  private latestStoredMessage(id:string):Message|undefined{
+    const row=this.db.prepare("SELECT payload FROM message_cache WHERE conversation_id=? ORDER BY date DESC,COALESCE(json_extract(payload,'$.sequence'),message_sequence(id)) DESC,id DESC LIMIT 1").get(id) as {payload:string}|undefined;
+    return row?JSON.parse(row.payload):undefined;
+  }
+  //: Обновляет превью по последнему сообщению из SQLite.
+  //: Позиция предыдущего превью берётся из его сообщения, сохраняя свежую дату каталога для списка.
+  updateCachedPreview(conversation:Conversation){
+    const latest=this.latestStoredMessage(conversation.id);
+    if(!latest)return;
+    const previousId=conversation.previewMessageId;
+    if(previousId&&previousId!==latest.id){
+      const previous=this.db.prepare('SELECT date FROM message_cache WHERE id=? AND conversation_id=?').get(previousId,conversation.id) as {date:string}|undefined;
+      if(comparePosition(latest,{id:previousId,date:previous?.date??conversation.updatedAt})<0)return;
+    }
+    conversation.preview=messagePreview(latest);
+    conversation.previewMessageId=latest.id;
+    if(latest.date>conversation.updatedAt)conversation.updatedAt=latest.date;
+  }
   //: Читает внутреннее состояние одного ранее запрошенного задания.
   //: Проверку доступа к диалогу выполняет сервис до чтения этой записи.
   transcription(id:string):StoredTranscription|undefined{const row=this.db.prepare('SELECT payload FROM voice_transcriptions WHERE message_id=?').get(id) as {payload:string}|undefined;return row?JSON.parse(row.payload):undefined;}
@@ -218,7 +238,14 @@ export class Store {
     let changed=false;this.db.exec('BEGIN IMMEDIATE');
     const unread=new Map<string,number>();
     try{for(const m of messages){const existed=countUnread?!!this.db.prepare('SELECT 1 FROM message_cache WHERE id=?').get(m.id):true;const result=this.db.prepare("INSERT INTO message_cache (id,conversation_id,date,payload,source_key) SELECT ?,?,?,?,? WHERE NOT EXISTS (SELECT 1 FROM message_tombstones WHERE source_key=?) ON CONFLICT(id) DO UPDATE SET date=excluded.date,payload=excluded.payload,source_key=excluded.source_key WHERE payload<>excluded.payload AND COALESCE(json_extract(excluded.payload,'$.editedAt'),excluded.date)>=COALESCE(json_extract(message_cache.payload,'$.editedAt'),message_cache.date)").run(m.id,m.conversationId,m.date,JSON.stringify({...m,voiceTranscription:undefined}),m.sourceKey||null,m.sourceKey||null);if(countUnread&&!m.outgoing&&!existed&&Number(result.changes)>0)unread.set(m.conversationId,(unread.get(m.conversationId)||0)+1);changed ||=Number(result.changes)>0;}
-      for(const id of new Set(messages.map(m=>m.conversationId))){const c=this.conversation(id);const latest=this.db.prepare("SELECT payload FROM message_cache WHERE conversation_id=? ORDER BY date DESC,COALESCE(json_extract(payload,'$.sequence'),message_sequence(id)) DESC,id DESC LIMIT 1").get(id) as {payload:string}|undefined;if(c&&latest){const previous=JSON.stringify(c);const m=JSON.parse(latest.payload) as Message;if(!c.previewMessageId||comparePosition(m,{id:c.previewMessageId,date:c.updatedAt})>=0){c.preview=messagePreview(m);c.previewMessageId=m.id;c.updatedAt=m.date;}c.unreadCount+=unread.get(id)||0;changed ||=previous!==JSON.stringify(c);this.db.prepare('UPDATE conversation_cache SET payload=? WHERE id=?').run(JSON.stringify(c),id);}}
+      for(const id of new Set(messages.map(m=>m.conversationId))){
+        const c=this.conversation(id);if(!c)continue;
+        const previous=JSON.stringify(c);
+        this.updateCachedPreview(c);
+        c.unreadCount+=unread.get(id)||0;
+        const payload=JSON.stringify(c);
+        if(payload!==previous){this.db.prepare('UPDATE conversation_cache SET payload=? WHERE id=?').run(payload,id);changed=true;}
+      }
       this.db.exec('COMMIT');if(changed)this.revision++;
     }catch(e){this.db.exec('ROLLBACK');throw e;}
   }
@@ -228,7 +255,7 @@ export class Store {
     if(!keys.length||!allowed.length)return;
     for(let offset=0;offset<keys.length;offset+=100){const part=keys.slice(offset,offset+100);const query=`source_key IN (${part.map(()=>'?').join(',')}) AND conversation_id IN (${allowed.map(()=>'?').join(',')})`;const rows=this.db.prepare(`SELECT id,conversation_id,source_key FROM message_cache WHERE ${query}`).all(...part,...allowed) as {id:string;conversation_id:string;source_key:string}[];
       if(!rows.length)continue;this.db.exec('BEGIN IMMEDIATE');try{for(const row of rows){this.db.prepare('INSERT OR IGNORE INTO message_tombstones(source_key) VALUES (?)').run(row.source_key);this.db.prepare('DELETE FROM voice_transcriptions WHERE message_id=?').run(row.id);}this.db.prepare(`DELETE FROM message_cache WHERE ${query}`).run(...part,...allowed);this.db.exec('COMMIT');}catch(error){this.db.exec('ROLLBACK');throw error;}this.revision++;
-      const removed=new Set(rows.map(r=>r.id));for(const id of new Set(rows.map(r=>r.conversation_id))){const c=this.conversation(id);const last=this.db.prepare("SELECT payload FROM message_cache WHERE conversation_id=? ORDER BY date DESC,COALESCE(json_extract(payload,'$.sequence'),message_sequence(id)) DESC,id DESC LIMIT 1").get(id) as {payload:string}|undefined;if(c&&(!c.previewMessageId||removed.has(c.previewMessageId))){const message=last?JSON.parse(last.payload) as Message:undefined;c.preview=message?messagePreview(message):'';c.previewMessageId=message?.id;if(message)c.updatedAt=message.date;this.db.prepare('UPDATE conversation_cache SET payload=? WHERE id=?').run(JSON.stringify(c),id);}const progress=this.progress(id);progress.checkpointIds=(progress.checkpointIds||[]).filter(key=>!removed.has(key));progress.headKeys=progress.headKeys.filter(key=>!removed.has(key));this.saveProgress(id,progress);}
+      const removed=new Set(rows.map(r=>r.id));for(const id of new Set(rows.map(r=>r.conversation_id))){const c=this.conversation(id);if(c&&(!c.previewMessageId||removed.has(c.previewMessageId))){const message=this.latestStoredMessage(id);c.preview=message?messagePreview(message):'';c.previewMessageId=message?.id;if(message)c.updatedAt=message.date;this.db.prepare('UPDATE conversation_cache SET payload=? WHERE id=?').run(JSON.stringify(c),id);}const progress=this.progress(id);progress.checkpointIds=(progress.checkpointIds||[]).filter(key=>!removed.has(key));progress.headKeys=progress.headKeys.filter(key=>!removed.has(key));this.saveProgress(id,progress);}
       for(const row of rows)this.deletions.push({revision:this.revision,id:row.id,conversationId:row.conversation_id});while(this.deletions.length>1000)this.droppedBefore=this.deletions.shift()!.revision;
     }
   }
