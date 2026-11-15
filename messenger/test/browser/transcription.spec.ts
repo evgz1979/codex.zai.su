@@ -15,8 +15,16 @@ test('голосовое: расшифровка только по кнопке,
   let requests=0;page.on('request',request=>{if(request.url().endsWith('/chat/transcribe'))requests++;});
   await page.goto('/');await page.getByLabel('Пароль',{exact:true}).fill('browser-test-password');await page.getByRole('button',{name:'Войти в Messenger'}).click();await page.getByRole('button',{name:'Общая лента',exact:true}).click();
   const button=page.getByRole('button',{name:'Расшифровать',exact:true});await expect(button).toHaveCount(1);expect(requests).toBe(0);
-  const message=page.getByRole('article').filter({has:page.getByRole('button',{name:'Открыть вложение: Голосовое.wav'})});await button.click();await expect(message.getByText('Синтетическая расшифровка голосового.',{exact:true})).toBeVisible();expect(requests).toBe(1);await expect(button).toHaveCount(0);keepCache();
-  const voice=await message.getByRole('button',{name:'Открыть вложение: Голосовое.wav'}).boundingBox();const text=await message.locator('.transcription-text').boundingBox();expect(text!.y).toBeGreaterThan(voice!.y+voice!.height);
+  const openVoice=page.getByRole('button',{name:'Открыть голосовое сообщение'});
+  const message=page.getByRole('article').filter({has:openVoice});
+  await expect(button).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
+  await expect(message.locator('.voice-transcription')).toHaveCSS('border-top-width','0px');
+  await expect(message.locator('.voice-actions').getByRole('button')).toHaveCount(2);
+  const positions=await message.locator('.voice-actions').evaluate(row=>Array.from(row.querySelectorAll('button'),button=>button.getBoundingClientRect().top));
+  expect(positions[0]).toBeCloseTo(positions[1],0);
+  await button.click();await expect(message.getByText('Синтетическая расшифровка голосового.',{exact:true})).toBeVisible();expect(requests).toBe(1);await expect(button).toHaveCount(0);keepCache();
+  const textIsBelow=await message.locator('.voice-transcription').evaluate(row=>row.querySelector('.transcription-text')!.getBoundingClientRect().top>row.querySelector('.voice-actions')!.getBoundingClientRect().bottom);
+  expect(textIsBelow).toBe(true);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:`test-results/transcription-${testInfo.project.name}.png`});
   await page.reload();await page.getByRole('button',{name:'Общая лента',exact:true}).click();await expect(page.getByText('Синтетическая расшифровка голосового.',{exact:true})).toBeVisible();expect(requests).toBe(1);
 });

@@ -1,9 +1,9 @@
-import {useEffect,useState} from 'react';
+import {useEffect,useState,type ReactNode} from 'react';
 import type {AttachmentRequest,VoiceTranscription as Transcript} from '../../shared/types';
 import {api,ApiError} from './api';
-//: Показывает кнопку голосового и полученный текст под сообщением.
+//: Ставит расшифровку рядом с открытием голосового и показывает полученный текст под строкой.
 //: Запуск явный; ожидающее задание возобновляется из кеша, уход отменяет HTTP-опрос.
-export default function VoiceTranscription({request,value,offline=false,onUnauthorized}:{request:AttachmentRequest;value?:Transcript;offline?:boolean;onUnauthorized(error:ApiError):void}){
+export default function VoiceTranscription({request,value,offline=false,onUnauthorized,children}:{request:AttachmentRequest;value?:Transcript;offline?:boolean;onUnauthorized(error:ApiError):void;children:ReactNode}){
   const [transcription,setTranscription]=useState(value);
   const [attempt,setAttempt]=useState(value?.pending?1:0);
   const [busy,setBusy]=useState(!!value?.pending);
@@ -33,7 +33,9 @@ export default function VoiceTranscription({request,value,offline=false,onUnauth
     void poll();return()=>{controller.abort();clearTimeout(timer);};
   },[attempt,key,value?.pending===false,offline]);
   return <div className="voice-transcription" aria-label="Расшифровка голосового">
-    {(!transcription||transcription.pending)&&<button type="button" className="transcribe-button" disabled={busy||offline} onClick={()=>setAttempt(old=>old+1)}>{busy?'Расшифровка…':error?'Повторить расшифровку':'Расшифровать'}</button>}
+    <div className="voice-actions">{children}
+      {(!transcription||transcription.pending)&&<button type="button" className="transcribe-button" aria-label={error&&!busy?'Повторить расшифровку':undefined} disabled={busy||offline} onClick={()=>setAttempt(old=>old+1)}>{busy?'Расшифровка…':error?'Повторить':'Расшифровать'}</button>}
+    </div>
     <div aria-live="polite" aria-atomic="true">
       {transcription&&(transcription.text?<><span className="transcription-caption">Расшифровка</span><p className="transcription-text">{transcription.text}</p></>:!transcription.pending&&<p className="transcription-empty">Речь не распознана.</p>)}
       {error&&<p className="transcription-error" role="alert">{error}</p>}

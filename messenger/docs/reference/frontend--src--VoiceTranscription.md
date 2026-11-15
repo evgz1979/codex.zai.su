@@ -8,16 +8,17 @@
 
 ## VoiceTranscription
 
-Показывает кнопку голосового и полученный текст под сообщением.
+Ставит расшифровку рядом с открытием голосового и показывает полученный текст под строкой.
 
 Запуск явный; ожидающее задание возобновляется из кеша, уход отменяет HTTP-опрос.
 
 ```typescript
-VoiceTranscription({ request, value, offline = false, onUnauthorized }: {
+VoiceTranscription({ request, value, offline = false, onUnauthorized, children }: {
     request: AttachmentRequest;
     value?: Transcript;
     offline?: boolean;
     onUnauthorized(error: ApiError): void;
+    children: ReactNode;
 })
 ```
 

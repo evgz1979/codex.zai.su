@@ -23,13 +23,13 @@ export default function AttachmentPreview({attachment:a,request,version,paused,o
     previewData(request,version,controller.signal).then(result=>{if(disposed)return;objectUrl=URL.createObjectURL(result.blob);setUrl(objectUrl);}).catch(error=>{if(!disposed&&!controller.signal.aborted&&error instanceof ApiError&&error.status===401)onUnauthorized(error);});
     return()=>{disposed=true;controller.abort();if(objectUrl)URL.revokeObjectURL(objectUrl);setUrl(undefined);};
   },[fetchPreview,visible,paused,key]);
-  return <button ref={button} className={`attachment attachment-button ${mayPreview?'attachment-preview':''}`} onClick={onOpen} aria-label={`Открыть вложение: ${a.name}`}>
+  return <button ref={button} className={`attachment attachment-button${mayPreview?' attachment-preview':''}${a.isVoice?' attachment-voice':''}`} onClick={onOpen} aria-label={a.isVoice?'Открыть голосовое сообщение':`Открыть вложение: ${a.name}`}>
     {mayPreview?<span className={`attachment-thumb-surface${preview?'':' attachment-thumb-placeholder'}`}>
       {preview?<img src={preview} alt={inline&&a.kind==='image'?'Фото':inline&&a.kind==='video'?'Кадр видео':`Миниатюра: ${a.name}`} width={width} loading={inline?'lazy':'eager'} onError={()=>setUrl(undefined)} onLoad={event=>{
         const {naturalWidth,naturalHeight}=event.currentTarget;if(naturalHeight)setWidth(Math.max(1,Math.min(218,Math.round(320*naturalWidth/naturalHeight))));
       }}/>:<span aria-hidden="true">{a.kind==='video'?'▷':'▧'}</span>}
       {preview&&a.kind==='video'&&a.downloadable!==false&&<span className="attachment-thumb-play" aria-hidden="true">▶</span>}
-    </span>:<span aria-hidden="true">{a.kind==='audio'?'♪':'▤'}</span>}
-    {(!mayPreview||a.kind==='file')&&<span className="attachment-thumb-label">{a.name}{a.size!==undefined&&<small>{Math.ceil(a.size/1024)} КБ</small>}</span>}
+    </span>:<span aria-hidden="true">{a.isVoice?'▶':a.kind==='audio'?'♪':'▤'}</span>}
+    {(!mayPreview||a.kind==='file')&&<span className="attachment-thumb-label">{a.isVoice?'Голосовое':a.name}{!a.isVoice&&a.size!==undefined&&<small>{Math.ceil(a.size/1024)} КБ</small>}</span>}
   </button>;
 }

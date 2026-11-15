@@ -10,7 +10,9 @@ test('вложения: фото, кадр видео и голосовое бе
   const response=await route.fetch();const json=await response.json();
   const message=json.page.messages.at(-1);
   message.text='Подпись к видео';message.attachments=[{id:'synthetic-video',kind:'video',name:'Видео',downloadable:false,thumbnailJpeg}];
-  Object.assign(json.page.messages.at(-2),{text:'',attachments:[{id:'synthetic-voice',kind:'unsupported',name:'Голосовое сообщение',downloadable:false}]});
+  const voice=json.page.messages.at(-2);
+  Object.assign(voice,{text:'',attachments:[{id:'synthetic-voice',kind:'audio',name:'Голосовое сообщение',isVoice:true,downloadable:true}]});
+  json.snapshot.sources.find((source:{id:string})=>source.id===voice.sourceId).canTranscribeVoice=false;
   Object.assign(json.page.messages.at(-3),{text:'Текст ответа',attachments:[],quote:{author:'Вы',text:'Текст цитаты'}});
   Object.assign(json.page.messages.at(-4),{text:'Подпись к фото',attachments:[{id:'synthetic-photo',kind:'image',name:'Фото',downloadable:true,thumbnailJpeg}]});
   await route.fulfill({response,json});
@@ -33,8 +35,9 @@ test('вложения: фото, кадр видео и голосовое бе
  await expect(message.getByText('Видео',{exact:true})).toHaveCount(0);
  await expect(message.getByRole('button',{name:'Открыть вложение: Видео'})).toHaveCount(1);
  await expect(message.getByText(thumbnailJpeg,{exact:false})).toHaveCount(0);
- const voice=page.getByRole('article').filter({hasText:'Голосовое сообщение'});
+ const voice=page.getByRole('article').filter({has:page.getByRole('button',{name:'Открыть голосовое сообщение',exact:true})});
  await expect(voice.locator('.attachment')).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
+ await expect(voice.getByRole('button',{name:'Расшифровать'})).toHaveCount(0);
  await expect(voice.locator('blockquote')).toHaveCount(0);await expect(message.locator('blockquote')).toHaveCount(0);
  const reply=page.getByRole('article').filter({hasText:'Текст ответа'});
  await expect(reply.locator('blockquote')).toContainText('Текст цитаты');

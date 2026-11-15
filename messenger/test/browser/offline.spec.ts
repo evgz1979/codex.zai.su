@@ -60,7 +60,7 @@ test('закрепление чатов меняет порядок и видн�
 });
 test('offline: просмотренные чаты и расшифровки доступны после закрытия окна, без отправок',async({page,context},testInfo)=>{
   await login(page);await page.getByRole('button',{name:'Общая лента',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Открыть вложение: Голосовое.wav'})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Открыть голосовое сообщение'})).toBeVisible();
   const transcribe=page.getByRole('button',{name:'Расшифровать',exact:true});if(await transcribe.count())await transcribe.click();await expect(page.getByText('Синтетическая расшифровка голосового.',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Назад к чатам'}).click();await page.getByRole('button',{name:/Анна Смирнова/}).click();await expect(page.getByRole('article')).not.toHaveCount(0);await page.getByRole('button',{name:'Назад к чатам'}).click();await page.getByRole('button',{name:/Команда проекта/}).click();await expect(page.getByRole('article')).not.toHaveCount(0);
   const onlineData=await stored(page);const liveSession=await(await page.request.get('/api/chat/session')).json() as {csrfToken:string;expiresAt:number};expect(liveSession.expiresAt).toBeGreaterThan(Date.now());expect(onlineData).toContain('Синтетическая расшифровка');for(const secret of [liveSession.csrfToken,'csrfToken','browser-test-password','apiHash','sessionToken'])expect(onlineData).not.toContain(secret);

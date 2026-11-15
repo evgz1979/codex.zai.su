@@ -428,7 +428,7 @@ export function App() {
         <div ref={sentinel} className="history-sentinel" aria-hidden="true" />
         {!messages.length ? <div className="empty-state"><h2>{loading?'Загрузка сообщений…':offline?'В этом чате ещё нет сохранённых сообщений':'Нет загруженных сообщений'}</h2></div> : <div className="message-stream">{messages.map((m,i,messages) => {
           const c = snapshot?.conversations.find(c => c.id === m.conversationId);
-          const voice=snapshot?.sources.find(s=>s.id===m.sourceId)?.canTranscribeVoice!==false&&m.attachments.find(a=>a.kind==='audio'&&a.isVoice&&a.downloadable!==false);
+          const canTranscribe=snapshot?.sources.find(s=>s.id===m.sourceId)?.canTranscribeVoice===true;
           const hasFrame=m.attachments.some(attachmentHasPreview);
           return <div key={m.id}>{(i === 0 || day(messages[i-1].date) !== day(m.date)) && <div className="date-divider"><span>{day(m.date)}</span></div>}
             <article data-message-id={m.id} className={`message ${m.outgoing ? 'outgoing' : ''}`} aria-label={`Сообщение: ${m.sender.name}`}>
@@ -436,8 +436,13 @@ export function App() {
                 {!target&&<div className="message-context"><strong>{c?.title || 'Диалог'}</strong><span className="source-label">{snapshot?.sources.find(s => s.id === m.sourceId)?.name || 'Источник'}</span></div>}
                 {!m.outgoing && c?.kind === 'group' && <strong className="sender-name">{m.sender.name}</strong>}
                 {m.quote&&<blockquote className="message-quote" aria-label="Цитата">{m.quote.author&&<strong>{m.quote.author}</strong>}<span>{m.quote.text}</span></blockquote>}
-                {m.text && <p>{m.text}</p>}{m.attachments.map(a=><AttachmentPreview key={a.id} attachment={a} request={{conversationId:m.conversationId,messageId:m.id,attachmentId:a.id}} version={m.editedAt||m.date} paused={offline||!!attachmentTarget} onOpen={()=>setAttachmentTarget({conversationId:m.conversationId,messageId:m.id,attachmentId:a.id})} onUnauthorized={fail}/>)}
-                {voice&&chatOpen&&<VoiceTranscription key={m.editedAt||m.date} request={{conversationId:m.conversationId,messageId:m.id,attachmentId:voice.id}} value={m.voiceTranscription} offline={offline} onUnauthorized={fail}/>}
+                {m.text && <p>{m.text}</p>}{m.attachments.map(a=>{
+                  const request={conversationId:m.conversationId,messageId:m.id,attachmentId:a.id};
+                  const preview=<AttachmentPreview key={a.id} attachment={a} request={request} version={m.editedAt||m.date} paused={offline||!!attachmentTarget} onOpen={()=>setAttachmentTarget(request)} onUnauthorized={fail}/>;
+                  return canTranscribe&&chatOpen&&a.kind==='audio'&&a.isVoice&&a.downloadable!==false
+                    ?<VoiceTranscription key={`${a.id}/${m.editedAt||m.date}`} request={request} value={m.voiceTranscription} offline={offline} onUnauthorized={fail}>{preview}</VoiceTranscription>
+                    :preview;
+                })}
                 <div className="message-meta">{!target&&c?.canSend&&<button className="reply-button" disabled={busy} onClick={() => choose(c)}>Ответить <span aria-hidden="true">↗</span></button>}<time dateTime={m.date}>{time(m.date)}</time>{m.outgoing && <span aria-label="Отправлено">✓</span>}</div>
               </div>
             </article></div>;

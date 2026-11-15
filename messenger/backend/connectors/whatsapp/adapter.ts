@@ -74,7 +74,8 @@ export class WhatsAppAdapter implements SourceAdapter {
       if(code==='attachment_missing')throw new AppError(404,'Оригинал больше недоступен в WhatsApp.');
       if(code==='attachment_too_large')throw new AppError(413,'Это вложение больше 8 МБ.');
       if(code==='attachment_unsupported')throw new AppError(415,'Это вложение открывается в WhatsApp.');
-      if(code==='invalid_destination'||code==='not_selected')throw new AppError(403,'Вложение недоступно.');
+      if(code==='invalid_destination')throw new AppError(404,'Не удалось найти оригинал в выбранном чате.');
+      if(code==='not_selected')throw new AppError(403,'Вложение недоступно.');
       throw new AppError(503,'Не удалось загрузить вложение из WhatsApp.');
     }
     signal.throwIfAborted();

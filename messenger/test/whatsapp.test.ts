@@ -79,7 +79,7 @@ test('WhatsApp: оригиналы фото, голосового и PDF отк�
   const signal=new AbortController().signal;
   await assert.rejects(media.open({...input,attachmentId:'другое вложение'},signal,()=>{}),{status:404});
   candidate.id={...raw.id,remote:'999@c.us'};
-  await assert.rejects(media.open(input,signal,()=>{}),{status:403});
+  await assert.rejects(media.open(input,signal,()=>{}),{status:404});
   candidate.id=raw.id;
   candidate.rawData.size=32*1024*1024;
   await assert.rejects(media.open(input,signal,()=>{}),{status:413});
@@ -89,7 +89,7 @@ test('WhatsApp: оригиналы фото, голосового и PDF отк�
   candidate.rawData.isViewOnce=false;
   if(type==='image'){
    candidate.id={id:type,fromMe:false,remote:alias,_serialized:`false_${alias}_${type}`};
-   await assert.rejects(media.open(input,signal,()=>{}),{status:403});
+   await assert.rejects(media.open(input,signal,()=>{}),{status:404});
    confirmedAlias=true;
   }
   const opened=await media.open(input,signal,()=>{});assert.equal(opened.attachment.kind,kind);assert.equal(opened.attachment.mimeType,mime);opened.release();

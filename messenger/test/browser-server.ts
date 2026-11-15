@@ -17,6 +17,7 @@ const store = new Store(dir);
 store.set('auth.chat',await passwordHash('browser-test-password'));
 store.set('auth.admin',await passwordHash('browser-admin-password'));
 const a = new TestAdapter('fixture-a','Telegram');
+a.source.canTranscribeVoice=true;
 const b = new TestAdapter('fixture-b','Другой источник · тест');
 // Общая фикстура прочитана; непрочитанные и стартовый переход задаются отдельными сценариями.
 for(const conversation of [...a.conversations,...b.conversations])conversation.unreadCount=0;

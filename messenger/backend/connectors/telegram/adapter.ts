@@ -29,7 +29,7 @@ type TelegramPort = Pick<TelegramClient, 'connected' | 'connect' | 'checkAuthori
 //: Реализует SourceAdapter для одного личного Telegram-аккаунта.
 //: Сессия и native peer остаются на сервере, DTO не содержат секретов.
 export class TelegramAdapter implements SourceAdapter {
-  readonly source: Source = { id: TELEGRAM_SOURCE, kind: 'telegram', name: 'Telegram', connected: false };
+  readonly source: Source = { id: TELEGRAM_SOURCE, kind: 'telegram', name: 'Telegram', connected: false, canTranscribeVoice:true };
   private client?: TelegramPort;
   private dialogs = new Map<string, Pick<Dialog, 'id' | 'inputEntity'> & {photo?:Api.UserProfilePhoto|Api.ChatPhoto}>();
   private connecting?: Promise<void>;
