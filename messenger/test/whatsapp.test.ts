@@ -61,16 +61,17 @@ test('WhatsApp: миниатюры фото и видео отделены от 
 
 test('WhatsApp: оригиналы фото, голосового и PDF открываются только из выбранного сообщения',async t=>{
  const root=mkdtempSync(join(tmpdir(),'wa-attachment-'));const store=new Store(root);
- const account='a'.repeat(64);let candidate:any;let bytesToDownload:Buffer;let downloads=0;
+ const account='a'.repeat(64);let candidate:any;let downloads=0;
  const alias='123@lid';let confirmedAlias=false;
+ const blobs=new Map<string,Blob>();
  const modules={
   WAWebCollections:{Msg:{get:()=>candidate}},
-  WAWebApiContact:{getPhoneNumber:()=>undefined,getCurrentLid:()=>confirmedAlias?{_serialized:alias}:undefined},
+  WAWebApiContact:{getPhoneNumber:()=>undefined,getCurrentLid:()=>confirmedAlias?{$1:alias}:undefined},
   WAWebWidFactory:{createWid:(value:string)=>value},
-  WAWebDownloadManager:{downloadManager:{async downloadAndMaybeDecrypt(){downloads++;return bytesToDownload;}}},
+  WAWebMediaInMemoryBlobCache:{InMemoryMediaBlobCache:blobs},
  };
- const window={require:(name:keyof typeof modules)=>modules[name],WWebJS:{arrayBufferToBase64Async:(value:Buffer)=>value.toString('base64')}};
- const pupPage={evaluate:(fn:Function,input:unknown)=>runInNewContext(`(${fn.toString()})(input)`,{window,input,setTimeout,clearTimeout,AbortController,__name:(fn:Function)=>fn})};
+ const window={require:(name:keyof typeof modules)=>modules[name],WWebJS:{arrayBufferToBase64Async:(value:ArrayBuffer)=>Buffer.from(value).toString('base64')}};
+ const pupPage={evaluate:(fn:Function,input:unknown)=>runInNewContext(`(${fn.toString()})(input)`,{window,input,setTimeout,clearTimeout,__name:(fn:Function)=>fn})};
  const client=Object.assign(new EventEmitter(),{pupBrowser:{async close(){}},pupPage,async initialize(){},async destroy(){}});
  const browser=new WhatsAppBrowser(join(root,'profile'),'/unused/chrome',()=>client as never);
  t.after(async()=>{await browser.stop();store.close();rmSync(root,{recursive:true,force:true});});
@@ -82,8 +83,9 @@ test('WhatsApp: оригиналы фото, голосового и PDF отк�
  for(const [type,mime,bytes,kind] of [['image','image/jpeg',jpeg,'image'],['ptt','audio/ogg',Buffer.from('OggS'), 'audio'],['document','application/pdf',Buffer.from('%PDF-1.4'),'file']] as const){
   const raw={...native,id:{...native.id,_serialized:`false_${jid}_${type}`},type,body:type==='image'?jpeg.toString('base64'):'',hasMedia:true};
   const message=webMessage(raw,jid,'Тест');store.upsertMessages([message]);
-  bytesToDownload=bytes;
-  candidate={id:raw.id,type,size:bytes.length,directPath:'example',mediaKey:'example',mimetype:mime};
+  const blob=new Blob([new Uint8Array(bytes)],{type:mime});
+  candidate={id:raw.id,type,size:bytes.length,mimetype:mime,mediaObject:{filehash:type},mediaData:{mediaStage:'RESOLVED'},async downloadMedia(options:Record<string,unknown>){assert.equal(options.isUserInitiated,true);downloads++;blobs.set(type,blob);}};
+  if(type==='image')candidate.mediaObject.mediaBlob={forceToBlob:()=>blob};
   const input={conversationId:id,messageId:message.id,attachmentId:message.attachments[0].id};
   const signal=new AbortController().signal;
   await assert.rejects(media.open({...input,attachmentId:'другое вложение'},signal,()=>{}),{status:404});
@@ -97,7 +99,7 @@ test('WhatsApp: оригиналы фото, голосового и PDF отк�
   await assert.rejects(media.open(input,signal,()=>{}),{status:415});
   candidate.isViewOnce=false;
   if(type==='image'){
-   candidate.id={id:type,fromMe:false,remote:{_serialized:alias},_serialized:`false_${alias}_${type}`};
+   candidate.id={id:type,fromMe:false,remote:{$1:alias},$1:`false_${alias}_${type}`};
    await assert.rejects(media.open(input,signal,()=>{}),{status:404});
    confirmedAlias=true;
   }
@@ -106,7 +108,7 @@ test('WhatsApp: оригиналы фото, голосового и PDF отк�
   const again=await media.open(input,signal,()=>{});assert.equal(again.attachment.size,bytes.length);again.release();
   store.select([]);await assert.rejects(media.open(input,signal,()=>{}),{status:403});store.select([id]);
  }
- assert.equal(downloads,3);
+ assert.equal(downloads,2);
 });
 
 test('WhatsApp: зависшее вложение освобождает очередь без перезапуска браузера',async t=>{

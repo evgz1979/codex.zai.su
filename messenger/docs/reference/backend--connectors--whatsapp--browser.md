@@ -194,28 +194,16 @@ async handle(request: BrowserRequest): Promise<BrowserResult>
 private async loadOriginal(jid: string, messageId: string): Promise<NonNullable<BrowserResult['media']>>
 ```
 
-<a id="symbol-WhatsAppBrowser.loadOriginal.addAnnotations"></a>
+<a id="symbol-WhatsAppBrowser.loadOriginal.readBlob"></a>
 
-## WhatsAppBrowser.loadOriginal.addAnnotations
+## WhatsAppBrowser.loadOriginal.readBlob
 
-Принимает аннотации штатного загрузчика WhatsApp.
+Читает расшифрованное вложение из кеша самого WhatsApp Web.
 
-Messenger не собирает эти данные.
-
-```typescript
-addAnnotations()
-```
-
-<a id="symbol-WhatsAppBrowser.loadOriginal.addPoint"></a>
-
-## WhatsAppBrowser.loadOriginal.addPoint
-
-Принимает этап штатного загрузчика WhatsApp.
-
-Сохраняет возможность цепочного вызова методов.
+Поиск ограничен хешем уже проверенного сообщения.
 
 ```typescript
-addPoint()
+readBlob(): Blob | undefined
 ```
 
 <a id="symbol-WhatsAppBrowser.markRead"></a>

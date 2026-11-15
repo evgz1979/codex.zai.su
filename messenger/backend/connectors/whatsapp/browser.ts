@@ -121,8 +121,8 @@ export class WhatsAppBrowser {
       const msg=messages.get(key)||(await messages.getMessagesById([key]))?.messages?.[0];
       if(!msg)return {error:'attachment_missing'};
       const id=msg.id;
-      const remote=id?.remote?._serialized||String(id?.remote||'');
-      const serialized=id?._serialized||id?.toString?.();
+      const remote=id?.remote?._serialized||id?.remote?.$1||String(id?.remote||'');
+      const serialized=id?._serialized||id?.$1||id?.toString?.();
       if(serialized!==key||remote!==jid){
         const [direction,,stanza,participant]=key.split('_');
         if(participant!==undefined||!stanza||id?.id!==stanza||id?.fromMe!==(direction==='true'))return {error:'invalid_destination'};
@@ -132,33 +132,42 @@ export class WhatsAppBrowser {
           if(!/^\d{1,64}@lid$/.test(lid)||!/^\d{1,64}@c\.us$/.test(pn))return {error:'invalid_destination'};
           const contacts=w.require('WAWebApiContact');
           const wids=w.require('WAWebWidFactory');
-          if(contacts.getPhoneNumber(wids.createWid(lid))?._serialized!==pn&&contacts.getCurrentLid(wids.createWid(pn))?._serialized!==lid)return {error:'invalid_destination'};
+          const phone=contacts.getPhoneNumber(wids.createWid(lid));
+          const contactLid=contacts.getCurrentLid(wids.createWid(pn));
+          if((phone?._serialized||phone?.$1)!==pn&&(contactLid?._serialized||contactLid?.$1)!==lid)return {error:'invalid_destination'};
         }
       }
       if(msg.isViewOnce||msg.viewOnce||msg.isViewOnceV2||!['image','audio','ptt','document','sticker'].includes(msg.type))return {error:'attachment_unsupported'};
-      if(!msg.directPath||!msg.mediaKey)return {error:'attachment_missing'};
       const size=Number(msg.size);
       if(!Number.isSafeInteger(size)||size<=0)return {error:'attachment_missing'};
       if(size>limit)return {error:'attachment_too_large'};
       const remaining=deadline-Date.now();
       if(remaining<=0)return {error:'attachment_timeout'};
-      const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),Math.min(10000,remaining));
+      //: Читает расшифрованное вложение из кеша самого WhatsApp Web.
+      //: Поиск ограничен хешем уже проверенного сообщения.
+      const readBlob=():Blob|undefined=>{
+        const blob=msg.mediaObject?.mediaBlob?.forceToBlob();
+        if(blob)return blob;
+        const filehash=msg.mediaObject?.filehash;
+        if(filehash)return w.require('WAWebMediaInMemoryBlobCache').InMemoryMediaBlobCache?.get(filehash);
+      };
+      let timer:ReturnType<typeof setTimeout>|undefined;
       try{
-        const downloadQpl={
-          //: Принимает аннотации штатного загрузчика WhatsApp.
-          //: Messenger не собирает эти данные.
-          addAnnotations(){return this;},
-          //: Принимает этап штатного загрузчика WhatsApp.
-          //: Сохраняет возможность цепочного вызова методов.
-          addPoint(){return this;},
-        };
-        const bytes=await w.require('WAWebDownloadManager').downloadManager.downloadAndMaybeDecrypt({
-          directPath:msg.directPath,encFilehash:msg.encFilehash,filehash:msg.filehash,mediaKey:msg.mediaKey,mediaKeyTimestamp:msg.mediaKeyTimestamp,type:msg.type,signal:controller.signal,downloadQpl,
-        });
-        if(!bytes?.byteLength)return {error:'attachment_missing'};
-        if(bytes.byteLength>limit)return {error:'attachment_too_large'};
-        return {media:{data:await w.WWebJS.arrayBufferToBase64Async(bytes),mimeType:String(msg.mimetype||'application/octet-stream').slice(0,128),...(typeof msg.filename==='string'?{name:msg.filename.slice(0,256)}:{})}};
-      }catch(error){return {error:controller.signal.aborted?'attachment_timeout':(error as {status?:number})?.status===404?'attachment_missing':'attachment_unavailable'};}
+        let blob=readBlob();
+        if(!blob){
+          if(!msg.mediaData||msg.mediaData.mediaStage==='REUPLOADING')return {error:'attachment_missing'};
+          const downloaded=await Promise.race([
+            Promise.resolve(msg.downloadMedia({downloadEvenIfExpensive:true,rmrReason:1,isUserInitiated:true})).then(()=>true),
+            new Promise<false>(resolve=>{timer=setTimeout(()=>resolve(false),remaining);}),
+          ]);
+          blob=readBlob();
+          if(!blob)return {error:downloaded?'attachment_missing':'attachment_timeout'};
+        }
+        if(!blob.size)return {error:'attachment_missing'};
+        if(blob.size>limit)return {error:'attachment_too_large'};
+        const data=await w.WWebJS.arrayBufferToBase64Async(await blob.arrayBuffer());
+        return {media:{data,mimeType:String(msg.mimetype||blob.type||'application/octet-stream').slice(0,128),...(typeof msg.filename==='string'?{name:msg.filename.slice(0,256)}:{})}};
+      }catch(error){return {error:(error as {status?:number})?.status===404?'attachment_missing':'attachment_unavailable'};}
       finally{clearTimeout(timer);}
     },{key,jid,limit:WHATSAPP_ATTACHMENT_BYTES});
     if(result.error||!result.media)throw new Error(result.error||'attachment_missing');
