@@ -76,6 +76,7 @@ export class WhatsAppAdapter implements SourceAdapter {
       if(code==='attachment_unsupported')throw new AppError(415,'Это вложение открывается в WhatsApp.');
       if(code==='invalid_destination')throw new AppError(404,'Не удалось найти оригинал в выбранном чате.');
       if(code==='not_selected')throw new AppError(403,'Вложение недоступно.');
+      if(code==='attachment_timeout'||code==='attachment_busy')throw new AppError(503,'WhatsApp не успел загрузить вложение. Попробуйте ещё раз.');
       throw new AppError(503,'Не удалось загрузить вложение из WhatsApp.');
     }
     signal.throwIfAborted();

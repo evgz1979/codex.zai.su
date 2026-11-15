@@ -52,6 +52,7 @@ export class WhatsAppBrowser {
   private startup?:BrowserStartup;
   private authObserved=false;
   private recoveryRequested=false;
+  private attachmentInFlight?:Promise<NonNullable<BrowserResult['media']>>;
   //: Задаёт корень профилей и доверенный путь браузера из конфигурации сервиса.
   //: HTTP-запросы не могут менять executablePath, root или фабрику клиента.
   constructor(private root:string,private executablePath:string,private factory=(options:WA.ClientOptions)=>new PollingClient(options)){privateDirectory(root);}
@@ -94,40 +95,74 @@ export class WhatsAppBrowser {
     }
     throw new Error('invalid_request');
   }
+  //: Ограничивает время ожидания одного вложения отдельно от общей очереди worker.
+  //: Пока предыдущий вызов браузера ещё завершается, новый запрос не запускается.
+  private async downloadAttachment(jid:string,messageId:string):Promise<NonNullable<BrowserResult['media']>>{
+    if(this.attachmentInFlight)throw new Error('attachment_busy');
+    const task=this.loadOriginal(jid,messageId);this.attachmentInFlight=task;
+    //: Освобождает слот только после фактического завершения вызова браузера.
+    //: Старый вызов не очищает слот после остановки и повторного подключения клиента.
+    const release=()=>{if(this.attachmentInFlight===task)this.attachmentInFlight=undefined;};
+    void task.then(release,release);
+    let timer:ReturnType<typeof setTimeout>|undefined;
+    try{return await Promise.race([task,new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(new Error('attachment_timeout')),16000);})]);}
+    finally{clearTimeout(timer);}
+  }
   //: Получает оригинал одного поддерживаемого вложения выбранного чата.
   //: Тип, точный ключ, принадлежность чату, одноразовость и размер проверяются до скачивания.
-  private async downloadAttachment(jid:string,messageId:string):Promise<NonNullable<BrowserResult['media']>>{
+  private async loadOriginal(jid:string,messageId:string):Promise<NonNullable<BrowserResult['media']>>{
     if(!messageId.startsWith('whatsapp:message:'))throw new Error('invalid_destination');
     const key=decodeURIComponent(messageId.slice('whatsapp:message:'.length));
     if(!key.startsWith(`false_${jid}_`)&&!key.startsWith(`true_${jid}_`))throw new Error('invalid_destination');
-    const message=await this.client!.getMessageById(key);
-    if(!message)throw new Error('attachment_missing');
-    if(message.id._serialized!==key||message.id.remote!==jid)await this.matchAttachmentAlias(message,jid,key);
-    const raw=message.rawData as {size?:number|string;isViewOnce?:boolean;viewOnce?:boolean;isViewOnceV2?:boolean};
-    if(raw.isViewOnce||raw.viewOnce||raw.isViewOnceV2||!['image','audio','ptt','document','sticker'].includes(message.type))throw new Error('attachment_unsupported');
-    if(!message.hasMedia)throw new Error('attachment_missing');
-    const size=Number(raw.size);
-    if(!Number.isSafeInteger(size)||size<=0)throw new Error('attachment_missing');
-    if(size>WHATSAPP_ATTACHMENT_BYTES)throw new Error('attachment_too_large');
-    const file=await message.downloadMedia();
-    if(!file?.data)throw new Error('attachment_missing');
-    if(file.data.length>4*Math.ceil(WHATSAPP_ATTACHMENT_BYTES/3))throw new Error('attachment_too_large');
-    return {data:file.data,mimeType:file.mimetype.slice(0,128),...(file.filename?{name:file.filename.slice(0,256)}:{})};
-  }
-  //: Проверяет совпадение сообщения, если WhatsApp заменил LID на номер или наоборот.
-  //: Пара адресов подтверждается клиентом WhatsApp, а ID и направление остаются точными.
-  private async matchAttachmentAlias(message:WA.Message,jid:string,key:string){
-    const [direction,,stanza,participant]=key.split('_');
-    const {id,fromMe,remote}=message.id;
-    if(participant!==undefined||!stanza||id!==stanza||typeof remote!=='string'||fromMe!==(direction==='true'))throw new Error('invalid_destination');
-    if(remote!==jid){
-      const lid=jid.endsWith('@lid')?jid:remote;
-      const pn=jid.endsWith('@c.us')?jid:remote;
-      if(!lid.endsWith('@lid')||!pn.endsWith('@c.us'))throw new Error('invalid_destination');
-      const [pair]=await this.client!.getContactLidAndPhone([jid]);
-      if(pair?.lid!==lid||pair?.pn!==pn)throw new Error('invalid_destination');
-    }
-    message.id={...message.id,_serialized:key,remote:jid};
+    const result=await this.client!.pupPage!.evaluate(async({key,jid,limit})=>{
+      const w=window as any;
+      const deadline=Date.now()+14000;
+      const messages=w.require('WAWebCollections').Msg;
+      const msg=messages.get(key)||(await messages.getMessagesById([key]))?.messages?.[0];
+      if(!msg)return {error:'attachment_missing'};
+      const id=msg.id;
+      const remote=id?.remote?._serialized||String(id?.remote||'');
+      const serialized=id?._serialized||id?.toString?.();
+      if(serialized!==key||remote!==jid){
+        const [direction,,stanza,participant]=key.split('_');
+        if(participant!==undefined||!stanza||id?.id!==stanza||id?.fromMe!==(direction==='true'))return {error:'invalid_destination'};
+        if(remote!==jid){
+          const lid=jid.endsWith('@lid')?jid:remote;
+          const pn=jid.endsWith('@c.us')?jid:remote;
+          if(!/^\d{1,64}@lid$/.test(lid)||!/^\d{1,64}@c\.us$/.test(pn))return {error:'invalid_destination'};
+          const contacts=w.require('WAWebApiContact');
+          const wids=w.require('WAWebWidFactory');
+          if(contacts.getPhoneNumber(wids.createWid(lid))?._serialized!==pn&&contacts.getCurrentLid(wids.createWid(pn))?._serialized!==lid)return {error:'invalid_destination'};
+        }
+      }
+      if(msg.isViewOnce||msg.viewOnce||msg.isViewOnceV2||!['image','audio','ptt','document','sticker'].includes(msg.type))return {error:'attachment_unsupported'};
+      if(!msg.directPath||!msg.mediaKey)return {error:'attachment_missing'};
+      const size=Number(msg.size);
+      if(!Number.isSafeInteger(size)||size<=0)return {error:'attachment_missing'};
+      if(size>limit)return {error:'attachment_too_large'};
+      const remaining=deadline-Date.now();
+      if(remaining<=0)return {error:'attachment_timeout'};
+      const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),Math.min(10000,remaining));
+      try{
+        const downloadQpl={
+          //: Принимает аннотации штатного загрузчика WhatsApp.
+          //: Messenger не собирает эти данные.
+          addAnnotations(){return this;},
+          //: Принимает этап штатного загрузчика WhatsApp.
+          //: Сохраняет возможность цепочного вызова методов.
+          addPoint(){return this;},
+        };
+        const bytes=await w.require('WAWebDownloadManager').downloadManager.downloadAndMaybeDecrypt({
+          directPath:msg.directPath,encFilehash:msg.encFilehash,filehash:msg.filehash,mediaKey:msg.mediaKey,mediaKeyTimestamp:msg.mediaKeyTimestamp,type:msg.type,signal:controller.signal,downloadQpl,
+        });
+        if(!bytes?.byteLength)return {error:'attachment_missing'};
+        if(bytes.byteLength>limit)return {error:'attachment_too_large'};
+        return {media:{data:await w.WWebJS.arrayBufferToBase64Async(bytes),mimeType:String(msg.mimetype||'application/octet-stream').slice(0,128),...(typeof msg.filename==='string'?{name:msg.filename.slice(0,256)}:{})}};
+      }catch(error){return {error:controller.signal.aborted?'attachment_timeout':(error as {status?:number})?.status===404?'attachment_missing':'attachment_unavailable'};}
+      finally{clearTimeout(timer);}
+    },{key,jid,limit:WHATSAPP_ATTACHMENT_BYTES});
+    if(result.error||!result.media)throw new Error(result.error||'attachment_missing');
+    return result.media;
   }
   //: Запускает Chromium с включённым sandbox и профилем текущего аккаунта.
   //: Без interactive восстанавливается только профиль, ранее достигший ready.
@@ -207,7 +242,7 @@ export class WhatsAppBrowser {
   //: Только logout удаляет профиль; остановка аккаунта и релиз его не стирают.
   async stop(){
     if(this.stopping)return this.stopping;clearTimeout(this.loginTimer);clearTimeout(this.stateTimer);this.qrVersion++;
-    const client=this.client;const initializing=this.initializing;this.client=undefined;this.initializing=undefined;this.startup=undefined;this.state={stage:'idle',connected:false};
+    const client=this.client;const initializing=this.initializing;this.client=undefined;this.initializing=undefined;this.startup=undefined;this.attachmentInFlight=undefined;this.state={stage:'idle',connected:false};
     this.stopping=(async()=>{try{if(client&&!client.pupBrowser&&initializing){let settled=false;void initializing.finally(()=>{settled=true;}).catch(()=>{});while(!client.pupBrowser&&!settled)await new Promise(resolve=>setTimeout(resolve,25));}await client?.pupBrowser?.close?.();await client?.destroy();}catch{/* Процесс может быть уже завершён cgroup. */}finally{this.owner=undefined;this.stopping=undefined;}})();return this.stopping;
   }
   //: Выдаёт административный каталог метаданных без body и lastMessage.

@@ -182,6 +182,7 @@
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: выбранная read-only группа доступна для чтения, отправка в неё запрещена
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: выбранная история читает кеш и одну старую порцию без сериализатора чата
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: готовый Stream восстанавливает пропущенную инициализацию без подмены ready
+- [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: зависшее вложение освобождает очередь без перезапуска браузера
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: закрытый протокол отклоняет RPC, путь профиля и невыбранного получателя
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: история недоступного Telegram не задерживает синхронизацию WhatsApp
 - [test/whatsapp.test.ts](../../test/whatsapp.test.ts): WhatsApp: каталог использует WAWebCollections без window.Store и не читает сообщения

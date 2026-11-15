@@ -61,9 +61,17 @@ test('WhatsApp: миниатюры фото и видео отделены от 
 
 test('WhatsApp: оригиналы фото, голосового и PDF открываются только из выбранного сообщения',async t=>{
  const root=mkdtempSync(join(tmpdir(),'wa-attachment-'));const store=new Store(root);
- const account='a'.repeat(64);let candidate:any;let downloads=0;
+ const account='a'.repeat(64);let candidate:any;let bytesToDownload:Buffer;let downloads=0;
  const alias='123@lid';let confirmedAlias=false;
- const client=Object.assign(new EventEmitter(),{pupBrowser:{async close(){}},async initialize(){},async destroy(){},async getMessageById(){return candidate;},async getContactLidAndPhone(ids:string[]){assert.deepEqual(ids,[jid]);return confirmedAlias?[{lid:alias,pn:jid}]:[];}});
+ const modules={
+  WAWebCollections:{Msg:{get:()=>candidate}},
+  WAWebApiContact:{getPhoneNumber:()=>undefined,getCurrentLid:()=>confirmedAlias?{_serialized:alias}:undefined},
+  WAWebWidFactory:{createWid:(value:string)=>value},
+  WAWebDownloadManager:{downloadManager:{async downloadAndMaybeDecrypt(){downloads++;return bytesToDownload;}}},
+ };
+ const window={require:(name:keyof typeof modules)=>modules[name],WWebJS:{arrayBufferToBase64Async:(value:Buffer)=>value.toString('base64')}};
+ const pupPage={evaluate:(fn:Function,input:unknown)=>runInNewContext(`(${fn.toString()})(input)`,{window,input,setTimeout,clearTimeout,AbortController,__name:(fn:Function)=>fn})};
+ const client=Object.assign(new EventEmitter(),{pupBrowser:{async close(){}},pupPage,async initialize(){},async destroy(){}});
  const browser=new WhatsAppBrowser(join(root,'profile'),'/unused/chrome',()=>client as never);
  t.after(async()=>{await browser.stop();store.close();rmSync(root,{recursive:true,force:true});});
  const adapter=new WhatsAppAdapter(root,store,async request=>browser.handle(browserRequest({...request,account})));
@@ -74,21 +82,22 @@ test('WhatsApp: оригиналы фото, голосового и PDF отк�
  for(const [type,mime,bytes,kind] of [['image','image/jpeg',jpeg,'image'],['ptt','audio/ogg',Buffer.from('OggS'), 'audio'],['document','application/pdf',Buffer.from('%PDF-1.4'),'file']] as const){
   const raw={...native,id:{...native.id,_serialized:`false_${jid}_${type}`},type,body:type==='image'?jpeg.toString('base64'):'',hasMedia:true};
   const message=webMessage(raw,jid,'Тест');store.upsertMessages([message]);
-  candidate={id:raw.id,type,hasMedia:true,rawData:{size:bytes.length},async downloadMedia(){downloads++;return {data:bytes.toString('base64'),mimetype:mime};}};
+  bytesToDownload=bytes;
+  candidate={id:raw.id,type,size:bytes.length,directPath:'example',mediaKey:'example',mimetype:mime};
   const input={conversationId:id,messageId:message.id,attachmentId:message.attachments[0].id};
   const signal=new AbortController().signal;
   await assert.rejects(media.open({...input,attachmentId:'другое вложение'},signal,()=>{}),{status:404});
   candidate.id={...raw.id,remote:'999@c.us'};
   await assert.rejects(media.open(input,signal,()=>{}),{status:404});
   candidate.id=raw.id;
-  candidate.rawData.size=32*1024*1024;
+  candidate.size=32*1024*1024;
   await assert.rejects(media.open(input,signal,()=>{}),{status:413});
-  candidate.rawData.size=bytes.length;
-  candidate.rawData.isViewOnce=true;
+  candidate.size=bytes.length;
+  candidate.isViewOnce=true;
   await assert.rejects(media.open(input,signal,()=>{}),{status:415});
-  candidate.rawData.isViewOnce=false;
+  candidate.isViewOnce=false;
   if(type==='image'){
-   candidate.id={id:type,fromMe:false,remote:alias,_serialized:`false_${alias}_${type}`};
+   candidate.id={id:type,fromMe:false,remote:{_serialized:alias},_serialized:`false_${alias}_${type}`};
    await assert.rejects(media.open(input,signal,()=>{}),{status:404});
    confirmedAlias=true;
   }
@@ -98,6 +107,28 @@ test('WhatsApp: оригиналы фото, голосового и PDF отк�
   store.select([]);await assert.rejects(media.open(input,signal,()=>{}),{status:403});store.select([id]);
  }
  assert.equal(downloads,3);
+});
+
+test('WhatsApp: зависшее вложение освобождает очередь без перезапуска браузера',async t=>{
+ const root=mkdtempSync(join(tmpdir(),'wa-attachment-timeout-'));
+ let finish!:()=>void;let evaluations=0;
+ const pupPage={evaluate(){evaluations++;return new Promise(resolve=>{finish=()=>resolve({error:'attachment_missing'});});}};
+ const client=Object.assign(new EventEmitter(),{pupBrowser:{async close(){}},pupPage,async initialize(){},async destroy(){},async getState(){return 'CONNECTED';}});
+ const browser=new WhatsAppBrowser(root,'/unused/chrome',()=>client as never);
+ t.after(async()=>{await browser.stop();rmSync(root,{recursive:true,force:true});});
+ const account='a'.repeat(64);
+ await browser.handle({account,action:'start',interactive:true});client.emit('ready');
+ t.mock.timers.enable({apis:['setTimeout']});
+ const request:BrowserRequest={account,action:'attachment',conversationId:id,allowed:[id],messageId:entityId('whatsapp','message',native.id._serialized)};
+ const opening=assert.rejects(browser.handle(request),{message:'attachment_timeout'});
+ t.mock.timers.tick(16000);
+ await opening;
+ assert.equal((await browser.handle({account,action:'status'})).status?.connected,true);
+ await assert.rejects(browser.handle(request),{message:'attachment_busy'});
+ assert.equal(evaluations,1);
+ finish();await flush();
+ const retry=assert.rejects(browser.handle(request),{message:'attachment_missing'});
+ finish();await retry;
 });
 
 test('WhatsApp: закрытый протокол отклоняет RPC, путь профиля и невыбранного получателя',()=>{

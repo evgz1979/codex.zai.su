@@ -138,12 +138,24 @@ constructor(private root: string, private executablePath: string, private factor
 
 ## WhatsAppBrowser.downloadAttachment
 
-Получает оригинал одного поддерживаемого вложения выбранного чата.
+Ограничивает время ожидания одного вложения отдельно от общей очереди worker.
 
-Тип, точный ключ, принадлежность чату, одноразовость и размер проверяются до скачивания.
+Пока предыдущий вызов браузера ещё завершается, новый запрос не запускается.
 
 ```typescript
 private async downloadAttachment(jid: string, messageId: string): Promise<NonNullable<BrowserResult['media']>>
+```
+
+<a id="symbol-WhatsAppBrowser.downloadAttachment.release"></a>
+
+## WhatsAppBrowser.downloadAttachment.release
+
+Освобождает слот только после фактического завершения вызова браузера.
+
+Старый вызов не очищает слот после остановки и повторного подключения клиента.
+
+```typescript
+release()
 ```
 
 <a id="symbol-WhatsAppBrowser.fail"></a>
@@ -170,6 +182,42 @@ private async fail(client: InstanceType<typeof WA.Client>, issue = 'Не уда�
 async handle(request: BrowserRequest): Promise<BrowserResult>
 ```
 
+<a id="symbol-WhatsAppBrowser.loadOriginal"></a>
+
+## WhatsAppBrowser.loadOriginal
+
+Получает оригинал одного поддерживаемого вложения выбранного чата.
+
+Тип, точный ключ, принадлежность чату, одноразовость и размер проверяются до скачивания.
+
+```typescript
+private async loadOriginal(jid: string, messageId: string): Promise<NonNullable<BrowserResult['media']>>
+```
+
+<a id="symbol-WhatsAppBrowser.loadOriginal.addAnnotations"></a>
+
+## WhatsAppBrowser.loadOriginal.addAnnotations
+
+Принимает аннотации штатного загрузчика WhatsApp.
+
+Messenger не собирает эти данные.
+
+```typescript
+addAnnotations()
+```
+
+<a id="symbol-WhatsAppBrowser.loadOriginal.addPoint"></a>
+
+## WhatsAppBrowser.loadOriginal.addPoint
+
+Принимает этап штатного загрузчика WhatsApp.
+
+Сохраняет возможность цепочного вызова методов.
+
+```typescript
+addPoint()
+```
+
 <a id="symbol-WhatsAppBrowser.markRead"></a>
 
 ## WhatsAppBrowser.markRead
@@ -192,18 +240,6 @@ private async markRead(jid: string, messageId: string): Promise<void>
 
 ```typescript
 serialized(id: any)
-```
-
-<a id="symbol-WhatsAppBrowser.matchAttachmentAlias"></a>
-
-## WhatsAppBrowser.matchAttachmentAlias
-
-Проверяет совпадение сообщения, если WhatsApp заменил LID на номер или наоборот.
-
-Пара адресов подтверждается клиентом WhatsApp, а ID и направление остаются точными.
-
-```typescript
-private async matchAttachmentAlias(message: WA.Message, jid: string, key: string)
 ```
 
 <a id="symbol-WhatsAppBrowser.page"></a>
